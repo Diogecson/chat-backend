@@ -35,9 +35,8 @@ function dedupDest(destinatarios) {
   return dest;
 }
 
-export default async function disparosRoutes(fastify) {
-  // POST /api/disparos/criar — cria campanha + insere msgs + enfileira
-  fastify.post('/disparos/criar', async (req, reply) => {
+// Handler exportado pra poder ser chamado por outras rotas (ex: /webhook/chat-disparos-criar)
+export async function handleDisparoCriar(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
 
     const b = req.body || {};
@@ -139,7 +138,11 @@ export default async function disparosRoutes(fastify) {
     } finally {
       client.release();
     }
-  });
+}
+
+export default async function disparosRoutes(fastify) {
+  // POST /api/disparos/criar
+  fastify.post('/disparos/criar', handleDisparoCriar);
 
   // GET /api/disparos/list — lista campanhas
   fastify.get('/disparos/list', async (req, reply) => {

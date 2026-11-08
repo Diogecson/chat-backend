@@ -2,6 +2,7 @@
 // Cada rota aqui substitui 1 workflow n8n equivalente, direto no pg pool (muito mais rápido)
 import { query } from '../services/db.js';
 import { hasDb } from '../config.js';
+import { handleDisparoCriar } from './disparos.js';
 
 function p(req, name, def = '') {
   const v = (req.body && req.body[name]) ?? req.query?.[name];
@@ -282,4 +283,8 @@ export default async function aliasRoutes(fastify) {
   });
   fastify.get('/webhook/chat-buscar-mensagens', buscarMensagens);
   fastify.post('/webhook/chat-buscar-mensagens', buscarMensagens);
+
+  // === chat-disparos-criar (criar campanha pelo painel de disparos.html) ===
+  // Vai pro backend novo em vez do n8n → zero duplicação via pg-boss worker
+  fastify.post('/webhook/chat-disparos-criar', handleDisparoCriar);
 }
