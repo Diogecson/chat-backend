@@ -78,17 +78,21 @@ export async function handleDisparoCriar(req, reply) {
 
       const codigo = generateCodigo();
       const totalMsgs = destFinal.length;
-      const quando = quando_agendar ? new Date(quando_agendar).toISOString() : null;
+      // Só considera agendamento se a data for FUTURA (ignora quando_agendar passado/vazio)
+      let quando = null;
+      if (quando_agendar) {
+        const d = new Date(quando_agendar);
+        if (!isNaN(d.getTime()) && d.getTime() > Date.now()) quando = d.toISOString();
+      }
+      const status = totalMsgs === 0 ? 'concluido' : (quando ? 'agendado' : 'em_andamento');
 
       // Insere campanha
       await client.query(
         `INSERT INTO chat_disparos (codigo, nome, conta_id, template_name, template_language, template_body_vars,
                                     quando_agendar, status, total_msgs, atendente, dono, pulados_json, template_body_text)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::timestamptz,
-                 CASE WHEN $8::int = 0 THEN 'concluido' ELSE 'em_andamento' END,
-                 $8,$9,$10,$11::jsonb,$12)`,
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7::timestamptz,$8,$9,$10,$11,$12::jsonb,$13)`,
         [codigo, nome, conta_id, template_name, template_language, JSON.stringify(template_body_vars),
-         quando, totalMsgs, atendente, dono, JSON.stringify(pulados), template_body_text]
+         quando, status, totalMsgs, atendente, dono, JSON.stringify(pulados), template_body_text]
       );
 
       // Insere msgs (bulk) e pega os ids retornados
