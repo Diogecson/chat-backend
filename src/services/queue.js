@@ -16,6 +16,17 @@ export async function getBoss() {
     });
     boss.on('error', (err) => console.error('[pg-boss error]', err.message));
     await boss.start();
+    // pg-boss v10 exige criar a queue explicitamente antes de send/work
+    for (const name of Object.values(QUEUES)) {
+      try {
+        await boss.createQueue(name);
+      } catch (err) {
+        // ignora se já existe
+        if (!/already exists/i.test(err.message || '')) {
+          console.error(`[pg-boss createQueue ${name}]`, err.message);
+        }
+      }
+    }
   }
   return boss;
 }

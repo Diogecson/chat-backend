@@ -178,6 +178,37 @@ export default async function disparosRoutes(fastify) {
     }
   });
 
+  // POST /api/disparos/reenfileirar — pega msgs pendentes e enfileira no pg-boss
+  // (útil pra campanhas criadas antes do fix do pg-boss createQueue)
+  fastify.post('/disparos/reenfileirar', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+    const codigo = req.body?.campanha_codigo;
+    const sql = codigo
+      ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+         JOIN chat_disparos c ON c.codigo = m.campanha_id
+         WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+           AND m.campanha_id=$1
+         LIMIT 1000`
+      : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+         JOIN chat_disparos c ON c.codigo = m.campanha_id
+         WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+         LIMIT 1000`;
+    try {
+      const res = await query(sql, codigo ? [codigo] : []);
+      const boss = await getBoss();
+      if (!boss) return reply.code(503).send({ ok: false, erro: 'pg-boss não iniciou' });
+      let enq = 0;
+      for (const r of res.rows) {
+        await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
+        enq++;
+      }
+      return { ok: true, enfileiradas: enq };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, error: err.message };
+    }
+  });
+
   // POST /api/disparos/:codigo/cancelar
   fastify.post('/disparos/:codigo/cancelar', async (req, reply) => {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
