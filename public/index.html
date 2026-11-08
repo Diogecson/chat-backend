@@ -33,7 +33,7 @@
       const content = document.getElementById('main');
       try {
         const [root, health, healthDb] = await Promise.all([
-          fetch('/').then(r=>r.json()),
+          fetch('/api/info').then(r=>r.json()),
           fetch('/health').then(r=>r.json()),
           fetch('/health/db').then(r=>r.json()),
         ]);
