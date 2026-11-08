@@ -1,0 +1,24 @@
+{
+  "name": "chat-backend",
+  "version": "0.1.0",
+  "description": "Backend ChatMultiConta UniFECAF - substituto do n8n (fase MVP: disparos)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "worker": "node src/workers/disparos.worker.js",
+    "cron": "node src/crons/contadores.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/cors": "^10.0.1",
+    "dotenv": "^16.4.5",
+    "fastify": "^5.1.0",
+    "pg": "^8.13.1",
+    "pg-boss": "^10.1.6",
+    "pino-pretty": "^11.3.0"
+  }
+}
