@@ -215,4 +215,71 @@ export default async function aliasRoutes(fastify) {
   });
   fastify.get('/webhook/chat-mensagens-delta', mensagensDelta);
   fastify.post('/webhook/chat-mensagens-delta', mensagensDelta);
+
+  // === chat-login (mesma logica do /api/auth/login mas no webhook antigo) ===
+  const chatLogin = async (req, reply) => withDb(reply, async () => {
+    const usuario = p(req, 'usuario').trim();
+    const senha = p(req, 'senha');
+    if (!usuario || !senha) return { ok: false, erro: 'usuario e senha obrigatórios' };
+    const r = await query(
+      `SELECT usuario, nome, senha, papel, ativo, contas_permitidas, foto_url
+       FROM chat_atendentes WHERE LOWER(usuario)=LOWER($1) LIMIT 1`,
+      [usuario]
+    );
+    if (!r.rows.length) return { ok: false, erro: 'Usuário ou senha incorretos' };
+    const u = r.rows[0];
+    if (u.senha !== senha) return { ok: false, erro: 'Usuário ou senha incorretos' };
+    if (u.ativo === false) return { ok: false, erro: 'Usuário desativado' };
+    return {
+      ok: true,
+      token: `session-${u.usuario}-${Date.now()}`,
+      usuario: u.usuario,
+      nome: u.nome,
+      papel: u.papel,
+      contas_permitidas: u.contas_permitidas,
+      foto_url: u.foto_url,
+    };
+  });
+  fastify.post('/webhook/chat-login', chatLogin);
+
+  // === chat-conversas-finalizadas (lista de finalizadas paginada) ===
+  const conversasFinalizadas = async (req, reply) => withDb(reply, async () => {
+    const conta_id = p(req, 'conta_id', '__all__');
+    const limit = parseInt(p(req, 'limit', '100')) || 100;
+    const offset = parseInt(p(req, 'offset', '0')) || 0;
+    const r = await query(
+      `SELECT cd.conta_id, cd.telefone, cd.atendente, cd.finalizada_em, cd.motivo_fechamento,
+              mf.nome AS motivo_nome, mf.tipo AS motivo_tipo, mf.cor AS motivo_cor
+       FROM chat_conversa_dono cd
+       LEFT JOIN chat_motivos_fechamento mf ON mf.codigo = cd.motivo_fechamento
+       WHERE cd.finalizada = true
+         AND ($1 = '__all__' OR cd.conta_id = $1)
+       ORDER BY cd.finalizada_em DESC
+       LIMIT $2 OFFSET $3`,
+      [conta_id, limit, offset]
+    );
+    return { ok: true, conversas: r.rows };
+  });
+  fastify.get('/webhook/chat-conversas-finalizadas', conversasFinalizadas);
+  fastify.post('/webhook/chat-conversas-finalizadas', conversasFinalizadas);
+
+  // === chat-buscar-mensagens (busca por texto dentro das msgs) ===
+  const buscarMensagens = async (req, reply) => withDb(reply, async () => {
+    const conta_id = p(req, 'conta_id', '__all__');
+    const termo = p(req, 'termo').trim();
+    const limit = parseInt(p(req, 'limit', '50')) || 50;
+    if (!termo || termo.length < 2) return { ok: true, resultados: [] };
+    const r = await query(
+      `SELECT conta_id, telefone, nome_contato, texto, timestamp, direcao, atendente
+       FROM chat_mensagens
+       WHERE ($1 = '__all__' OR conta_id = $1)
+         AND texto ILIKE $2
+       ORDER BY timestamp DESC
+       LIMIT $3`,
+      [conta_id, '%' + termo + '%', limit]
+    );
+    return { ok: true, resultados: r.rows };
+  });
+  fastify.get('/webhook/chat-buscar-mensagens', buscarMensagens);
+  fastify.post('/webhook/chat-buscar-mensagens', buscarMensagens);
 }
