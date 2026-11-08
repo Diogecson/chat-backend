@@ -46,9 +46,11 @@ await fastify.register(acoesRoutes);
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({
   service: 'chat-backend',
-  version: '0.1.0',
+  version: '0.2.0',
   dry_run: config.dryRun,
   has_db: hasDb(),
+  conta_fixa: config.contaFixa || null,     // null = modo multi-conta; "meta_XXX" = instância dedicada
+  conta_label: config.contaLabel || null,   // ex: "VLC Educacional Curitiba"
   endpoints: [
     'POST /api/auth/login',
     'GET  /health',

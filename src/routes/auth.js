@@ -1,5 +1,5 @@
 import { query } from '../services/db.js';
-import { hasDb } from '../config.js';
+import { hasDb, config } from '../config.js';
 
 export default async function authRoutes(fastify) {
   // Login — por enquanto consulta chat_atendentes (mesma tabela que o n8n usa)
@@ -33,14 +33,15 @@ export default async function authRoutes(fastify) {
       if (u.ativo === false) {
         return reply.code(403).send({ ok: false, erro: 'Usuário desativado' });
       }
+      const contasPermitidas = config.contaFixa ? [config.contaFixa] : u.contas_permitidas;
       return {
         ok: true,
-        token: `session-${u.usuario}-${Date.now()}`, // placeholder; depois a gente troca por JWT
+        token: `session-${u.usuario}-${Date.now()}`,
         user: {
           usuario: u.usuario,
           nome: u.nome,
           papel: u.papel,
-          contas_permitidas: u.contas_permitidas,
+          contas_permitidas: contasPermitidas,
           foto_url: u.foto_url,
         },
       };

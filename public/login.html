@@ -58,8 +58,17 @@ body::after{width:260px;height:260px;background:var(--green);bottom:-70px;right:
 <body>
 <div class="login-card">
   <div class="brand-mark"><i class="bi bi-whatsapp"></i></div>
-  <h1>Chat Multi-Conta</h1>
-  <div class="sub">UniFECAF · Oficial + Evolution</div>
+  <h1 id="loginTitle">Chat Multi-Conta</h1>
+  <div class="sub" id="loginSub">UniFECAF · Oficial + Evolution</div>
+  <script>
+    // Se backend está em modo dedicado (CONTA_FIXA), ajusta o título
+    fetch('/api/info').then(r=>r.json()).then(info=>{
+      if (info && info.conta_fixa) {
+        document.getElementById('loginTitle').textContent = info.conta_label || 'Chat dedicado';
+        document.getElementById('loginSub').textContent = 'Acesso restrito a esta conta';
+      }
+    }).catch(()=>{});
+  </script>
 
   <div class="field">
     <label for="usuario">Usuário</label>

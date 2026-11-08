@@ -1,5 +1,5 @@
 import { query } from '../services/db.js';
-import { hasDb } from '../config.js';
+import { hasDb, config } from '../config.js';
 
 const SQL_CONVERSAS = `
 WITH ultimas AS (
@@ -151,12 +151,23 @@ function p(req, name, def = '__all__') {
   return String(v);
 }
 
+// Força conta_id se CONTA_FIXA setada (modo instância dedicada)
+function forceConta(contaIdReq) {
+  return config.contaFixa || contaIdReq || '__all__';
+}
+
+// Força contas_permitidas pra contaFixa se estiver em modo dedicado
+function forceContasPermitidas(permReq) {
+  if (config.contaFixa) return config.contaFixa;
+  return permReq || '__all__';
+}
+
 export default async function conversasRoutes(fastify) {
   // Compatível com o chat.html atual (que chama /webhook/chat-conversas via POST)
   async function handleConversas(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const params = [
-      p(req, 'conta_id'),                        // $1
+      forceConta(p(req, 'conta_id')),            // $1
       p(req, 'role', 'USER').toUpperCase(),      // $2
       p(req, 'usuario', ''),                     // $3
       p(req, 'visao', '__all__'),                // $4
@@ -166,7 +177,7 @@ export default async function conversasRoutes(fastify) {
       p(req, 'filtro_dono', '__all__'),          // $8
       parseInt(p(req, 'limit', '50')) || 50,     // $9
       parseInt(p(req, 'offset', '0')) || 0,      // $10
-      p(req, 'contas_permitidas', '__all__'),    // $11
+      forceContasPermitidas(p(req, 'contas_permitidas', '__all__')), // $11
     ];
     try {
       const res = await query(SQL_CONVERSAS, params);
@@ -180,11 +191,11 @@ export default async function conversasRoutes(fastify) {
   async function handleContadores(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const params = [
-      p(req, 'conta_id'),
+      forceConta(p(req, 'conta_id')),
       p(req, 'usuario', ''),
       p(req, 'filtro_dono', ''),
       p(req, 'role', 'USER'),
-      p(req, 'contas_permitidas', '__all__'),
+      forceContasPermitidas(p(req, 'contas_permitidas', '__all__')),
       p(req, 'desde', ''),
       p(req, 'ate', ''),
     ];
@@ -207,11 +218,11 @@ export default async function conversasRoutes(fastify) {
   // Devolve só as conversas (até 500) que mudaram desde $since (ultima mensagem ou mudança de dono)
   async function handleConversasDelta(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
-    const conta_id = p(req, 'conta_id', '__all__');
+    const conta_id = forceConta(p(req, 'conta_id', '__all__'));
     const role = p(req, 'role', 'USER').toUpperCase();
     const usuario = p(req, 'usuario', '');
     const since = p(req, 'since', new Date(Date.now() - 300000).toISOString());
-    const contas_permitidas = p(req, 'contas_permitidas', '__all__');
+    const contas_permitidas = forceContasPermitidas(p(req, 'contas_permitidas', '__all__'));
     const sql = `
       WITH mudou_msg AS (
         SELECT DISTINCT conta_id, telefone FROM chat_mensagens

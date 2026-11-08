@@ -1,13 +1,18 @@
 // Aliases /webhook/chat-* pra interceptar antes do proxy pro n8n
 // Cada rota aqui substitui 1 workflow n8n equivalente, direto no pg pool (muito mais rápido)
 import { query } from '../services/db.js';
-import { hasDb } from '../config.js';
+import { hasDb, config } from '../config.js';
 import { handleDisparoCriar } from './disparos.js';
 
 function p(req, name, def = '') {
   const v = (req.body && req.body[name]) ?? req.query?.[name];
   if (v == null || v === '') return def;
   return String(v);
+}
+
+// Força conta_id se CONTA_FIXA setada (modo instância dedicada)
+function forceConta(contaIdReq) {
+  return config.contaFixa || contaIdReq || '';
 }
 
 async function withDb(reply, fn) {
@@ -39,8 +44,12 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-link-versao-get', linkVersaoGet);
 
   // === chat-contas-list ===
+  // Se CONTA_FIXA setada, retorna só essa conta (modo dedicado)
   const contasList = async (req, reply) => withDb(reply, async () => {
-    const r = await query(`SELECT codigo, nome, tipo, status, config FROM chat_contas ORDER BY nome`);
+    const sql = config.contaFixa
+      ? `SELECT codigo, nome, tipo, status, config FROM chat_contas WHERE codigo=$1`
+      : `SELECT codigo, nome, tipo, status, config FROM chat_contas ORDER BY nome`;
+    const r = await query(sql, config.contaFixa ? [config.contaFixa] : []);
     return { ok: true, contas: r.rows };
   });
   fastify.get('/webhook/chat-contas-list', contasList);
@@ -67,7 +76,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-etiquetas-list ===
   const etiquetasList = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id');
+    const conta_id = forceConta(p(req, 'conta_id'));
     const sql = conta_id && conta_id !== '__all__'
       ? `SELECT DISTINCT etiqueta FROM chat_conversa_etiquetas WHERE conta_id=$1 ORDER BY etiqueta`
       : `SELECT DISTINCT etiqueta FROM chat_conversa_etiquetas ORDER BY etiqueta`;
@@ -149,7 +158,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-eventos-list ===
   const eventosList = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id');
+    const conta_id = forceConta(p(req, 'conta_id'));
     const telefone = p(req, 'telefone');
     if (!conta_id || !telefone) return { ok: true, eventos: [] };
     const r = await query(
@@ -163,7 +172,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-tarefas-get ===
   const tarefasGet = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id');
+    const conta_id = forceConta(p(req, 'conta_id'));
     const telefone = p(req, 'telefone');
     if (!conta_id || !telefone) return { ok: true, tarefas: [] };
     const r = await query(
@@ -177,7 +186,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-mensagens ===
   const mensagens = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id');
+    const conta_id = forceConta(p(req, 'conta_id'));
     const telefone = p(req, 'telefone');
     const limit = parseInt(p(req, 'limit', '200')) || 200;
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
@@ -198,7 +207,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-mensagens-delta ===
   const mensagensDelta = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id');
+    const conta_id = forceConta(p(req, 'conta_id'));
     const telefone = p(req, 'telefone');
     const since = p(req, 'since');
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
@@ -231,13 +240,15 @@ export default async function aliasRoutes(fastify) {
     const u = r.rows[0];
     if (u.senha !== senha) return { ok: false, erro: 'Usuário ou senha incorretos' };
     if (u.ativo === false) return { ok: false, erro: 'Usuário desativado' };
+    // Modo instância dedicada: força contas_permitidas pra conta fixa
+    const contasPermitidas = config.contaFixa ? [config.contaFixa] : u.contas_permitidas;
     return {
       ok: true,
       token: `session-${u.usuario}-${Date.now()}`,
       usuario: u.usuario,
       nome: u.nome,
       papel: u.papel,
-      contas_permitidas: u.contas_permitidas,
+      contas_permitidas: contasPermitidas,
       foto_url: u.foto_url,
     };
   });
@@ -245,7 +256,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-conversas-finalizadas (lista de finalizadas paginada) ===
   const conversasFinalizadas = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id', '__all__');
+    const conta_id = forceConta(p(req, 'conta_id', '__all__')) || '__all__';
     const limit = parseInt(p(req, 'limit', '100')) || 100;
     const offset = parseInt(p(req, 'offset', '0')) || 0;
     const r = await query(
@@ -266,7 +277,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-buscar-mensagens (busca por texto dentro das msgs) ===
   const buscarMensagens = async (req, reply) => withDb(reply, async () => {
-    const conta_id = p(req, 'conta_id', '__all__');
+    const conta_id = forceConta(p(req, 'conta_id', '__all__')) || '__all__';
     const termo = p(req, 'termo').trim();
     const limit = parseInt(p(req, 'limit', '50')) || 50;
     if (!termo || termo.length < 2) return { ok: true, resultados: [] };
