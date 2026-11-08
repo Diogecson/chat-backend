@@ -1,24 +1,14 @@
 // Worker de disparos: consome a fila "disparos" com concurrency=1
 // Para cada job: lê msg_id do banco, chama Meta, atualiza status
-import http from 'node:http';
 import { getBoss, QUEUES, stopBoss } from '../services/queue.js';
-import { query, closePool, getPool } from '../services/db.js';
+import { closePool, getPool } from '../services/db.js';
 import { enviarTemplate } from '../services/meta.js';
 import { config, hasDb } from '../config.js';
 
-// Mini HTTP server só pro EasyPanel não matar o container
-// (EasyPanel tem health check que mata processo sem porta aberta)
-const HEALTH_PORT = parseInt(process.env.PORT || '3100');
-const healthServer = http.createServer((req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.end(JSON.stringify({ ok: true, role: 'worker-disparos', uptime_s: Math.round(process.uptime()) }));
-});
-healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
-  console.log(`[worker-disparos] health HTTP em :${HEALTH_PORT}`);
-});
-
-async function processarJob(job) {
-  const { msg_id, campanha_id } = job.data || {};
+// Função exportada: pode ser chamada tanto standalone (main abaixo)
+// quanto embutida no server.js (via boss.work)
+export async function processarJobDisparos(job) {
+  const { msg_id } = job.data || {};
   if (!msg_id) return { skipped: 'sem msg_id' };
 
   const pool = getPool();
@@ -43,14 +33,12 @@ async function processarJob(job) {
     );
 
     if (!pickRes.rows.length) {
-      // Já foi processado ou cancelado
       console.log(`[worker] msg_id=${msg_id} skip (nao pendente)`);
       return { skipped: 'nao_pendente' };
     }
 
     const row = pickRes.rows[0];
 
-    // Busca config da conta
     const contaRes = await client.query(
       `SELECT codigo, nome, tipo, config FROM chat_contas WHERE codigo=$1 AND tipo='meta' LIMIT 1`,
       [row.conta_id]
@@ -72,7 +60,6 @@ async function processarJob(job) {
     } catch (_) {}
     accountCfg.codigo = contaRes.rows[0].codigo;
 
-    // Monta variáveis (substitui {nome})
     let baseVars = []; try { baseVars = Array.isArray(row.template_body_vars) ? row.template_body_vars : JSON.parse(row.template_body_vars || '[]'); } catch(_){}
     let extras = []; try { extras = Array.isArray(row.extra_vars) ? row.extra_vars : JSON.parse(row.extra_vars || '[]'); } catch(_){}
     const nomeFull = String(row.nome || '').trim();
@@ -86,7 +73,6 @@ async function processarJob(job) {
       bodyVars.push(v);
     }
 
-    // Envia pra Meta (via chat-enviar do n8n enquanto migração não completa)
     const res = await enviarTemplate({
       accountCfg,
       telefone: row.telefone,
@@ -96,7 +82,6 @@ async function processarJob(job) {
       campanha_id: row.campanha_id,
     });
 
-    // Atualiza status final
     if (res.ok) {
       await client.query(
         `UPDATE chat_disparos_msgs SET status='enviado', external_id=$2, erro_msg='' WHERE id=$1`,
@@ -114,7 +99,6 @@ async function processarJob(job) {
     return { ok: res.ok, wamid: res.wamid };
   } catch (err) {
     console.error(`[worker] msg_id=${msg_id} EXCEPTION`, err.message);
-    // Volta pra pendente pra retry pelo pg-boss
     try {
       await client.query(
         `UPDATE chat_disparos_msgs SET status='pendente' WHERE id=$1 AND status='em_envio'`,
@@ -127,46 +111,45 @@ async function processarJob(job) {
   }
 }
 
-async function main() {
-  if (!hasDb()) {
-    console.error('[worker-disparos] DATABASE_URL não configurado');
-    process.exit(1);
-  }
-  const boss = await getBoss();
-  if (!boss) {
-    console.error('[worker-disparos] QUEUE_DATABASE_URL não configurado');
-    process.exit(1);
+// Standalone mode: só roda quando chamado como `node src/workers/disparos.worker.js`
+// NÃO roda quando o server.js faz `import { processarJobDisparos } from './workers/...'`
+const isStandalone = import.meta.url === `file://${process.argv[1]?.replace(/\\/g, '/')}`
+  || process.argv[1]?.endsWith('disparos.worker.js');
+
+if (isStandalone) {
+  const http = await import('node:http');
+  const HEALTH_PORT = parseInt(process.env.PORT || '3100');
+  const healthServer = http.createServer((req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ ok: true, role: 'worker-disparos', uptime_s: Math.round(process.uptime()) }));
+  });
+  healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+    console.log(`[worker-disparos] health HTTP em :${HEALTH_PORT}`);
+  });
+
+  async function main() {
+    if (!hasDb()) { console.error('[worker-disparos] DATABASE_URL não configurado'); process.exit(1); }
+    const boss = await getBoss();
+    if (!boss) { console.error('[worker-disparos] QUEUE_DATABASE_URL não configurado'); process.exit(1); }
+    console.log(`[worker-disparos] subiu. DRY_RUN=${config.dryRun}`);
+    await boss.work(
+      QUEUES.DISPAROS,
+      { teamSize: 1, teamConcurrency: 1, newJobCheckInterval: 2000 },
+      async (job) => await processarJobDisparos(job)
+    );
   }
 
-  console.log(`[worker-disparos] subiu. DRY_RUN=${config.dryRun}`);
+  async function shutdown(signal) {
+    console.log(`[worker-disparos] ${signal} — encerrando...`);
+    try {
+      healthServer.close();
+      await stopBoss();
+      await closePool();
+      process.exit(0);
+    } catch (err) { console.error(err); process.exit(1); }
+  }
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 
-  await boss.work(
-    QUEUES.DISPAROS,
-    {
-      teamSize: 1,          // 1 msg por vez (zero concorrência)
-      teamConcurrency: 1,
-      newJobCheckInterval: 2000,
-    },
-    async (job) => await processarJob(job)
-  );
+  main().catch((err) => { console.error('[worker-disparos] erro fatal', err); process.exit(1); });
 }
-
-async function shutdown(signal) {
-  console.log(`[worker-disparos] ${signal} — encerrando...`);
-  try {
-    healthServer.close();
-    await stopBoss();
-    await closePool();
-    process.exit(0);
-  } catch (err) {
-    console.error(err);
-    process.exit(1);
-  }
-}
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-main().catch((err) => {
-  console.error('[worker-disparos] erro fatal', err);
-  process.exit(1);
-});

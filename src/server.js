@@ -6,11 +6,12 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { config, hasDb } from './config.js';
 import { closePool } from './services/db.js';
-import { stopBoss } from './services/queue.js';
+import { stopBoss, getBoss, QUEUES } from './services/queue.js';
 import healthRoutes from './routes/health.js';
 import disparosRoutes from './routes/disparos.js';
 import authRoutes from './routes/auth.js';
 import contasRoutes from './routes/contas.js';
+import { processarJobDisparos } from './workers/disparos.worker.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -93,6 +94,24 @@ try {
   }
   if (config.dryRun) {
     fastify.log.warn('⚠️  DRY_RUN=true — envios Meta serão simulados, não reais.');
+  }
+
+  // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
+  // Habilita setando WORKER_ENABLED=true
+  if (String(process.env.WORKER_ENABLED || 'false').toLowerCase() === 'true' && hasDb()) {
+    try {
+      const boss = await getBoss();
+      if (boss) {
+        await boss.work(
+          QUEUES.DISPAROS,
+          { teamSize: 1, teamConcurrency: 1, newJobCheckInterval: 2000 },
+          async (job) => await processarJobDisparos(job)
+        );
+        fastify.log.info('[worker-embutido] disparos escutando fila pg-boss (concurrency=1)');
+      }
+    } catch (err) {
+      fastify.log.error('[worker-embutido] falha ao iniciar: ' + err.message);
+    }
   }
 } catch (err) {
   fastify.log.error(err);
