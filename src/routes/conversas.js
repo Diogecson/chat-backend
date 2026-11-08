@@ -1,0 +1,212 @@
+import { query } from '../services/db.js';
+import { hasDb } from '../config.js';
+
+const SQL_CONVERSAS = `
+WITH ultimas AS (
+  SELECT DISTINCT ON (conta_id, telefone)
+    conta_id, telefone, nome_contato, texto, tipo, timestamp, direcao, atendente
+  FROM chat_mensagens
+  WHERE ($1 = '__all__' OR conta_id = $1)
+  ORDER BY conta_id, telefone, timestamp DESC
+),
+janelas AS (
+  SELECT conta_id, telefone, MAX(timestamp) AS ultima_in
+  FROM chat_mensagens
+  WHERE direcao = 'in' AND ($1 = '__all__' OR conta_id = $1)
+  GROUP BY conta_id, telefone
+),
+nomes AS (
+  SELECT DISTINCT ON (conta_id, telefone) conta_id, telefone, nome_contato
+  FROM chat_mensagens
+  WHERE nome_contato IS NOT NULL AND nome_contato <> '' AND ($1 = '__all__' OR conta_id = $1)
+  ORDER BY conta_id, telefone, timestamp DESC
+),
+etiquetas_agg AS (
+  SELECT conta_id, telefone, array_agg(DISTINCT etiqueta) AS etiquetas
+  FROM chat_conversa_etiquetas
+  WHERE ($1 = '__all__' OR conta_id = $1)
+  GROUP BY conta_id, telefone
+),
+triagem_ativa AS (
+  SELECT DISTINCT conta_id, telefone FROM chat_triagem_sessoes
+  WHERE status = 'ativa' AND ($1 = '__all__' OR conta_id = $1)
+),
+base AS (
+  SELECT
+    u.conta_id, u.telefone,
+    COALESCE(cc.nome, n.nome_contato, u.nome_contato, '') AS nome_contato,
+    COALESCE(NULLIF(u.texto,''), u.tipo, '') AS ultima_msg,
+    u.timestamp AS ultima_hora,
+    CASE WHEN u.direcao='out' AND LOWER(COALESCE(u.atendente,'')) IN ('triagem_ia','ia_followup') THEN 'in' ELSE u.direcao END AS ultima_direcao,
+    j.ultima_in,
+    COALESCE(cd.atendente, '') AS dono,
+    COALESCE(cd.finalizada, false) AS finalizada,
+    cd.finalizada_em,
+    cd.motivo_fechamento,
+    mf.tipo AS motivo_tipo, mf.nome AS motivo_nome, mf.cor AS motivo_cor,
+    COALESCE(ea.etiquetas, '{}') AS etiquetas,
+    (ta.conta_id IS NOT NULL) AS em_triagem
+  FROM ultimas u
+  LEFT JOIN janelas j USING (conta_id, telefone)
+  LEFT JOIN nomes n USING (conta_id, telefone)
+  LEFT JOIN chat_contatos_custom cc ON cc.conta_id=u.conta_id AND cc.telefone=u.telefone
+  LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+  LEFT JOIN chat_motivos_fechamento mf ON mf.codigo = cd.motivo_fechamento
+  LEFT JOIN etiquetas_agg ea ON ea.conta_id=u.conta_id AND ea.telefone=u.telefone
+  LEFT JOIN triagem_ativa ta ON ta.conta_id=u.conta_id AND ta.telefone=u.telefone
+  WHERE (
+    $2 = 'SUPER'
+    OR (
+      ($11 = '__all__' OR $11 = '*' OR ($11 <> '__none__' AND $11 <> '' AND u.conta_id = ANY(string_to_array($11, ','))))
+      AND (
+        $2 = 'ADM'
+        OR (cd.atendente <> '' AND LOWER(cd.atendente) = LOWER($3))
+      )
+    )
+  )
+),
+base_ia AS (
+  SELECT b.*, COALESCE(ias.ativa, false) AS ia_ativa
+  FROM base b
+  LEFT JOIN chat_ia_atendimento_state ias ON ias.conta_id=b.conta_id AND ias.telefone=b.telefone
+),
+filtrada AS (
+  SELECT * FROM base_ia
+  WHERE (
+    $4 = '__all__'
+    OR ($4 = 'minhas' AND LOWER(dono) = LOWER($3) AND finalizada = false)
+    OR ($4 = 'sem_dono' AND (dono = '' OR dono IS NULL) AND finalizada = false)
+    OR ($4 = 'todas' AND finalizada = false)
+    OR ($4 = 'atendimentos' AND dono <> '' AND finalizada = false)
+    OR ($4 = 'triagem' AND em_triagem = true AND finalizada = false)
+    OR ($4 = 'aguardando' AND (dono = '' OR dono IS NULL) AND finalizada = false AND em_triagem = false)
+    OR ($4 = 'finalizadas' AND finalizada = true)
+    OR ($4 = 'matriculas' AND finalizada = true AND motivo_tipo = 'ganho')
+    OR ($4 = 'ia_ativa' AND ia_ativa = true AND finalizada = false)
+  )
+  AND ultima_hora >= COALESCE(NULLIF($5, '__all__')::timestamptz, '-infinity'::timestamptz)
+  AND ultima_hora <= COALESCE(NULLIF($6, '__all__')::timestamptz, 'infinity'::timestamptz)
+  AND ($7 = '__all__' OR $7 = ANY(etiquetas))
+  AND ($8 = '__all__' OR LOWER(dono) = LOWER($8))
+)
+SELECT
+  (SELECT COUNT(*) FROM filtrada) AS total_filtrado,
+  COALESCE(
+    (SELECT json_agg(row_to_json(x)) FROM (SELECT * FROM filtrada ORDER BY ultima_hora DESC LIMIT $9::int OFFSET $10::int) x),
+    '[]'::json
+  ) AS conversas,
+  $9::int AS limit_usado, $10::int AS offset_usado
+`;
+
+const SQL_CONTADORES = `
+WITH filtros AS (
+  SELECT $1::text AS conta_id_f, LOWER($2::text) AS usuario_f, LOWER($3::text) AS filtro_dono_f,
+         UPPER($4::text) AS role_f, $5::text AS contas_perm_f,
+         NULLIF($6,'')::timestamptz AS since_ts, NULLIF($7,'')::timestamptz AS until_ts
+),
+conv_base AS (
+  SELECT u.conta_id, u.telefone, u.ultima_hora,
+         COALESCE(cd.atendente,'') AS dono,
+         COALESCE(cd.finalizada, false) AS finalizada,
+         COALESCE(cd.motivo_fechamento,'') AS motivo_fechamento
+  FROM (
+    SELECT DISTINCT ON (conta_id, telefone) conta_id, telefone, timestamp AS ultima_hora
+    FROM chat_mensagens ORDER BY conta_id, telefone, timestamp DESC
+  ) u
+  LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+  WHERE ((SELECT conta_id_f FROM filtros) = '__all__' OR u.conta_id = (SELECT conta_id_f FROM filtros))
+    AND ((SELECT since_ts FROM filtros) IS NULL OR u.ultima_hora >= (SELECT since_ts FROM filtros))
+    AND ((SELECT until_ts FROM filtros) IS NULL OR u.ultima_hora <= (SELECT until_ts FROM filtros))
+    AND (
+      (SELECT role_f FROM filtros) = 'SUPER'
+      OR (
+        ((SELECT contas_perm_f FROM filtros) IN ('__all__','*')
+         OR ((SELECT contas_perm_f FROM filtros) NOT IN ('__none__','') AND u.conta_id = ANY(string_to_array((SELECT contas_perm_f FROM filtros), ','))))
+        AND (
+          (SELECT role_f FROM filtros) = 'ADM'
+          OR (COALESCE(cd.atendente,'') <> '' AND LOWER(COALESCE(cd.atendente,'')) = (SELECT usuario_f FROM filtros))
+        )
+      )
+    )
+),
+triagem_ativas AS (SELECT DISTINCT conta_id, telefone FROM chat_triagem_sessoes WHERE status='ativa')
+SELECT json_build_object(
+  'todas',       (SELECT COUNT(*) FROM conv_base WHERE finalizada = false),
+  'minhas',      (SELECT COUNT(*) FROM conv_base WHERE finalizada = false AND LOWER(dono) = (SELECT usuario_f FROM filtros)),
+  'livres',      (SELECT COUNT(*) FROM conv_base WHERE finalizada = false AND dono = ''),
+  'atendimentos',(SELECT COUNT(*) FROM conv_base WHERE finalizada = false AND dono <> '' AND LOWER(dono) NOT IN ('sistema','ia_followup','triagem_ia')),
+  'finalizadas', (SELECT COUNT(*) FROM conv_base WHERE finalizada = true),
+  'matriculas',  (SELECT COUNT(*) FROM conv_base cb JOIN chat_motivos_fechamento mf ON mf.codigo = cb.motivo_fechamento WHERE cb.finalizada = true AND mf.tipo = 'ganho'),
+  'ia_ativa',    (SELECT COUNT(*) FROM conv_base cb JOIN chat_ia_atendimento_state ias ON ias.conta_id = cb.conta_id AND ias.telefone = cb.telefone WHERE ias.ativa = true AND cb.finalizada = false),
+  'triagem',     (SELECT COUNT(*) FROM conv_base cb JOIN triagem_ativas ta ON ta.conta_id = cb.conta_id AND ta.telefone = cb.telefone WHERE cb.finalizada = false),
+  'aplicou_filtro_dono', (SELECT filtro_dono_f <> '' FROM filtros),
+  'minhas_por_dono', (SELECT COUNT(*) FROM conv_base cb, filtros f WHERE cb.finalizada = false AND f.filtro_dono_f <> '' AND LOWER(cb.dono) = f.filtro_dono_f)
+) AS contadores
+`;
+
+// helper pra ler param do body (POST) OU querystring (GET)
+function p(req, name, def = '__all__') {
+  const v = (req.body && req.body[name]) ?? req.query?.[name];
+  if (v == null || v === '') return def;
+  return String(v);
+}
+
+export default async function conversasRoutes(fastify) {
+  // Compatível com o chat.html atual (que chama /webhook/chat-conversas via POST)
+  async function handleConversas(req, reply) {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+    const params = [
+      p(req, 'conta_id'),                        // $1
+      p(req, 'role', 'USER').toUpperCase(),      // $2
+      p(req, 'usuario', ''),                     // $3
+      p(req, 'visao', '__all__'),                // $4
+      p(req, 'desde', '__all__'),                // $5
+      p(req, 'ate', '__all__'),                  // $6
+      p(req, 'etiqueta', '__all__'),             // $7
+      p(req, 'filtro_dono', '__all__'),          // $8
+      parseInt(p(req, 'limit', '50')) || 50,     // $9
+      parseInt(p(req, 'offset', '0')) || 0,      // $10
+      p(req, 'contas_permitidas', '__all__'),    // $11
+    ];
+    try {
+      const res = await query(SQL_CONVERSAS, params);
+      return res.rows[0] || { total_filtrado: 0, conversas: [], limit_usado: 50, offset_usado: 0 };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  async function handleContadores(req, reply) {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+    const params = [
+      p(req, 'conta_id'),
+      p(req, 'usuario', ''),
+      p(req, 'filtro_dono', ''),
+      p(req, 'role', 'USER'),
+      p(req, 'contas_permitidas', '__all__'),
+      p(req, 'desde', ''),
+      p(req, 'ate', ''),
+    ];
+    try {
+      const res = await query(SQL_CONTADORES, params);
+      return res.rows[0]?.contadores || {};
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, error: err.message };
+    }
+  }
+
+  // Rotas backend-nativas
+  fastify.get('/api/conversas', handleConversas);
+  fastify.post('/api/conversas', handleConversas);
+  fastify.get('/api/contadores', handleContadores);
+  fastify.post('/api/contadores', handleContadores);
+
+  // Aliases /webhook/* — interceptam ANTES do proxy pro n8n
+  // Assim o chat.html atual começa a usar o backend novo SEM precisar mudar nenhuma linha
+  fastify.get('/webhook/chat-conversas', handleConversas);
+  fastify.post('/webhook/chat-conversas', handleConversas);
+  fastify.get('/webhook/chat-contadores', handleContadores);
+  fastify.post('/webhook/chat-contadores', handleContadores);
+}
