@@ -7,9 +7,15 @@ import { config, hasDb } from '../config.js';
 
 // Função exportada: pode ser chamada tanto standalone (main abaixo)
 // quanto embutida no server.js (via boss.work)
-export async function processarJobDisparos(job) {
-  const { msg_id } = job.data || {};
-  if (!msg_id) return { skipped: 'sem msg_id' };
+// pg-boss v10 entrega array de jobs — a função aceita item único OU primeiro do array
+export async function processarJobDisparos(jobOrArray) {
+  const job = Array.isArray(jobOrArray) ? jobOrArray[0] : jobOrArray;
+  const data = job?.data || {};
+  const { msg_id } = data;
+  if (!msg_id) {
+    console.log('[worker] skip: sem msg_id', JSON.stringify(data).substring(0, 120));
+    return { skipped: 'sem msg_id' };
+  }
 
   const pool = getPool();
   const client = await pool.connect();
