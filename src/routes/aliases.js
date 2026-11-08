@@ -36,9 +36,13 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-ping', ping);
 
   // === chat-link-versao-get ===
+  // Retorna link forçado (empurrão de atualização). Vazio = sem empurrão.
   const linkVersaoGet = async (req, reply) => withDb(reply, async () => {
-    const r = await query(`SELECT versao, forcar_reload, atualizado_em FROM chat_link_versao ORDER BY id DESC LIMIT 1`).catch(() => ({ rows: [] }));
-    return { ok: true, ...(r.rows[0] || { versao: '1.0.0' }) };
+    const r = await query(
+      `SELECT codigo, link, mensagem, atualizado_em FROM chat_link_versao ORDER BY atualizado_em DESC NULLS LAST LIMIT 1`
+    ).catch(() => ({ rows: [] }));
+    const row = r.rows[0] || {};
+    return { ok: true, link: row.link || '', mensagem: row.mensagem || '', codigo: row.codigo || '' };
   });
   fastify.get('/webhook/chat-link-versao-get', linkVersaoGet);
   fastify.post('/webhook/chat-link-versao-get', linkVersaoGet);
