@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Permissões</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;--radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:900px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:16px 22px;border-bottom:1px solid var(--line);background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:1rem;margin:0;display:flex;align-items:center;gap:10px}
+.card-sub{font-size:.82rem;color:var(--muted);margin:4px 0 0}
+
+.seletor{padding:14px 22px;background:#f9fafb;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.seletor label{font-size:.75rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.seletor select{padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:.92rem;font-weight:600;color:var(--ink);background:#fff;flex:1;min-width:220px;max-width:400px}
+.seletor select:focus{outline:none;border-color:var(--meta)}
+.seletor .info-tipo{font-size:.72rem;font-weight:700;padding:4px 10px;border-radius:20px}
+.seletor .info-tipo.padrao{background:#eef1f7;color:var(--muted)}
+.seletor .info-tipo.override{background:#f3e8ff;color:#7e22ce}
+
+.card-body{padding:6px 0}
+.feat-row{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid #f0f3f8;transition:.15s}
+.feat-row:hover{background:#fbfcfe}
+.feat-row:last-child{border-bottom:none}
+.feat-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;display:grid;place-items:center;font-size:1.3rem;flex-shrink:0}
+.feat-info{flex:1;min-width:0}
+.feat-nome{font-weight:700;color:var(--ink);font-size:.95rem;display:flex;align-items:center;gap:8px}
+.feat-diff{font-size:.62rem;font-weight:800;padding:1px 8px;border-radius:20px;background:#fef3c7;color:#92400e}
+.feat-desc{font-size:.78rem;color:var(--muted);margin-top:2px}
+
+.switch{position:relative;display:inline-block;width:52px;height:28px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.switch .slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:28px;transition:.2s}
+.switch .slider::before{content:'';position:absolute;height:22px;width:22px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.switch input:checked+.slider{background:linear-gradient(135deg,var(--ok),#15803d)}
+.switch input:checked+.slider::before{transform:translateX(24px)}
+
+.foot{padding:16px 22px;background:#fbfcfe;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.foot-left{display:flex;gap:6px;align-items:center}
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-warning{background:#fef3c7;color:#92400e}
+
+.access-denied{padding:80px 40px;text-align:center;color:var(--muted)}
+.access-denied i{font-size:5rem;color:var(--err);opacity:.4;display:block;margin-bottom:14px}
+
+.toast{position:fixed;top:76px;right:22px;padding:12px 18px;border-radius:10px;color:#fff;font-weight:600;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;transition:.3s;transform:translateX(400px);max-width:340px}
+.toast.show{transform:translateX(0)}
+.toast.ok{background:var(--ok)}
+.toast.err{background:var(--err)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Permissões</div>
+      <div class="brand-sub">CONTROLE POR USUÁRIO</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn-nav" id="linkChat" href="#"><i class="bi bi-arrow-left"></i> Voltar ao Chat</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card" id="app" style="display:none">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-toggle-on"></i> Features visíveis</h2>
+      <p class="card-sub">Escolha o usuário abaixo e ligue/desligue o que ele pode ver. Se não editar um usuário, ele usa o <b>Padrão global</b>. Admin ignora — sempre vê tudo.</p>
+    </div>
+    <div class="seletor">
+      <label>Editando:</label>
+      <select id="fUser" onchange="trocarUser()">
+        <option value="">— Padrão global (aplica a todos sem override) —</option>
+      </select>
+      <span class="info-tipo" id="tipoBadge">Padrão</span>
+    </div>
+    <div id="featBody">
+      <div style="padding:40px;text-align:center;color:var(--muted)"><i class="bi bi-hourglass"></i> Carregando...</div>
+    </div>
+    <div class="foot">
+      <div class="foot-left">
+        <button class="btn btn-warning" id="btnReset" onclick="resetar()" style="display:none"><i class="bi bi-arrow-counterclockwise"></i> Voltar pra padrão</button>
+        <span id="statusTxt" style="font-size:.78rem;color:var(--muted);margin-left:8px">Mudanças aplicam no próximo login/refresh.</span>
+      </div>
+      <button class="btn btn-primary" id="btnSalvar" onclick="salvar()"><i class="bi bi-check-lg"></i> Salvar</button>
+    </div>
+  </div>
+
+  <div class="card" id="denied" style="display:none">
+    <div class="access-denied">
+      <i class="bi bi-shield-lock-fill"></i>
+      <h2>Acesso negado</h2>
+      <p>Só administradores podem gerenciar permissões.</p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = location.pathname.includes('/webhook/') ? location.origin + '/webhook' : 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook';
+const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
+let TOKEN='', USUARIO='', PAPEL='';
+let atendentes = [];
+let dados = { permissoes:{}, global:{}, override:null }; // últimos dados carregados
+
+// Catálogo de features (mesmo do chat.html)
+const FEATURES = [
+  { key:'manual',     label:'Manual do Consultor', desc:'Script guiado por perfil no composer',   icon:'bi-book-fill' },
+  { key:'ajuda_ia',   label:'Ajuda da IA',         desc:'Sugere resposta baseada na conversa',    icon:'bi-stars' },
+  { key:'hubspot',    label:'HubSpot',             desc:'Criar/buscar/editar negócios do contato', icon:'bi-bullseye' },
+  { key:'tarefas',    label:'Tarefas do Consultor',desc:'Checklist da venda (9 etapas)',          icon:'bi-check2-square' },
+  { key:'templates',  label:'Templates HSM',       desc:'Enviar templates Meta aprovados',        icon:'bi-tag-fill' },
+  { key:'followup',   label:'Follow-up IA',        desc:'Reengajamento automático de leads',      icon:'bi-robot' },
+  { key:'retorno',    label:'Agendar Retorno',     desc:'Lembrete pra voltar em uma conversa',    icon:'bi-calendar-check' },
+  { key:'disparos',   label:'Disparos em Massa',   desc:'Envio Meta template pra várias pessoas', icon:'bi-megaphone-fill' },
+  { key:'triagem',    label:'Triagem IA',          desc:'Ativar/desativar triagem automática numa conversa', icon:'bi-funnel-fill' },
+  { key:'respostas',  label:'Respostas Rápidas',   desc:'Atalhos com "/" no chat (ex: /preco)',   icon:'bi-lightning-charge-fill' },
+  { key:'contas',     label:'Gestão de Contas',    desc:'Configurar Meta/Evolution',              icon:'bi-gear-fill' },
+];
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function sair(){try{['chat_token','chat_usuario','chat_nome','chat_papel','chat_foto'].forEach(k=>localStorage.removeItem(k))}catch(_){}location.href=LOGIN_URL}
+function toast(msg, tipo){
+  const t = qs('#toast'); t.textContent = msg;
+  t.className = 'toast show ' + (tipo||'ok');
+  clearTimeout(t._h); t._h = setTimeout(()=>{t.classList.remove('show')}, 3200);
+}
+
+async function api(path, body){
+  const url = BASE + path;
+  if(!body){
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'token=' + encodeURIComponent(TOKEN));
+    return await r.json();
+  }
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify({...body, token:TOKEN, _actor:USUARIO})});
+  return await r.json();
+}
+
+async function carregarAtendentes(){
+  try {
+    const r = await api('/chat-atendentes-list');
+    atendentes = ((r && r.atendentes) || []).filter(a => a.ativo !== false && a.usuario !== 'admin' && (a.role||'').toUpperCase() !== 'ADM');
+    const sel = qs('#fUser');
+    sel.innerHTML = '<option value="">— Padrão global (aplica a todos sem override) —</option>'
+      + atendentes.map(a => '<option value="'+esc(a.usuario)+'">'+esc(a.nome||a.usuario)+' (@'+esc(a.usuario)+')</option>').join('');
+  } catch(e){ toast('Erro ao carregar atendentes: '+e.message,'err'); }
+}
+
+async function trocarUser(){
+  await carregarPermissoes();
+}
+
+async function carregarPermissoes(){
+  const usuario = qs('#fUser').value;
+  try {
+    const r = await api('/chat-permissoes-list' + (usuario ? '?usuario='+encodeURIComponent(usuario) : ''));
+    dados = { permissoes: r.permissoes||{}, global: r.global||{}, override: r.override };
+    render();
+  } catch(e){
+    qs('#featBody').innerHTML = '<div style="padding:20px;color:var(--err)">Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function render(){
+  const usuario = qs('#fUser').value;
+  const tipo = qs('#tipoBadge');
+  const btnReset = qs('#btnReset');
+  if(!usuario){
+    tipo.className = 'info-tipo padrao';
+    tipo.textContent = 'Padrão global';
+    btnReset.style.display = 'none';
+  } else if(dados.override){
+    tipo.className = 'info-tipo override';
+    tipo.textContent = 'Override deste usuário';
+    btnReset.style.display = 'inline-flex';
+  } else {
+    tipo.className = 'info-tipo padrao';
+    tipo.textContent = 'Usando padrão (sem override)';
+    btnReset.style.display = 'none';
+  }
+  // Estado inicial dos checkboxes vem de effective (permissoes)
+  qs('#featBody').innerHTML = FEATURES.map(f => {
+    const enabled = dados.permissoes[f.key] !== false;
+    const globalVal = dados.global[f.key] !== false;
+    const overrideVal = dados.override ? dados.override[f.key] : undefined;
+    const diffBadge = (usuario && overrideVal !== undefined && overrideVal !== globalVal)
+      ? '<span class="feat-diff">Difere do padrão</span>' : '';
+    return `<div class="feat-row">
+      <div class="feat-icon"><i class="${f.icon}"></i></div>
+      <div class="feat-info">
+        <div class="feat-nome">${esc(f.label)} ${diffBadge}</div>
+        <div class="feat-desc">${esc(f.desc)} · padrão: <b>${globalVal?'ON':'OFF'}</b></div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" ${enabled?'checked':''} data-key="${f.key}">
+        <span class="slider"></span>
+      </label>
+    </div>`;
+  }).join('');
+}
+
+function coletarPermissoes(){
+  const p = {};
+  document.querySelectorAll('#featBody input[type=checkbox][data-key]').forEach(inp => {
+    p[inp.dataset.key] = inp.checked;
+  });
+  return p;
+}
+
+async function salvar(){
+  const usuario = qs('#fUser').value; // '' = global
+  const permissoes = coletarPermissoes();
+  const btn = qs('#btnSalvar');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass"></i> Salvando...';
+  try {
+    const r = await api('/chat-permissoes-save', {usuario, permissoes});
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return; }
+    toast(usuario ? 'Salvo pra '+usuario : 'Padrão global salvo','ok');
+    await carregarPermissoes();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+  finally { btn.disabled=false; btn.innerHTML='<i class="bi bi-check-lg"></i> Salvar'; }
+}
+
+async function resetar(){
+  const usuario = qs('#fUser').value;
+  if(!usuario) return;
+  if(!confirm('Remover override de "'+usuario+'"? Ele voltará a usar o padrão global.')) return;
+  try {
+    const r = await api('/chat-permissoes-save', {usuario, permissoes:{}, _reset:true});
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return; }
+    toast('Override removido — usa padrão','ok');
+    await carregarPermissoes();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+(async function init(){
+  const p = new URLSearchParams(location.search);
+  TOKEN = p.get('token') || localStorage.getItem('chat_token') || '';
+  USUARIO = localStorage.getItem('chat_usuario') || '';
+  PAPEL = localStorage.getItem('chat_papel') || '';
+  if(!TOKEN){ location.href = LOGIN_URL; return; }
+  try { localStorage.setItem('chat_token', TOKEN); } catch(_){}
+  qs('#linkChat').href = location.pathname.includes('/webhook/') ? '/webhook/chat-app?token='+encodeURIComponent(TOKEN) : 'chat.html';
+  if(PAPEL !== 'ADM' && PAPEL !== 'admin' && PAPEL !== 'SUPER' && PAPEL !== 'super' && PAPEL !== 'ADMIN'){
+    qs('#denied').style.display = 'block';
+    return;
+  }
+  qs('#app').style.display = 'block';
+  await carregarAtendentes();
+  await carregarPermissoes();
+})();
+</script>
+</body>
+</html>

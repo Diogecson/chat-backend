@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Atendentes</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:10px 14px;font-size:.66rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:700;text-align:left;background:#fbfcfe;border-bottom:1.5px solid var(--line)}
+.tbl td{padding:11px 14px;border-bottom:1px solid #f0f3f8;font-size:.85rem;vertical-align:middle}
+.tbl tr:hover{background:#f6f9ff}
+.avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;display:inline-grid;place-items:center;font-weight:700;font-size:.85rem;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.pill.admin{background:#fef3c7;color:#92400e}
+.pill.consultor{background:#dbeafe;color:#1e40af}
+.pill.inativo{background:#fce8e8;color:var(--err)}
+.pill.ativo{background:#e6f9ee;color:var(--ok)}
+.switch-mini{position:relative;display:inline-block;width:38px;height:20px;cursor:pointer}
+.switch-mini input{opacity:0;width:0;height:0}
+.slider-mini{position:absolute;inset:0;background:#cbd5e1;border-radius:20px;transition:.2s}
+.slider-mini::before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch-mini input:checked+.slider-mini{background:var(--ok)}
+.switch-mini input:checked+.slider-mini::before{transform:translateX(18px)}
+
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.83rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-secondary:hover{background:#e6eaf2}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-danger:hover{background:#fbd0d0}
+.btn-sm{padding:5px 10px;font-size:.75rem;border-radius:8px}
+
+.form-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 6px}
+.form-input,.form-select{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:.9rem;font-family:inherit;color:var(--ink);background:#fff;transition:.15s}
+.form-input:focus,.form-select:focus{outline:none;border-color:var(--meta);box-shadow:0 0 0 3px rgba(24,119,242,.15)}
+.form-row{margin-bottom:14px}
+.form-hint{font-size:.72rem;color:var(--muted);margin-top:4px}
+.dia-chip{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;background:#fbfcfe;border:1.5px solid var(--line);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:600;user-select:none;transition:.12s}
+.dia-chip:hover{border-color:#7c3aed}
+.dia-chip input{margin:0;cursor:pointer;accent-color:#7c3aed}
+.dia-chip:has(input:checked){background:#f3e8ff;border-color:#7c3aed;color:#6b21a8}
+
+.modal-back{position:fixed;inset:0;background:rgba(15,27,45,.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex}
+.modal-back .modal-card{background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.35);max-width:520px;width:100%;max-height:90vh;overflow-y:auto;display:block !important}
+.modal-back .modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-back .modal-body{padding:20px}
+.modal-back .modal-foot{padding:14px 20px;border-top:1px solid var(--line);background:#fbfcfe;display:flex;gap:8px;justify-content:flex-end}
+
+.avatar-preview{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;display:grid;place-items:center;font-weight:800;font-size:1.4rem;overflow:hidden;margin:0 auto 10px;border:3px solid #fff;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+.avatar-preview img{width:100%;height:100%;object-fit:cover}
+
+.empty{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:3rem;opacity:.4;display:block;margin-bottom:12px}
+
+.toast{position:fixed;top:76px;right:22px;padding:12px 18px;border-radius:10px;color:#fff;font-weight:600;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:99999;transition:.3s;transform:translateX(400px);max-width:340px}
+.toast.show{transform:translateX(0)}
+.toast.ok{background:var(--ok)}
+.toast.err{background:var(--err)}
+
+.access-denied{padding:80px 40px;text-align:center;color:var(--muted)}
+.access-denied i{font-size:5rem;color:var(--err);opacity:.4;display:block;margin-bottom:14px}
+.access-denied h2{color:var(--ink);font-family:'Plus Jakarta Sans',sans-serif}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Atendentes</div>
+      <div class="brand-sub">GESTÃO DE USUÁRIOS</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn-nav" id="linkChat" href="#"><i class="bi bi-arrow-left"></i> Voltar ao Chat</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card" id="app" style="display:none">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-people-fill"></i> Usuários (<span id="countBadge">0</span>)</h2>
+      <button class="btn btn-primary" onclick="abrirNovo()"><i class="bi bi-person-plus-fill"></i> Novo atendente</button>
+    </div>
+    <div id="tblWrap"><div class="empty"><i class="bi bi-hourglass-split"></i>Carregando…</div></div>
+  </div>
+
+  <div class="card" id="denied" style="display:none">
+    <div class="access-denied">
+      <i class="bi bi-shield-lock-fill"></i>
+      <h2>Acesso negado</h2>
+      <p>Só administradores podem gerenciar atendentes.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal-back" id="modal" onclick="if(event.target===this)fechar()">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 style="margin:0" id="modalTitulo"><i class="bi bi-person-plus-fill"></i> Novo atendente</h3>
+      <button class="btn btn-secondary btn-sm" onclick="fechar()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="avatar-preview" id="avatarPreview">?</div>
+      <div class="form-row" style="text-align:center">
+        <label class="form-label">Foto do atendente</label>
+        <button type="button" class="btn btn-primary" onclick="qs('#fFotoFile').click()">
+          <i class="bi bi-camera-fill"></i> Escolher foto do dispositivo
+        </button>
+        <input type="file" id="fFotoFile" accept="image/*" style="display:none" onchange="fotoEscolhida(this)">
+        <button type="button" class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="fotoRemover()">
+          <i class="bi bi-x-lg"></i> Remover
+        </button>
+        <div class="form-hint" id="fFotoStatus">Aparece no rail do chat no lugar do "UF". Imagem é comprimida pra ~10KB automaticamente.</div>
+        <details style="margin-top:8px;font-size:.75rem">
+          <summary style="cursor:pointer;color:var(--muted)">Alternativa: colar URL de imagem</summary>
+          <input type="url" class="form-input" id="fFoto" placeholder="https://drive.google.com/file/d/XXX/view (Drive público) ou qualquer URL de imagem" oninput="atualizarPreviewFoto()" style="margin-top:6px">
+        </details>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-row">
+          <label class="form-label">Usuário (login)</label>
+          <input class="form-input" id="fUsuario" name="novo_atendente_usuario_field" placeholder="ex: mariah" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true" data-form-type="other">
+          <div class="form-hint">só minúsculas, números, _, ., -</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Papel</label>
+          <select class="form-select" id="fPapel">
+            <option value="USER">Consultor (USER) — vê só as próprias conversas nas contas liberadas</option>
+            <option value="ADM">Admin da conta (ADM) — vê tudo das contas liberadas</option>
+            <option value="SUPER">Super Admin (SUPER) — vê TUDO, sem restrição de conta</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Nome completo</label>
+        <input class="form-input" id="fNome" placeholder="Maria Helena Silva">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Senha <span id="senhaHint" style="font-weight:normal;color:var(--muted)">(obrigatório em novos)</span></label>
+        <input class="form-input" id="fSenha" type="password" placeholder="senha do login">
+        <div class="form-hint">Deixe em branco pra manter a atual (em edição).</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Contas permitidas (chats que o consultor pode ver)</label>
+        <div id="fContasBox" style="border:2px solid var(--line);border-radius:8px;padding:10px;background:#fafbfc;max-height:220px;overflow-y:auto">
+          <div style="padding:8px 4px;color:#64748b;font-size:.85rem"><i class="bi bi-hourglass"></i> Carregando contas…</div>
+        </div>
+        <!-- Campo oculto só pra manter compatibilidade com código legacy -->
+        <input type="hidden" id="fContas" value="*">
+        <div class="form-hint">Marque as contas que esse consultor pode acessar. "Todas" libera inclusive novas contas futuras. Nenhuma marcada = sem acesso (pra usuários desativados).</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="fAtivo" checked>
+        <label for="fAtivo" style="font-size:.88rem;font-weight:600">Usuário ativo (pode logar)</label>
+      </div>
+
+      <div style="border-top:2px solid var(--line);margin:14px 0 8px;padding-top:14px">
+        <div style="font-weight:700;font-size:.9rem;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <i class="bi bi-clock-history" style="color:#7c3aed"></i> Horário de atendimento
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Modo da fila</label>
+          <div style="display:flex;gap:8px">
+            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:1.5px solid var(--line);border-radius:8px;cursor:pointer" onclick="qs('#fModoManual').checked=true">
+              <input type="radio" name="fModo" id="fModoManual" value="manual" checked>
+              <div>
+                <div style="font-weight:600;font-size:.85rem">Manual</div>
+                <div style="font-size:.72rem;color:var(--muted)">Usuário controla o toggle na fila</div>
+              </div>
+            </label>
+            <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px;border:1.5px solid var(--line);border-radius:8px;cursor:pointer" onclick="qs('#fModoAuto').checked=true">
+              <input type="radio" name="fModo" id="fModoAuto" value="auto">
+              <div>
+                <div style="font-weight:600;font-size:.85rem">Automático</div>
+                <div style="font-size:.72rem;color:var(--muted)">Liga/desliga conforme horário</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div id="fHorarioBox">
+          <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="form-label">Início expediente</label>
+              <input class="form-input" type="time" id="fHorInicio" value="08:00">
+            </div>
+            <div>
+              <label class="form-label">Fim expediente</label>
+              <input class="form-input" type="time" id="fHorFim" value="18:00">
+            </div>
+          </div>
+          <div class="form-group" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>
+              <label class="form-label">Início almoço (opcional)</label>
+              <input class="form-input" type="time" id="fAlmocoInicio">
+            </div>
+            <div>
+              <label class="form-label">Fim almoço (opcional)</label>
+              <input class="form-input" type="time" id="fAlmocoFim">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Dias que trabalha</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="1" checked> Seg</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="2" checked> Ter</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="3" checked> Qua</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="4" checked> Qui</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="5" checked> Sex</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="6" id="fSab" onchange="atualizarSabadosBox()"> Sáb</label>
+              <label class="dia-chip"><input type="checkbox" class="fDia" value="7"> Dom</label>
+            </div>
+          </div>
+          <div class="form-group" id="fSabadosBox" style="display:none">
+            <label class="form-label">Quais sábados do mês</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <label class="dia-chip"><input type="checkbox" class="fSabOrdem" value="1" checked> 1º</label>
+              <label class="dia-chip"><input type="checkbox" class="fSabOrdem" value="2" checked> 2º</label>
+              <label class="dia-chip"><input type="checkbox" class="fSabOrdem" value="3" checked> 3º</label>
+              <label class="dia-chip"><input type="checkbox" class="fSabOrdem" value="4" checked> 4º</label>
+              <label class="dia-chip"><input type="checkbox" class="fSabOrdem" value="5" checked> 5º</label>
+            </div>
+            <div class="form-hint">Marca só os sábados que trabalha (ex: só 1º e 3º)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;padding:10px;background:#f8f5ff;border-radius:8px;border:1px solid #e9d5ff">
+              <div>
+                <label class="form-label" style="color:#6b21a8"><i class="bi bi-info-circle"></i> Início sábado (opcional)</label>
+                <input class="form-input" type="time" id="fHorSabInicio">
+              </div>
+              <div>
+                <label class="form-label" style="color:#6b21a8">Fim sábado (opcional)</label>
+                <input class="form-input" type="time" id="fHorSabFim">
+              </div>
+              <div style="grid-column:1/-1;font-size:.72rem;color:#6b21a8">Se vazio, sábado usa o mesmo horário da semana. Preenche só se for diferente (ex: sábado só 09:00-13:00).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="fechar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvar()"><i class="bi bi-check-lg"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = location.pathname.includes('/webhook/') ? location.origin + '/webhook' : 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook';
+const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
+let TOKEN='', USUARIO='', PAPEL='', ATENDENTES=[];
+let editando = null;
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function sair(){try{localStorage.removeItem('chat_token');localStorage.removeItem('chat_usuario');localStorage.removeItem('chat_papel');localStorage.removeItem('chat_foto')}catch(_){}location.href=LOGIN_URL}
+function toast(msg, tipo){
+  const t = qs('#toast'); t.textContent = msg;
+  t.className = 'toast show ' + (tipo||'ok');
+  clearTimeout(t._h); t._h = setTimeout(()=>{t.classList.remove('show')}, 3200);
+}
+function iniciais(nome){ return (nome||'?').split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]||'').join('').toUpperCase() || '?'; }
+
+async function api(path, body){
+  const url = BASE + path;
+  if(!body){
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'token='+encodeURIComponent(TOKEN));
+    return await r.json();
+  }
+  // IMPORTANTE: `usuario` NÃO vai como campo top-level pra não sobrescrever o do body.
+  // Usar `_actor` pra auditoria de quem fez a chamada.
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify({...body, token:TOKEN, _actor:USUARIO})});
+  return await r.json();
+}
+
+// Papel do usuário logado e suas contas permitidas (cache)
+let _MEU_PAPEL = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+let _MINHAS_CONTAS_PERM = '__all__';
+
+async function carregar(){
+  try {
+    // Carrega contas junto (pro picker + pra formatarContasPermitidas na listagem)
+    if(!_CONTAS_CACHE.length){ await carregarContasPicker(); }
+    const r = await api('/chat-atendentes-list');
+    let lista = r.atendentes || [];
+    // Pega as minhas contas permitidas (cache local)
+    const me = lista.find(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
+    if(me){
+      const raw = String(me.contas_permitidas||'').trim();
+      if(!raw || raw === '*' || raw.toLowerCase() === '__all__') _MINHAS_CONTAS_PERM = '__all__';
+      else if(raw.toLowerCase() === '__none__') _MINHAS_CONTAS_PERM = '__none__';
+      else _MINHAS_CONTAS_PERM = raw;
+    }
+    // ADM (não SUPER): filtra lista pra mostrar só usuários que compartilham ao menos 1 conta
+    if(_MEU_PAPEL === 'ADM' || _MEU_PAPEL === 'ADMIN'){
+      lista = _filtrarAtendentesPorConta(lista, _MINHAS_CONTAS_PERM);
+      // Esconde opção SUPER do form (ADM não cria/promove SUPER)
+      const optSuper = document.querySelector('#fPapel option[value="SUPER"]');
+      if(optSuper) optSuper.style.display = 'none';
+      // Esconde contas que o ADM não tem no picker
+      _CONTAS_CACHE = _CONTAS_CACHE.filter(c => _contaEstaNasMinhas(String(c.id), _MINHAS_CONTAS_PERM));
+    }
+    ATENDENTES = lista;
+    render();
+  } catch(e){
+    qs('#tblWrap').innerHTML = '<div class="empty" style="color:var(--err)">Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function _contaEstaNasMinhas(contaId, perm){
+  if(perm === '__all__' || perm === '*') return true;
+  if(!perm || perm === '__none__') return false;
+  return perm.split(',').map(s=>s.trim()).includes(String(contaId));
+}
+
+function _filtrarAtendentesPorConta(lista, minhaPerm){
+  if(minhaPerm === '__all__') return lista;
+  if(minhaPerm === '__none__') return [];
+  const minhasContas = new Set(minhaPerm.split(',').map(s=>s.trim()).filter(Boolean));
+  return lista.filter(a => {
+    // SUPER sempre fica oculto na visão de ADM (hierarquia)
+    if(String(a.role||'').toUpperCase() === 'SUPER') return false;
+    const p = String(a.contas_permitidas||'*').trim();
+    if(!p || p === '*' || p.toLowerCase() === '__all__') return true;
+    if(p.toLowerCase() === '__none__') return false;
+    return p.split(',').map(s=>s.trim()).some(c => minhasContas.has(c));
+  });
+}
+
+// Mostra "Todas", "Nenhuma" ou os nomes das contas liberadas na tabela
+function formatarContasPermitidas(csv){
+  const v = String(csv || '*').trim();
+  if(!v || v === '*' || v.toLowerCase() === '__all__')
+    return '<span class="pill" style="background:#dcfce7;color:#166534">Todas</span>';
+  if(v.toLowerCase() === '__none__')
+    return '<span class="pill" style="background:#fee2e2;color:#991b1b">Nenhuma</span>';
+  const ids = v.split(',').map(s=>s.trim()).filter(Boolean);
+  const nomes = ids.map(id => {
+    const c = _CONTAS_CACHE.find(x => String(x.id) === id);
+    return c ? (c.nome || id) : id;
+  });
+  return '<span style="font-size:.78rem">'+nomes.map(esc).join(', ')+'</span>';
+}
+
+function render(){
+  qs('#countBadge').textContent = ATENDENTES.length;
+  if(!ATENDENTES.length){
+    qs('#tblWrap').innerHTML = '<div class="empty"><i class="bi bi-person-x"></i>Nenhum atendente. Clique em <b>Novo atendente</b>.</div>';
+    return;
+  }
+  const rows = ATENDENTES.map(a => {
+    const at = a.ativo === false ? 'inativo' : 'ativo';
+    const avatarInner = a.foto_url ? '<img src="'+esc(normalizarUrlFoto(a.foto_url))+'" alt="" onerror="this.parentNode.textContent=\''+esc(iniciais(a.nome||a.usuario))+'\'">' : iniciais(a.nome||a.usuario);
+    const inFila = a.na_fila === true;
+    const filaBtn = a.usuario !== 'admin'
+      ? '<label class="switch-mini" title="Participa da fila de distribuicao"><input type="checkbox" ' + (inFila?'checked':'') + ' onchange="toggleFila(\''+esc(a.usuario)+'\', this.checked)"><span class="slider-mini"></span></label>'
+      : '<span style="color:var(--muted);font-size:.72rem">—</span>';
+    return '<tr>'
+      + '<td><div style="display:flex;align-items:center;gap:10px"><div class="avatar">'+avatarInner+'</div><div><div style="font-weight:700">'+esc(a.nome||a.usuario)+'</div><div style="font-size:.72rem;color:var(--muted)">@'+esc(a.usuario)+'</div></div></div></td>'
+      + '<td><span class="pill '+(a.role==='ADM'?'admin':'consultor')+'"><i class="bi bi-'+(a.role==='ADM'?'shield-fill-check':'person-fill')+'"></i>'+esc(a.role||'USER')+'</span></td>'
+      + '<td><span class="pill '+at+'">'+at+'</span></td>'
+      + '<td style="text-align:center">'+filaBtn+'</td>'
+      + '<td>'+formatarContasPermitidas(a.contas_permitidas)+'</td>'
+      + '<td style="text-align:right;white-space:nowrap">'
+      +   '<button class="btn btn-secondary btn-sm" onclick="editar(\''+esc(a.usuario)+'\')"><i class="bi bi-pencil"></i></button> '
+      +   (a.usuario!=='admin' ? '<button class="btn btn-danger btn-sm" onclick="deletar(\''+esc(a.usuario)+'\')"><i class="bi bi-trash"></i></button>' : '')
+      + '</td>'
+      + '</tr>';
+  }).join('');
+  qs('#tblWrap').innerHTML = '<table class="tbl"><thead><tr><th>Nome</th><th>Papel</th><th>Status</th><th style="text-align:center" title="Participa da fila de distribuicao quando triagem finaliza">Na fila</th><th>Contas</th><th style="text-align:right">Ações</th></tr></thead><tbody>'+rows+'</tbody></table>';
+}
+
+async function toggleFila(usuario, valor){
+  try{
+    const r = await api('/chat-fila-toggle', {usuario, na_fila: !!valor});
+    if(r && r.ok){
+      const a = ATENDENTES.find(x => x.usuario === usuario);
+      if(a) a.na_fila = !!valor;
+      toast(valor ? 'Adicionado à fila' : 'Removido da fila', '');
+    } else {
+      toast('Erro: '+(r && r.erro||'servidor'), 'err');
+      carregar();
+    }
+  }catch(e){ toast('Erro: '+e.message, 'err'); carregar(); }
+}
+
+// Lista de contas (meta/evolution) carregada 1x pro picker — ADM precisa ver pra marcar/desmarcar
+let _CONTAS_CACHE = [];
+async function carregarContasPicker(){
+  try {
+    const r = await api('/chat-contas-list');
+    _CONTAS_CACHE = (r && r.contas) || [];
+  } catch(_){ _CONTAS_CACHE = []; }
+}
+function renderContasPicker(csvAtual){
+  const box = qs('#fContasBox');
+  if(!box) return;
+  const perm = String(csvAtual || '*').trim();
+  const isTodas = (!perm || perm === '*' || perm.toLowerCase() === '__all__');
+  const ids = isTodas ? new Set() : new Set(perm.split(',').map(s=>s.trim()).filter(Boolean));
+  if(!_CONTAS_CACHE.length){
+    box.innerHTML = '<div style="color:#64748b;font-size:.85rem;padding:4px">Nenhuma conta cadastrada. Cadastre em Contas → voltar aqui.</div>';
+    return;
+  }
+  let html = '';
+  html += '<label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid var(--line);margin-bottom:6px;font-weight:700">'
+       + '<input type="checkbox" id="fContasAll" '+(isTodas?'checked':'')+'> '
+       + '<span>Todas as contas (inclusive novas futuras)</span>'
+       + '</label>';
+  html += _CONTAS_CACHE.map(c => {
+    const checked = isTodas || ids.has(String(c.id));
+    const tipoLbl = c.tipo === 'meta' ? 'Oficial' : 'Evolution';
+    return '<label style="display:flex;align-items:center;gap:8px;padding:4px;font-size:.88rem">'
+         + '<input type="checkbox" class="fContaItem" value="'+esc(c.id)+'" '+(checked?'checked':'')+' '+(isTodas?'disabled':'')+'> '
+         + '<span style="font-weight:600">'+esc(c.nome||c.id)+'</span>'
+         + ' <span style="color:#64748b;font-size:.75rem">('+tipoLbl+')</span>'
+         + '</label>';
+  }).join('');
+  box.innerHTML = html;
+  // Toggle Todas liga/desliga individuais
+  const chkAll = qs('#fContasAll');
+  if(chkAll){
+    chkAll.addEventListener('change', () => {
+      const marcado = chkAll.checked;
+      document.querySelectorAll('.fContaItem').forEach(cb => {
+        cb.disabled = marcado;
+        if(marcado) cb.checked = true;
+      });
+      _sincContasHidden();
+    });
+  }
+  document.querySelectorAll('.fContaItem').forEach(cb => {
+    cb.addEventListener('change', _sincContasHidden);
+  });
+  _sincContasHidden();
+}
+function _sincContasHidden(){
+  const chkAll = qs('#fContasAll');
+  const campo = qs('#fContas');
+  if(!campo) return;
+  if(chkAll && chkAll.checked){ campo.value = '*'; return; }
+  const marcados = Array.from(document.querySelectorAll('.fContaItem:checked')).map(cb => cb.value);
+  campo.value = marcados.length ? marcados.join(',') : '__none__';
+}
+
+async function abrirNovo(){
+  editando = null;
+  qs('#modalTitulo').innerHTML = '<i class="bi bi-person-plus-fill"></i> Novo atendente';
+  qs('#senhaHint').textContent = '(obrigatório em novos)';
+  qs('#fUsuario').value = ''; qs('#fUsuario').disabled = false;
+  qs('#fNome').value = '';
+  qs('#fSenha').value = '';
+  qs('#fPapel').value = 'USER';
+  qs('#fContas').value = '__none__';  // novo cadastro começa SEM acesso — ADM libera manualmente
+  if(!_CONTAS_CACHE.length) await carregarContasPicker();
+  renderContasPicker('__none__');
+  qs('#fAtivo').checked = true;
+  fotoAtual = '';
+  qs('#fFoto').value = '';
+  qs('#fFotoFile').value = '';
+  qs('#fFotoStatus').innerHTML = 'Aparece no rail do chat no lugar do "UF". Imagem é comprimida pra ~10KB automaticamente.';
+  qs('#avatarPreview').innerHTML = '?';
+  preencherHorarioDefault();
+  qs('#modal').classList.add('on');
+  setTimeout(()=>qs('#fUsuario').focus(), 100);
+}
+
+async function editar(usuario){
+  const a = ATENDENTES.find(x=>x.usuario===usuario);
+  if(!a) return;
+  editando = a;
+  qs('#modalTitulo').innerHTML = '<i class="bi bi-pencil-fill"></i> Editar '+esc(a.nome||a.usuario);
+  qs('#senhaHint').textContent = '(deixe vazio pra manter)';
+  qs('#fUsuario').value = a.usuario; qs('#fUsuario').disabled = true;
+  qs('#fNome').value = a.nome||'';
+  qs('#fSenha').value = '';
+  qs('#fPapel').value = (function(){
+    const r = (a.role||'USER').toUpperCase();
+    if(r === 'SUPER') return 'SUPER';
+    if(r === 'ADM' || r === 'ADMIN') return 'ADM';
+    return 'USER';
+  })();
+  qs('#fContas').value = a.contas_permitidas||'*';
+  if(!_CONTAS_CACHE.length) await carregarContasPicker();
+  renderContasPicker(a.contas_permitidas || '*');
+  qs('#fAtivo').checked = a.ativo !== false;
+  fotoAtual = a.foto_url||'';
+  // Se for URL, coloca no campo alternativo. Se for data:base64, mantém só no fotoAtual + preview.
+  qs('#fFoto').value = (fotoAtual && fotoAtual.indexOf('data:')!==0) ? fotoAtual : '';
+  qs('#fFotoFile').value = '';
+  qs('#fFotoStatus').innerHTML = fotoAtual
+    ? '<i class="bi bi-check-circle-fill" style="color:var(--ok)"></i> Foto atual carregada'
+    : 'Aparece no rail do chat no lugar do "UF". Imagem é comprimida pra ~10KB automaticamente.';
+  const srcPrev = normalizarUrlFoto(fotoAtual);
+  qs('#avatarPreview').innerHTML = fotoAtual
+    ? '<img src="'+esc(srcPrev)+'" onerror="this.parentNode.textContent=\''+esc(iniciais(a.nome||a.usuario))+'\'">'
+    : iniciais(a.nome||a.usuario);
+  qs('#modal').classList.add('on');
+  carregarHorarioAtendente(a.usuario);
+}
+
+function fechar(){ qs('#modal').classList.remove('on') }
+
+function atualizarSabadosBox(){
+  const sabMarcado = qs('#fSab') && qs('#fSab').checked;
+  const box = qs('#fSabadosBox');
+  if(box) box.style.display = sabMarcado ? '' : 'none';
+}
+
+function preencherHorarioDefault(){
+  document.querySelectorAll('#fHorarioBox .fDia').forEach(cb => cb.checked = (Number(cb.value) >= 1 && Number(cb.value) <= 6));
+  qs('#fHorInicio').value = '08:00';
+  qs('#fHorFim').value = '18:00';
+  qs('#fAlmocoInicio').value = '';
+  qs('#fAlmocoFim').value = '';
+  qs('#fHorSabInicio').value = '';
+  qs('#fHorSabFim').value = '';
+  document.querySelectorAll('.fSabOrdem').forEach(cb => cb.checked = true);
+  qs('#fModoManual').checked = true;
+  atualizarSabadosBox();
+}
+
+async function carregarHorarioAtendente(usuario){
+  preencherHorarioDefault();
+  if(!usuario) return;
+  try{
+    const r = await fetch(BASE + '/chat-horario-get?usuario=' + encodeURIComponent(usuario) + '&token=' + encodeURIComponent(TOKEN));
+    const j = await r.json();
+    if(!j || j.ok === false) return;
+    if(j.modo_fila === 'auto') qs('#fModoAuto').checked = true;
+    else qs('#fModoManual').checked = true;
+    qs('#fHorInicio').value = j.horario_inicio || '08:00';
+    qs('#fHorFim').value = j.horario_fim || '18:00';
+    qs('#fAlmocoInicio').value = j.almoco_inicio || '';
+    qs('#fAlmocoFim').value = j.almoco_fim || '';
+    qs('#fHorSabInicio').value = j.horario_sab_inicio || '';
+    qs('#fHorSabFim').value = j.horario_sab_fim || '';
+    const dias = String(j.dias_semana||'1,2,3,4,5,6').split(',').map(Number);
+    document.querySelectorAll('#fHorarioBox .fDia').forEach(cb => cb.checked = dias.includes(Number(cb.value)));
+    const sab = String(j.sabados_ativos||'todos').trim();
+    if(sab === 'todos' || sab === ''){
+      document.querySelectorAll('.fSabOrdem').forEach(cb => cb.checked = true);
+    } else {
+      const ords = sab.split(',').map(Number);
+      document.querySelectorAll('.fSabOrdem').forEach(cb => cb.checked = ords.includes(Number(cb.value)));
+    }
+    atualizarSabadosBox();
+  }catch(_){ /* silencioso */ }
+}
+
+async function salvarHorarioAtendente(usuario){
+  if(!usuario) return;
+  const modo = (qs('#fModoAuto') && qs('#fModoAuto').checked) ? 'auto' : 'manual';
+  const dias = Array.from(document.querySelectorAll('#fHorarioBox .fDia:checked')).map(cb=>cb.value).join(',');
+  const sabMarcado = qs('#fSab') && qs('#fSab').checked;
+  let sabados = 'todos';
+  if(sabMarcado){
+    const ords = Array.from(document.querySelectorAll('.fSabOrdem:checked')).map(cb=>cb.value);
+    if(ords.length && ords.length < 5) sabados = ords.join(',');
+    else if(!ords.length) sabados = ''; // marcou sab mas nenhuma ordem -> nunca
+  }
+  try{
+    await fetch(BASE + '/chat-horario-save', {method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body: JSON.stringify({
+      token: TOKEN, _actor: USUARIO,
+      usuario, modo_fila: modo,
+      horario_inicio: qs('#fHorInicio').value,
+      horario_fim: qs('#fHorFim').value,
+      almoco_inicio: qs('#fAlmocoInicio').value,
+      almoco_fim: qs('#fAlmocoFim').value,
+      horario_sab_inicio: qs('#fHorSabInicio').value,
+      horario_sab_fim: qs('#fHorSabFim').value,
+      dias_semana: dias,
+      sabados_ativos: sabados
+    })});
+  }catch(_){ /* silencioso, nao trava o salvar principal */ }
+}
+
+let fotoAtual = '';
+
+// Converte URL de share do Google Drive pra URL direta de imagem
+function normalizarUrlFoto(url){
+  if(!url) return '';
+  url = String(url).trim();
+  let m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if(m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  m = url.match(/drive\.google\.com\/[^?]*\?[^#]*id=([a-zA-Z0-9_-]+)/);
+  if(m) return 'https://lh3.googleusercontent.com/d/' + m[1];
+  return url;
+}
+
+function atualizarPreviewFoto(){
+  const url = (qs('#fFoto').value||'').trim();
+  fotoAtual = url;
+  const av = qs('#avatarPreview');
+  if(!url){ av.innerHTML = '?'; return; }
+  const src = normalizarUrlFoto(url);
+  av.innerHTML = '<img src="'+esc(src)+'" onerror="this.parentNode.textContent=\'?\'">';
+}
+
+// File picker → comprime pra 160x160 JPEG 78% → base64 (~10KB)
+function fotoEscolhida(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  if(!/^image\//.test(f.type)){ toast('Só arquivos de imagem.','err'); input.value=''; return; }
+  const status = qs('#fFotoStatus');
+  status.textContent = 'Processando...';
+  const img = new Image();
+  img.onload = () => {
+    const TAM = 160;
+    // recorta quadrado central
+    const menor = Math.min(img.width, img.height);
+    const sx = (img.width - menor) / 2;
+    const sy = (img.height - menor) / 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = TAM; canvas.height = TAM;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, TAM, TAM);
+    ctx.drawImage(img, sx, sy, menor, menor, 0, 0, TAM, TAM);
+    fotoAtual = canvas.toDataURL('image/jpeg', 0.78);
+    qs('#avatarPreview').innerHTML = '<img src="'+esc(fotoAtual)+'">';
+    qs('#fFoto').value = ''; // limpa campo de URL já que foi via upload
+    const kb = Math.round(fotoAtual.length * 0.75 / 1024);
+    status.innerHTML = '<i class="bi bi-check-circle-fill" style="color:var(--ok)"></i> Foto pronta (~'+kb+' KB)';
+    input.value = '';
+  };
+  img.onerror = () => { status.innerHTML = '<span style="color:var(--err)">Erro ao ler imagem</span>'; };
+  const reader = new FileReader();
+  reader.onload = e => { img.src = e.target.result; };
+  reader.readAsDataURL(f);
+}
+
+function fotoRemover(){
+  fotoAtual = '';
+  qs('#fFoto').value = '';
+  qs('#fFotoFile').value = '';
+  qs('#avatarPreview').innerHTML = '?';
+  qs('#fFotoStatus').textContent = 'Foto removida.';
+}
+
+async function salvar(){
+  const dados = {
+    usuario: qs('#fUsuario').value.trim().toLowerCase().replace(/^@+/, ''),
+    nome: qs('#fNome').value.trim(),
+    senha: qs('#fSenha').value,
+    role: qs('#fPapel').value,
+    papel: qs('#fPapel').value,
+    foto_url: fotoAtual,
+    contas_permitidas: (function(){
+      const v = qs('#fContas').value.trim();
+      // vazio -> __none__ (sem acesso); senão o valor (* ou CSV ou __none__)
+      return v || '__none__';
+    })(),
+    ativo: qs('#fAtivo').checked,
+    _editando: !!editando
+  };
+  if(!dados.usuario){ toast('Usuário obrigatório','err'); return; }
+  if(!dados.nome){ toast('Nome obrigatório','err'); return; }
+  if(!editando && !dados.senha){ toast('Senha obrigatória em novo atendente','err'); return; }
+  // Trava dupla: se está criando novo mas o usuario já existe no cache, alerta
+  if(!editando){
+    const existe = ATENDENTES.find(a => (a.usuario||'').toLowerCase() === dados.usuario);
+    if(existe){
+      toast('Usuário "'+dados.usuario+'" já existe! Clique no lápis pra editar.','err');
+      return;
+    }
+  }
+  try {
+    const r = await api('/chat-atendentes-save', dados);
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return; }
+    await salvarHorarioAtendente(dados.usuario);
+    toast(editando ? 'Atendente atualizado' : 'Atendente criado', 'ok');
+    fechar();
+    await carregar();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function deletar(usuario){
+  if(!confirm('Desativar o usuário "'+usuario+'"? Ele não poderá mais logar.')) return;
+  try {
+    const r = await api('/chat-atendentes-delete', {usuario});
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return; }
+    toast('Usuário desativado','ok');
+    await carregar();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+(async function init(){
+  const p = new URLSearchParams(location.search);
+  TOKEN = p.get('token') || localStorage.getItem('chat_token') || '';
+  USUARIO = localStorage.getItem('chat_usuario') || '';
+  PAPEL = localStorage.getItem('chat_papel') || '';
+  if(!TOKEN){ location.href = LOGIN_URL; return; }
+  try { localStorage.setItem('chat_token', TOKEN); } catch(_){}
+  qs('#linkChat').href = location.pathname.includes('/webhook/') ? '/webhook/chat-app?token='+encodeURIComponent(TOKEN) : 'chat.html';
+  if(PAPEL !== 'ADM' && PAPEL !== 'admin' && PAPEL !== 'SUPER' && PAPEL !== 'super' && PAPEL !== 'ADMIN'){
+    qs('#denied').style.display = 'block';
+    return;
+  }
+  qs('#app').style.display = 'block';
+  await carregar();
+})();
+</script>
+</body>
+</html>

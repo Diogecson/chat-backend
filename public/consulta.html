@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniFECAF · Consulta de contatos</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;--ok:#16a34a;--err:#dc2626;--warn:#f59e0b;--meta:#1877f2;--radius:14px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px;display:grid;grid-template-columns:400px 1fr;gap:20px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 10px rgba(7,28,60,.05);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+.label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.input,.textarea,.select{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.9rem;background:#fbfcfe;transition:.15s;resize:vertical}
+.textarea{min-height:280px;font-family:ui-monospace,monospace;font-size:.85rem}
+.input:focus,.textarea:focus,.select:focus{border-color:var(--meta);background:#fff;outline:none;box-shadow:0 0 0 4px rgba(24,119,242,.12)}
+.helper{font-size:.72rem;color:var(--muted);margin-top:4px}
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32);width:100%;justify-content:center;padding:12px 18px;font-size:.9rem}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-secondary{border:1.5px solid var(--line);background:#fff;color:var(--muted)}
+.btn-secondary:hover{color:var(--ink);border-color:#cbd5e1}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi{padding:12px;border-radius:10px;border:1.5px solid var(--line);text-align:center}
+.kpi.total{background:#f5f8fd;border-color:#dae4f2}
+.kpi.com{background:#e6f9ee;border-color:#c5f0d5}
+.kpi.sem{background:#fef3c7;border-color:#fde68a}
+.kpi-val{font-size:1.6rem;font-weight:800;line-height:1}
+.kpi.com .kpi-val{color:var(--ok)}
+.kpi.sem .kpi-val{color:#c78100}
+.kpi.total .kpi-val{color:var(--blue)}
+.kpi-lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:4px}
+.tabs{display:flex;gap:4px;padding:0 18px;border-bottom:1px solid var(--line);background:#fbfcfe}
+.tab{padding:10px 16px;border:none;background:transparent;font-weight:700;font-size:.85rem;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:.15s;font-family:inherit}
+.tab.active{color:var(--meta);border-bottom-color:var(--meta)}
+.lista{max-height:65vh;overflow-y:auto}
+.item{padding:12px 18px;border-bottom:1px solid #f0f3f8;display:flex;align-items:center;gap:12px;transition:background .12s}
+.item:hover{background:#f6f9ff}
+.item-ico{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;font-size:1rem;flex-shrink:0}
+.item-ico.com{background:#e6f9ee;color:var(--ok)}
+.item-ico.sem{background:#fef3c7;color:#c78100}
+.item-info{flex:1;min-width:0}
+.item-tel{font-weight:700;color:var(--ink);font-size:.9rem}
+.item-nome{font-size:.78rem;color:var(--muted);margin-top:1px}
+.item-meta{font-size:.7rem;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+.item-meta .pill{background:#f0f3f8;padding:2px 8px;border-radius:10px;color:var(--ink);font-weight:600}
+.item-meta .pill.ok{background:#e6f9ee;color:var(--ok)}
+.item-meta .pill.err{background:#fce8e8;color:var(--err)}
+.item-meta .pill.warn{background:#fef3c7;color:#c78100}
+.item-etiqs{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.item-etiqs .etiq{background:#e7f0fe;color:#1e40af;font-size:.65rem;font-weight:600;padding:2px 6px;border-radius:8px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:.85rem}
+.empty i{font-size:2rem;opacity:.4;display:block;margin-bottom:8px}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sp-rot .6s linear infinite;vertical-align:middle}
+@keyframes sp-rot{to{transform:rotate(360deg)}}
+.toast-box{position:fixed;top:20px;right:20px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:.85rem;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:.3s;z-index:1000;pointer-events:none}
+.toast-box.show{opacity:1}
+.toast-box.err{background:var(--err)}
+.export-btns{display:flex;gap:6px;padding:12px 18px;border-top:1px solid var(--line);background:#fbfcfe}
+.export-btns button{flex:1;font-size:.78rem;padding:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Consulta de contatos</div>
+      <div class="brand-sub">Chat Multi-Conta</div>
+    </div>
+  </div>
+  <a id="linkChat" href="chat.html" class="btn-nav"><i class="bi bi-arrow-left"></i> Voltar ao chat</a>
+</div>
+
+<div class="wrap">
+  <!-- LEFT: form -->
+  <div class="card" style="height:fit-content">
+    <div class="card-head"><h2 class="card-title"><i class="bi bi-search"></i> Buscar</h2></div>
+    <div class="card-body">
+      <div style="margin-bottom:12px">
+        <label class="label">Conta (opcional)</label>
+        <select class="select" id="fConta">
+          <option value="">Todas as contas</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">Telefones (um por linha)</label>
+        <textarea class="textarea" id="fTels" placeholder="5511999999999
+5511888888888
+5511777777777
+
+Pode colar CSV também, ex:
+5511999999999,João Silva
+5511888888888,Maria"></textarea>
+        <div class="helper">Aceita telefone com ou sem DDI, formatação livre. Máx 20.000 números.</div>
+      </div>
+      <button class="btn btn-primary" id="btnBuscar" onclick="buscar()" style="margin-top:14px"><i class="bi bi-search"></i> Consultar</button>
+    </div>
+  </div>
+
+  <!-- RIGHT: results -->
+  <div class="card" id="cardRes" style="display:none">
+    <div class="card-body" style="border-bottom:1px solid var(--line);padding-bottom:0">
+      <div class="kpis">
+        <div class="kpi total"><div class="kpi-val" id="kTotal">-</div><div class="kpi-lbl">Total</div></div>
+        <div class="kpi com"><div class="kpi-val" id="kCom">-</div><div class="kpi-lbl">Com chat</div></div>
+        <div class="kpi sem"><div class="kpi-val" id="kSem">-</div><div class="kpi-lbl">Sem chat</div></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" data-tab="todos" onclick="setTab('todos')">Todos <span id="cTodos">(0)</span></button>
+      <button class="tab" data-tab="com" onclick="setTab('com')">Com chat <span id="cCom">(0)</span></button>
+      <button class="tab" data-tab="sem" onclick="setTab('sem')">Sem chat <span id="cSem">(0)</span></button>
+    </div>
+    <div class="lista" id="lista"><div class="empty"><i class="bi bi-inbox"></i>Aguardando consulta...</div></div>
+    <div class="export-btns">
+      <button class="btn btn-secondary" onclick="exportarCSV('sem')"><i class="bi bi-file-earmark-arrow-down"></i> Baixar SEM chat (CSV)</button>
+      <button class="btn btn-secondary" onclick="exportarCSV('com')"><i class="bi bi-file-earmark-arrow-down"></i> Baixar COM chat (CSV)</button>
+    </div>
+  </div>
+  <div class="card" id="cardEmpty">
+    <div class="empty"><i class="bi bi-arrow-left"></i>Cole os telefones ao lado e clique em <b>Consultar</b>.</div>
+  </div>
+</div>
+
+<div class="toast-box" id="toast"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const URL_BASE = params.get('base') || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_CONSULTA = URL_BASE + '/webhook/chat-consulta-contatos';
+const URL_CONTAS = URL_BASE + '/webhook/chat-contas-list';
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+if(!TOKEN){ window.location.href='login.html'; }
+
+let RESULTADOS = [];
+let TAB = 'todos';
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function toast(msg, tipo){
+  const t = qs('#toast'); t.textContent = msg;
+  t.className = 'toast-box show ' + (tipo||'');
+  clearTimeout(t._h); t._h = setTimeout(()=>{t.classList.remove('show')}, 3000);
+}
+function fmtData(iso){
+  if(!iso) return '';
+  try{ return new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(_){ return iso; }
+}
+
+async function carregarContas(){
+  try{
+    const r = await fetch(URL_CONTAS + '?token=' + encodeURIComponent(TOKEN));
+    const j = await r.json();
+    const contas = (j.contas||[]).filter(c => (c.status||'ativo')==='ativo');
+    const sel = qs('#fConta');
+    sel.innerHTML = '<option value="">Todas as contas</option>' +
+      contas.map(c => `<option value="${esc(c.id||c.codigo)}">${esc(c.nome||c.id||c.codigo)}</option>`).join('');
+  }catch(_){}
+}
+
+async function buscar(){
+  const tels = qs('#fTels').value.trim();
+  if(!tels){ toast('Cola pelo menos 1 telefone', 'err'); return; }
+  const btn = qs('#btnBuscar');
+  btn.disabled = true;
+  const btnHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="loader"></span> Consultando...';
+  qs('#cardEmpty').style.display = 'none';
+  qs('#cardRes').style.display = '';
+  qs('#lista').innerHTML = '<div class="empty"><span class="loader" style="border-color:rgba(0,0,0,.2);border-top-color:var(--ink)"></span><br>Buscando no banco...</div>';
+  try{
+    const conta_id = qs('#fConta').value;
+    const r = await fetch(URL_CONSULTA, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({token: TOKEN, telefones: tels, conta_id})
+    });
+    const j = await r.json();
+    if(!j || !j.ok){ toast('Erro: ' + ((j&&j.erro)||'sem retorno'), 'err'); return; }
+    RESULTADOS = j.contatos || [];
+    renderKPIs(j);
+    renderLista();
+    toast(j.total_unicos + ' consultados: ' + j.total_com_chat + ' com chat, ' + j.total_sem_chat + ' sem', '');
+  }catch(e){
+    toast('Erro: ' + e.message, 'err');
+    qs('#lista').innerHTML = '<div class="empty" style="color:var(--err)"><i class="bi bi-exclamation-triangle"></i>Erro: ' + esc(e.message) + '</div>';
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = btnHtml;
+  }
+}
+
+function renderKPIs(j){
+  qs('#kTotal').textContent = j.total_unicos;
+  qs('#kCom').textContent = j.total_com_chat;
+  qs('#kSem').textContent = j.total_sem_chat;
+  qs('#cTodos').textContent = '(' + j.total_unicos + ')';
+  qs('#cCom').textContent = '(' + j.total_com_chat + ')';
+  qs('#cSem').textContent = '(' + j.total_sem_chat + ')';
+}
+
+function setTab(t){
+  TAB = t;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  renderLista();
+}
+
+function renderLista(){
+  const filtrados = TAB === 'com' ? RESULTADOS.filter(c => c.tem_chat)
+                  : TAB === 'sem' ? RESULTADOS.filter(c => !c.tem_chat)
+                  : RESULTADOS;
+  const list = qs('#lista');
+  if(!filtrados.length){
+    list.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum contato nessa aba.</div>';
+    return;
+  }
+  list.innerHTML = filtrados.map(c => {
+    if(c.tem_chat){
+      const nome = esc(c.nome_contato || c.telefone_banco || c.tel_busca);
+      const dono = c.dono ? `<span class="pill">👤 ${esc(c.dono)}</span>` : '<span class="pill warn">sem dono</span>';
+      const status = c.finalizada ? `<span class="pill ${c.motivo_fechamento && c.motivo_fechamento.includes('matr') ? 'ok' : 'err'}">✓ Finalizada${c.motivo_fechamento ? ' (' + esc(c.motivo_fechamento) + ')' : ''}</span>` : '<span class="pill ok">💬 Em andamento</span>';
+      const triagem = c.em_triagem ? '<span class="pill warn">🤖 Em triagem</span>' : '';
+      const etiqs = (c.etiquetas||[]).length ? `<div class="item-etiqs">${c.etiquetas.map(e=>`<span class="etiq">${esc(e)}</span>`).join('')}</div>` : '';
+      return `<div class="item">
+        <div class="item-ico com"><i class="bi bi-check-circle-fill"></i></div>
+        <div class="item-info">
+          <div class="item-tel">${esc(c.telefone_banco || c.tel_busca)}</div>
+          <div class="item-nome">${nome}</div>
+          <div class="item-meta">
+            ${dono} ${status} ${triagem}
+            <span class="pill">${c.total_msgs || 0} msgs</span>
+            <span class="pill">Última: ${fmtData(c.ultima_msg)}</span>
+          </div>
+          ${etiqs}
+        </div>
+      </div>`;
+    } else {
+      return `<div class="item">
+        <div class="item-ico sem"><i class="bi bi-dash-circle"></i></div>
+        <div class="item-info">
+          <div class="item-tel">${esc(c.tel_busca)}</div>
+          <div class="item-nome" style="color:#c78100">Nenhum registro no chat</div>
+        </div>
+      </div>`;
+    }
+  }).join('');
+}
+
+function exportarCSV(tipo){
+  const filtrados = RESULTADOS.filter(c => tipo === 'com' ? c.tem_chat : !c.tem_chat);
+  if(!filtrados.length){ toast('Nenhum contato pra exportar', 'err'); return; }
+  const linhas = ['telefone,nome,dono,finalizada,motivo,total_msgs,ultima_msg,etiquetas'];
+  for(const c of filtrados){
+    const clean = s => String(s||'').replace(/[",\n]/g,' ');
+    if(c.tem_chat){
+      linhas.push([
+        clean(c.telefone_banco || c.tel_busca),
+        clean(c.nome_contato),
+        clean(c.dono),
+        c.finalizada ? 'sim' : 'nao',
+        clean(c.motivo_fechamento),
+        c.total_msgs || 0,
+        clean(c.ultima_msg),
+        clean((c.etiquetas||[]).join('; '))
+      ].join(','));
+    } else {
+      linhas.push([clean(c.tel_busca),'','','','','','',''].join(','));
+    }
+  }
+  const csv = '﻿' + linhas.join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'contatos_' + tipo + '_' + Date.now() + '.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+  toast(filtrados.length + ' contatos exportados', '');
+}
+
+// INIT
+carregarContas();
+</script>
+</body>
+</html>

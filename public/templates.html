@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Templates HSM</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--blue-300:#3b6fb0;--orange:#ff6b00;--green:#25d366;--green-700:#128c7e;
+  --meta:#1877f2;--ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:flex;align-items:center;gap:6px}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.btn-nav.primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);border-color:transparent;box-shadow:0 6px 14px rgba(24,119,242,.35)}
+
+.wrap{display:grid;grid-template-columns:300px 1fr;gap:20px;max-width:1400px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+
+.conta-item{padding:12px 14px;border-radius:10px;cursor:pointer;margin-bottom:6px;border:1.5px solid transparent;transition:.15s;display:flex;align-items:center;gap:10px}
+.conta-item:hover{background:#f6f7fb}
+.conta-item.active{background:#e7f0fe;border-color:var(--meta)}
+.conta-item .ico{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;display:grid;place-items:center;font-size:.9rem;flex-shrink:0}
+.conta-item .info{min-width:0}
+.conta-item .nome{font-weight:600;font-size:.85rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conta-item .sub{font-size:.72rem;color:var(--muted)}
+.conta-empty{padding:24px 16px;text-align:center;color:var(--muted);font-size:.85rem}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:10px 14px;font-size:.66rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);font-weight:700;text-align:left;background:#fbfcfe;border-bottom:1.5px solid var(--line)}
+.tbl td{padding:11px 14px;border-bottom:1px solid #f0f3f8;font-size:.85rem;vertical-align:middle}
+.tbl tr:hover{background:#f6f9ff}
+.tpl-name{font-weight:700;color:var(--blue)}
+.tpl-preview{font-size:.75rem;color:var(--muted);margin-top:2px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.pill.approved{background:#e6f9ee;color:var(--ok)}
+.pill.pending{background:#fff8e6;color:var(--warn)}
+.pill.rejected{background:#fce8e8;color:var(--err)}
+.pill.paused{background:#eef1f7;color:var(--muted)}
+.pill.marketing{background:#fce7f3;color:#be185d}
+.pill.utility{background:#dbeafe;color:#1e40af}
+.pill.authentication{background:#f3e8ff;color:#7e22ce}
+
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 18px rgba(24,119,242,.4)}
+.btn-secondary{border:1.5px solid var(--line);background:#fff;color:var(--muted)}
+.btn-secondary:hover{color:var(--ink);border-color:#cbd5e1}
+.icon-btn{width:32px;height:32px;border:1.5px solid var(--line);background:#fff;border-radius:8px;color:var(--muted);display:inline-grid;place-items:center;cursor:pointer;transition:.15s;font-size:.85rem}
+.icon-btn:hover{color:var(--blue);border-color:var(--blue-300)}
+
+.state{text-align:center;padding:40px 20px;color:var(--muted)}
+.state i{font-size:2.5rem;opacity:.4;display:block;margin-bottom:8px}
+
+/* Modal criar */
+.modal-back{position:fixed;inset:0;background:rgba(15,27,45,.72);backdrop-filter:blur(4px);z-index:9998;display:none;align-items:center;justify-content:center;animation:fadein .18s}
+.modal-back.on{display:flex}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.modal{background:#fff;border-radius:16px;width:min(680px,92vw);max-height:92vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 30px 70px rgba(0,10,30,.4)}
+.modal-head{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;color:var(--blue);font-size:1.05rem}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;width:32px;height:32px;border-radius:8px;font-size:1.1rem}
+.modal-close:hover{background:#f0f2f5;color:var(--err)}
+.modal-body{padding:18px 20px;overflow-y:auto;flex:1}
+.modal-foot{padding:12px 20px;border-top:1px solid var(--line);background:#fbfcfe;display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:5px}
+.field input, .field textarea, .field select{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.88rem;background:#fbfcfe;transition:.15s;resize:vertical}
+.field input:focus, .field textarea:focus, .field select:focus{border-color:var(--meta);box-shadow:0 0 0 4px rgba(24,119,242,.12);outline:none;background:#fff}
+.field.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.field.grid2 > div{margin:0}
+.field .hint{font-size:.72rem;color:var(--muted);margin-top:4px}
+.field .hint code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-size:.75rem}
+
+.section-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;color:var(--blue);font-size:.88rem;margin:16px 0 10px;padding-bottom:6px;border-bottom:1px dashed var(--line);display:flex;justify-content:space-between;align-items:center}
+.section-title .op{font-size:.7rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.chip-toggle{display:inline-flex;gap:4px;background:#f1f4f9;border-radius:9px;padding:3px}
+.chip-toggle button{border:none;background:transparent;font-size:.75rem;font-weight:600;color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer;transition:.15s}
+.chip-toggle button.active{background:#fff;color:var(--blue);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.var-preview{background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:10px 12px;font-size:.8rem;color:#1e40af;margin-top:6px}
+.var-preview b{color:#1e3a8a}
+.exemplos{background:#f8fafc;border-radius:10px;padding:10px 12px;margin-top:6px}
+.exemplos .ex-title{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:6px}
+.exemplos .ex-row{display:grid;grid-template-columns:60px 1fr;gap:8px;margin-bottom:5px;align-items:center}
+.exemplos .ex-row .ex-var{font-family:ui-monospace;font-size:.78rem;color:var(--muted);text-align:center;background:#e6ebf2;padding:4px 6px;border-radius:6px}
+.exemplos input{border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.82rem;background:#fff}
+
+.btn-list{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.btn-row{display:grid;grid-template-columns:120px 1fr auto;gap:8px;align-items:center;background:#f8fafc;padding:8px;border-radius:10px}
+.btn-row select, .btn-row input{border:1.5px solid var(--line);border-radius:8px;padding:6px 10px;font-size:.82rem;background:#fff}
+.btn-row .rm{width:28px;height:28px;border:none;background:transparent;color:var(--err);cursor:pointer;border-radius:6px;font-size:.9rem}
+.btn-row .rm:hover{background:#fce8e8}
+.btn-add-btn{border:1.5px dashed var(--line);background:transparent;color:var(--muted);padding:8px;border-radius:8px;font-size:.8rem;cursor:pointer;width:100%;margin-top:4px;transition:.15s}
+.btn-add-btn:hover{color:var(--meta);border-color:var(--meta);background:#e7f0fe}
+
+.msg-box{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:.83rem;font-weight:600;display:none}
+.msg-box.on{display:block}
+.msg-box.ok{background:#e6f9ee;color:var(--ok)}
+.msg-box.err{background:#fce8e8;color:var(--err)}
+
+@media (max-width: 900px){ .wrap{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Templates HSM (Meta)</div>
+      <div class="brand-sub">Chat Multi-Conta</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a id="linkChat" href="chat.html" class="btn-nav primary"><i class="bi bi-chat-square-dots-fill"></i> Voltar ao chat</a>
+    <a href="#" onclick="event.preventDefault();sair()" class="btn-nav"><i class="bi bi-box-arrow-right"></i> Sair</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- Sidebar de contas -->
+  <div class="card" style="height:fit-content">
+    <div class="card-head"><h2 class="card-title"><i class="bi bi-check-circle-fill" style="color:var(--meta)"></i> Contas Meta</h2></div>
+    <div class="card-body" id="contasList">
+      <div class="conta-empty">Carregando...</div>
+    </div>
+  </div>
+
+  <!-- Templates da conta -->
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-tag-fill" style="color:var(--orange)"></i> <span id="tituloConta">Templates</span></h2>
+      <button class="btn btn-primary" id="btnNovo" onclick="abrirNovo()" disabled><i class="bi bi-plus-lg"></i> Novo template</button>
+    </div>
+    <div id="tplSearchBox" style="display:none;padding:12px 20px;border-bottom:1px solid var(--line,#e2e8f0);background:#fafafa">
+      <div style="position:relative">
+        <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.95rem"></i>
+        <input id="tplSearch" type="text" placeholder="Buscar por nome, texto do body, categoria..." oninput="filtrarTemplates()" style="width:100%;padding:9px 12px 9px 36px;border:1px solid var(--line,#e2e8f0);border-radius:8px;font-size:.9rem;background:#fff">
+        <span id="tplSearchCount" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:#64748b;font-size:.75rem;font-weight:600"></span>
+      </div>
+    </div>
+    <div id="tplContainer">
+      <div class="state"><i class="bi bi-arrow-left"></i>Selecione uma conta Meta na esquerda</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL CRIAR TEMPLATE -->
+<div class="modal-back" id="modalBack" onclick="if(event.target===this)fecharModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3><i class="bi bi-plus-square-fill" style="color:var(--meta)"></i> Novo template</h3>
+      <button class="modal-close" onclick="fecharModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="field grid2">
+        <div>
+          <label>Nome (só a-z, 0-9, _)</label>
+          <input id="fNome" placeholder="ex: boas_vindas_matricula" oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9_]/g,'_')">
+        </div>
+        <div>
+          <label>Idioma</label>
+          <select id="fLang">
+            <option value="pt_BR" selected>Português (Brasil)</option>
+            <option value="en_US">English (US)</option>
+            <option value="es_ES">Español</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <div class="chip-toggle" id="fCategoria">
+          <button type="button" class="active" data-v="MARKETING">Marketing</button>
+          <button type="button" data-v="UTILITY">Utility</button>
+          <button type="button" data-v="AUTHENTICATION">Authentication</button>
+        </div>
+        <div class="hint">Marketing = promoção; Utility = confirmação/atualização; Authentication = OTP.</div>
+      </div>
+
+      <div class="section-title">Cabeçalho (opcional)
+        <span class="op"><span class="chip-toggle" id="fHeaderTipo"><button type="button" class="active" data-v="NONE">Sem</button><button type="button" data-v="TEXT">Texto</button></span></span>
+      </div>
+      <div id="headerBox" style="display:none">
+        <div class="field">
+          <input id="fHeader" placeholder="ex: Olá {{1}}, tudo bem?" oninput="atualizarVars()">
+          <div class="hint">Máx 60 chars. Pode ter 1 variável <code>{{1}}</code>.</div>
+        </div>
+        <div class="exemplos" id="headerExemplos" style="display:none">
+          <div class="ex-title">Exemplos das variáveis (Meta exige)</div>
+          <div id="headerExRows"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Corpo <span class="op">obrigatório</span></div>
+      <div class="field">
+        <textarea id="fBody" rows="4" placeholder="ex: Olá {{1}}, sua matrícula no curso {{2}} foi confirmada!" oninput="atualizarVars()"></textarea>
+        <div class="hint">Máx 1024 chars. Use <code>{{1}}</code>, <code>{{2}}</code>... pra variáveis.</div>
+      </div>
+      <div class="exemplos" id="bodyExemplos" style="display:none">
+        <div class="ex-title">Exemplos das variáveis (Meta exige)</div>
+        <div id="bodyExRows"></div>
+      </div>
+
+      <div class="section-title">Rodapé (opcional)</div>
+      <div class="field">
+        <input id="fFooter" placeholder="ex: Equipe UniFECAF" maxlength="60">
+        <div class="hint">Máx 60 chars, sem variáveis.</div>
+      </div>
+
+      <div class="section-title">Botões (opcional, até 10 quick reply OU 2 URL/telefone)</div>
+      <div class="btn-list" id="btnList"></div>
+      <button type="button" class="btn-add-btn" onclick="addBtn()"><i class="bi bi-plus-lg"></i> Adicionar botão</button>
+
+      <div class="msg-box" id="msgBox"></div>
+    </div>
+    <div class="modal-foot">
+      <span style="font-size:.75rem;color:var(--muted)">Após enviar, Meta revisa em minutos-horas. Status inicial: <b>PENDING</b>.</span>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-secondary" onclick="fecharModal()">Cancelar</button>
+        <button class="btn btn-primary" id="btnSalvar" onclick="salvarTemplate()"><i class="bi bi-send-fill"></i> Enviar pra Meta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = "https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook";
+let TOKEN = "";
+let contas = [];
+let contaAtiva = null;
+let templates = [];
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
+function sair(){try{localStorage.removeItem('chat_token');localStorage.removeItem('chat_usuario')}catch(_){}location.href=LOGIN_URL}
+
+async function api(path, body){
+  const url = BASE + path;
+  if(!body){
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'token=' + encodeURIComponent(TOKEN));
+    return await r.json();
+  }
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({...body,token:TOKEN})});
+  return await r.json();
+}
+
+async function carregarContas(){
+  try{
+    const r = await api('/chat-contas-list');
+    contas = (r.contas||[]).filter(c => c.tipo==='meta');
+    renderContas();
+  }catch(e){ qs('#contasList').innerHTML = '<div class="conta-empty" style="color:var(--err)">Erro: '+esc(e.message)+'</div>' }
+}
+function renderContas(){
+  const el = qs('#contasList');
+  if(!contas.length){ el.innerHTML='<div class="conta-empty"><i class="bi bi-info-circle" style="font-size:1.6rem;display:block;margin-bottom:6px;opacity:.5"></i>Nenhuma conta Meta cadastrada. Cadastre em <b>Contas</b> primeiro.</div>';return }
+  el.innerHTML = contas.map(c=>{
+    const at = contaAtiva && contaAtiva.id===c.id ? ' active':'';
+    return `<div class="conta-item${at}" onclick="selecionarConta('${esc(c.id)}')">
+      <div class="ico"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="info"><div class="nome">${esc(c.nome)}</div><div class="sub">${esc(c.id)}</div></div>
+    </div>`;
+  }).join('');
+}
+
+async function selecionarConta(id){
+  contaAtiva = contas.find(c=>c.id===id);
+  renderContas();
+  qs('#tituloConta').textContent = 'Templates de ' + contaAtiva.nome;
+  qs('#btnNovo').disabled = false;
+  qs('#tplContainer').innerHTML = '<div class="state"><div class="spinner-border spinner-border-sm" style="color:var(--meta)"></div><br>Buscando templates da Meta...</div>';
+  try{
+    const r = await api('/chat-templates?conta_id=' + encodeURIComponent(contaAtiva.id));
+    if(!r.ok){ qs('#tplContainer').innerHTML = '<div class="state" style="color:var(--err)"><i class="bi bi-exclamation-triangle"></i>Erro: '+esc(r.erro||'')+'</div>';return }
+    templates = r.templates||[];
+    renderTemplates();
+  }catch(e){ qs('#tplContainer').innerHTML = '<div class="state" style="color:var(--err)"><i class="bi bi-wifi-off"></i>Erro: '+esc(e.message)+'</div>' }
+}
+function renderTemplates(){
+  // Mostra o campo de busca se tem templates
+  const sb = qs('#tplSearchBox');
+  if(sb) sb.style.display = templates.length ? 'block' : 'none';
+  if(!templates.length){ qs('#tplContainer').innerHTML='<div class="state"><i class="bi bi-tag"></i>Nenhum template ainda. Clique em <b>Novo template</b> pra criar.</div>';return }
+  const termo = (qs('#tplSearch')?.value || '').toLowerCase().trim();
+  const filtrados = termo ? templates.filter(t => {
+    const body = (t.components||[]).find(c=>c.type==='BODY');
+    const bodyText = body ? body.text.toLowerCase() : '';
+    const nome = (t.name||'').toLowerCase();
+    const cat = (t.category||'').toLowerCase();
+    const lang = (t.language||'').toLowerCase();
+    const status = (t.status||'').toLowerCase();
+    return nome.includes(termo) || bodyText.includes(termo) || cat.includes(termo) || lang.includes(termo) || status.includes(termo);
+  }) : templates;
+  // Atualiza contador
+  const cnt = qs('#tplSearchCount');
+  if(cnt) cnt.textContent = termo ? `${filtrados.length}/${templates.length}` : `${templates.length} templates`;
+  if(!filtrados.length){
+    qs('#tplContainer').innerHTML = '<div class="state"><i class="bi bi-search"></i>Nenhum template encontrado pra "' + esc(termo) + '"</div>';
+    return;
+  }
+  const rows = filtrados.map(t=>{
+    const body = (t.components||[]).find(c=>c.type==='BODY');
+    const preview = body ? body.text : '';
+    const stCls = (t.status||'').toLowerCase();
+    return `<tr>
+      <td><div class="tpl-name">${esc(t.name)}</div><div class="tpl-preview">${esc(preview.substring(0,120))}</div></td>
+      <td><span class="pill ${(t.category||'').toLowerCase()}">${esc(t.category||'')}</span></td>
+      <td>${esc(t.language||'')}</td>
+      <td>${t.variaveis&&t.variaveis.length?t.variaveis.length:0}</td>
+      <td><span class="pill ${stCls}">${esc(t.status||'')}</span></td>
+    </tr>`;
+  }).join('');
+  qs('#tplContainer').innerHTML = `<table class="tbl"><thead><tr><th>Nome</th><th style="width:120px">Categoria</th><th style="width:80px">Idioma</th><th style="width:60px">Vars</th><th style="width:110px">Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function filtrarTemplates(){ renderTemplates(); }
+
+/* ===== MODAL CRIAR ===== */
+let categoriaSel = 'MARKETING';
+let headerTipoSel = 'NONE';
+let botoes = []; // [{type, text, url?, phone_number?}]
+
+document.addEventListener('click', e=>{
+  if(e.target.closest('#fCategoria button')){
+    const b=e.target.closest('button');document.querySelectorAll('#fCategoria button').forEach(x=>x.classList.remove('active'));b.classList.add('active');categoriaSel=b.dataset.v;
+  }
+  if(e.target.closest('#fHeaderTipo button')){
+    const b=e.target.closest('button');document.querySelectorAll('#fHeaderTipo button').forEach(x=>x.classList.remove('active'));b.classList.add('active');headerTipoSel=b.dataset.v;
+    qs('#headerBox').style.display = headerTipoSel==='NONE'?'none':'block';
+    atualizarVars();
+  }
+});
+
+function abrirNovo(){
+  qs('#fNome').value=''; qs('#fBody').value=''; qs('#fHeader').value=''; qs('#fFooter').value='';
+  categoriaSel='MARKETING'; headerTipoSel='NONE'; botoes=[];
+  document.querySelectorAll('#fCategoria button').forEach((b,i)=>b.classList.toggle('active',i===0));
+  document.querySelectorAll('#fHeaderTipo button').forEach((b,i)=>b.classList.toggle('active',i===0));
+  qs('#headerBox').style.display='none';
+  qs('#bodyExemplos').style.display='none';
+  qs('#headerExemplos').style.display='none';
+  qs('#msgBox').className='msg-box';qs('#msgBox').textContent='';
+  qs('#btnSalvar').disabled=false;
+  qs('#btnList').innerHTML='';
+  qs('#modalBack').classList.add('on');
+}
+function fecharModal(){qs('#modalBack').classList.remove('on')}
+
+function extrairVars(txt){
+  const m = (txt||'').match(/\{\{\d+\}\}/g)||[];
+  return Array.from(new Set(m)).sort();
+}
+function atualizarVars(){
+  const bodyVars = extrairVars(qs('#fBody').value);
+  const headerVars = extrairVars(qs('#fHeader').value);
+  const bE=qs('#bodyExemplos'), bR=qs('#bodyExRows');
+  if(bodyVars.length){ bE.style.display='block'; bR.innerHTML = bodyVars.map(v=>`<div class="ex-row"><span class="ex-var">${esc(v)}</span><input data-v="${esc(v)}" data-tipo="body" placeholder="valor de exemplo"></div>`).join(''); }
+  else bE.style.display='none';
+  const hE=qs('#headerExemplos'), hR=qs('#headerExRows');
+  if(headerVars.length && headerTipoSel==='TEXT'){ hE.style.display='block'; hR.innerHTML = headerVars.map(v=>`<div class="ex-row"><span class="ex-var">${esc(v)}</span><input data-v="${esc(v)}" data-tipo="header" placeholder="valor de exemplo"></div>`).join(''); }
+  else hE.style.display='none';
+}
+
+function addBtn(){
+  if(botoes.length>=10){alert('Máximo de 10 botões');return}
+  botoes.push({type:'QUICK_REPLY', text:''});
+  renderBotoes();
+}
+function rmBtn(i){botoes.splice(i,1); renderBotoes()}
+function renderBotoes(){
+  qs('#btnList').innerHTML = botoes.map((b,i)=>{
+    const extra = b.type==='URL' ? `<input placeholder="https://..." value="${esc(b.url||'')}" oninput="botoes[${i}].url=this.value">` :
+                  b.type==='PHONE_NUMBER' ? `<input placeholder="+5511999..." value="${esc(b.phone_number||'')}" oninput="botoes[${i}].phone_number=this.value">` :
+                  `<input placeholder="Texto do botão" value="${esc(b.text||'')}" oninput="botoes[${i}].text=this.value">`;
+    return `<div class="btn-row">
+      <select onchange="botoes[${i}].type=this.value;renderBotoes()">
+        <option value="QUICK_REPLY" ${b.type==='QUICK_REPLY'?'selected':''}>Resposta rápida</option>
+        <option value="URL" ${b.type==='URL'?'selected':''}>Link (URL)</option>
+        <option value="PHONE_NUMBER" ${b.type==='PHONE_NUMBER'?'selected':''}>Telefone</option>
+      </select>
+      <input placeholder="Texto do botão (máx 25)" maxlength="25" value="${esc(b.text||'')}" oninput="botoes[${i}].text=this.value">
+      ${b.type!=='QUICK_REPLY'?extra:''}
+      <button class="rm" onclick="rmBtn(${i})" title="Remover"><i class="bi bi-trash3"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function salvarTemplate(){
+  const nome = qs('#fNome').value.trim();
+  const body_text = qs('#fBody').value.trim();
+  const language = qs('#fLang').value;
+  if(!nome){msgErr('Nome obrigatório');return}
+  if(!body_text){msgErr('Corpo obrigatório');return}
+  const header_format = headerTipoSel==='TEXT' ? 'TEXT' : '';
+  const header_text = headerTipoSel==='TEXT' ? qs('#fHeader').value.trim() : '';
+  const footer_text = qs('#fFooter').value.trim();
+  const body_examples = Array.from(qs('#bodyExRows').querySelectorAll('input')).map(i=>i.value.trim()).filter(Boolean);
+  const header_examples = Array.from(qs('#headerExRows').querySelectorAll('input')).map(i=>i.value.trim()).filter(Boolean);
+  // Validações mínimas
+  const bodyVars = extrairVars(body_text);
+  if(bodyVars.length && body_examples.length < bodyVars.length){msgErr('Preencha um exemplo pra cada variável do corpo');return}
+  const headerVars = extrairVars(header_text);
+  if(headerTipoSel==='TEXT' && headerVars.length && header_examples.length < headerVars.length){msgErr('Preencha um exemplo pra cada variável do cabeçalho');return}
+  const buttons = botoes.filter(b=>b.text && (b.type==='QUICK_REPLY' || (b.type==='URL'&&b.url) || (b.type==='PHONE_NUMBER'&&b.phone_number)));
+
+  qs('#btnSalvar').disabled=true;
+  msgOk('Enviando pra Meta...');
+  try{
+    const r = await api('/chat-template-create',{
+      conta_id: contaAtiva.id,
+      name: nome, category: categoriaSel, language,
+      header_format, header_text, header_examples,
+      body_text, body_examples,
+      footer_text, buttons
+    });
+    if(!r.ok){msgErr(r.erro||'Erro Meta');qs('#btnSalvar').disabled=false;return}
+    msgOk('✓ Template enviado! Status: ' + (r.status||'PENDING') + '. Meta revisa em minutos-horas.');
+    setTimeout(()=>{fecharModal();selecionarConta(contaAtiva.id)}, 1400);
+  }catch(e){msgErr('Erro: '+e.message);qs('#btnSalvar').disabled=false}
+}
+function msgOk(t){const m=qs('#msgBox');m.className='msg-box ok on';m.textContent=t}
+function msgErr(t){const m=qs('#msgBox');m.className='msg-box err on';m.textContent=t}
+
+window.onload=()=>{
+  TOKEN = new URLSearchParams(location.search).get('token') || (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})(); if(new URLSearchParams(location.search).get('token')){try{localStorage.setItem('chat_token',TOKEN)}catch(_){} history.replaceState(null,'',location.pathname);}
+  if(!TOKEN){location.href=LOGIN_URL;return}
+  document.getElementById('linkChat').href = location.pathname.includes('/webhook/') ? '/webhook/chat-app?token=' + encodeURIComponent(TOKEN) : 'chat.html';
+  carregarContas();
+};
+</script>
+</body>
+</html>

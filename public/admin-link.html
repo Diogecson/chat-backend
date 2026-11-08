@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Empurrar Atualização</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:760px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);padding:24px;margin-bottom:18px}
+.card h3{margin:0 0 4px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:1rem;display:flex;align-items:center;gap:8px}
+.card .desc{font-size:.85rem;color:var(--muted);margin-bottom:16px;line-height:1.5}
+
+.lbl{display:block;font-size:.72rem;letter-spacing:.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;margin-top:14px}
+.lbl:first-child{margin-top:0}
+.input,.textarea{width:100%;padding:11px 14px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.92rem;color:var(--ink);outline:none;transition:.15s;background:#fff}
+.input:focus,.textarea:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.textarea{min-height:60px;resize:vertical;font-family:inherit}
+
+.btn{border:none;padding:11px 18px;border-radius:10px;font-weight:700;font-size:.9rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.28)}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px)}
+.btn-danger{background:linear-gradient(135deg,var(--err),#b91c1c);color:#fff;box-shadow:0 6px 14px rgba(220,38,38,.28)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+
+.helper{font-size:.75rem;color:var(--muted);margin-top:6px;line-height:1.4}
+
+.info-atual{background:#fef3c7;border:1.5px solid #fde68a;border-radius:10px;padding:14px;margin-bottom:16px}
+.info-atual .lbl-atual{font-size:.7rem;font-weight:800;color:#92400e;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;display:block}
+.info-atual .val-atual{font-family:monospace;font-size:.85rem;color:#78350f;word-break:break-all;font-weight:600}
+.info-atual .meta{font-size:.72rem;color:#92400e;margin-top:8px}
+
+.chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);font-size:.85rem;border-left:4px solid var(--ok);animation:slidein .25s ease-out;min-width:240px;color:#111}
+.chat-toast.err{border-left-color:var(--err)}
+.chat-toast.warn{border-left-color:var(--warn)}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">📢</div>
+    <div>
+      <div class="brand-title">Empurrar Atualização</div>
+      <div class="brand-sub">CHAT MULTI-CONTA</div>
+    </div>
+  </div>
+  <div>
+    <a class="btn-nav" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h3><i class="bi bi-megaphone-fill"></i> Empurrar novo link pra todo mundo</h3>
+    <div class="desc">
+      Cola o link da nova versão (URL do Netlify pós-deploy). Todos os consultores logados vão receber um <b>modal bloqueante</b> obrigando trocar de link — não conseguem usar o sistema antigo até clicar em "Ir pra nova versão".
+    </div>
+
+    <div id="atualBox" style="display:none" class="info-atual">
+      <span class="lbl-atual">Link atual empurrado</span>
+      <div class="val-atual" id="atualLink">-</div>
+      <div class="meta" id="atualMeta">-</div>
+    </div>
+
+    <label class="lbl">Novo link do sistema</label>
+    <input class="input" id="fLink" placeholder="https://6a7ef81...--chat-venda.netlify.app" autocomplete="off">
+    <div class="helper">Precisa começar com <code>http://</code> ou <code>https://</code>. Pode ser o URL do deploy preview OU o URL principal.</div>
+
+    <label class="lbl">Mensagem do modal (opcional)</label>
+    <textarea class="textarea" id="fMsg" placeholder="Nova versão disponível! Clique pra atualizar." maxlength="300">Nova versão disponível! Clique pra atualizar.</textarea>
+
+    <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
+      <button class="btn btn-primary" id="btnEnviar" onclick="enviar()"><i class="bi bi-send-fill"></i> Empurrar atualização agora</button>
+      <button class="btn btn-secondary" onclick="limpar()" title="Limpa o link forçado — usuarios param de receber o modal"><i class="bi bi-x-lg"></i> Cancelar empurrão</button>
+    </div>
+  </div>
+
+  <div class="card" style="background:#eff6ff;border-color:#bfdbfe">
+    <h3 style="color:#1e40af"><i class="bi bi-info-circle-fill"></i> Como funciona</h3>
+    <div style="font-size:.85rem;color:#1e3a8a;line-height:1.6">
+      1. Faz deploy do novo código no Netlify<br>
+      2. Copia o novo link (do deploy preview OU do URL principal)<br>
+      3. Cola aqui e clica <b>Empurrar</b><br>
+      4. Todos usuários abertos veem um modal grande em até 30s<br>
+      5. Ao clicar "Ir pra nova versão", vão pro link novo automaticamente<br>
+      <br>
+      <b>Dica:</b> se você usar o URL principal (sem hash) e mandar via este empurrão UMA vez, os usuários nunca mais precisarão trocar de link. Deploy futuros são pegos automaticamente pela versão-check.
+    </div>
+  </div>
+</div>
+
+<div class="chat-toasts-stack" id="toasts"></div>
+
+<script>
+const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_GET  = URL_BASE + '/webhook/chat-link-versao-get';
+const URL_SAVE = URL_BASE + '/webhook/chat-link-versao-save';
+
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+const USUARIO = sessionStorage.getItem('chat_usuario') || localStorage.getItem('chat_usuario') || '';
+if(!TOKEN || !USUARIO){ window.location.href='login.html'; }
+
+function qs(s){ return document.querySelector(s); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sair(){ sessionStorage.clear(); localStorage.removeItem('chat_token'); localStorage.removeItem('chat_usuario'); location.href='login.html'; }
+function toast(msg,tipo){
+  const st=qs('#toasts');if(!st)return;
+  const el=document.createElement('div');
+  el.className='chat-toast'+(tipo?' '+tipo:'');el.textContent=msg;st.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3000);
+}
+async function api(url, opt){
+  opt = opt || {}; opt.headers = opt.headers || {};
+  if(!opt.method || opt.method==='GET'){
+    const sep = url.includes('?')?'&':'?';
+    url = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(url); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  } else {
+    opt.headers['Content-Type'] = 'text/plain;charset=UTF-8';
+    if(opt.bodyObj){
+      opt.body = JSON.stringify({token:TOKEN, usuario:USUARIO, _actor:USUARIO, ...opt.bodyObj});
+      delete opt.bodyObj;
+    }
+    const r = await fetch(url, opt); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  }
+}
+
+async function carregar(){
+  try {
+    const r = await api(URL_GET);
+    if(r && r.ok && r.link){
+      qs('#atualBox').style.display = 'block';
+      qs('#atualLink').textContent = r.link;
+      const dt = r.atualizado_em ? new Date(r.atualizado_em).toLocaleString('pt-BR') : '';
+      qs('#atualMeta').textContent = 'Empurrado por ' + (r.atualizado_por||'?') + ' em ' + dt;
+    }
+  } catch(_){}
+}
+
+async function enviar(){
+  const link = qs('#fLink').value.trim();
+  const mensagem = qs('#fMsg').value.trim() || 'Nova versão disponível! Clique pra atualizar.';
+  if(!link){ toast('Cola o link primeiro','warn'); return; }
+  if(!/^https?:\/\//i.test(link)){ toast('Link deve começar com http:// ou https://','err'); return; }
+  if(!confirm('Empurrar essa atualização pra todos usuários?\n\nEles vão receber um modal bloqueante em até 30s.')) return;
+  const btn = qs('#btnEnviar');
+  btn.disabled = true; btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...';
+  try {
+    const r = await api(URL_SAVE, {method:'POST', bodyObj:{link, mensagem}});
+    if(r.ok){ toast('Enviado! Usuários vão receber em segundos.',''); qs('#fLink').value=''; carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+  finally {
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-send-fill"></i> Empurrar atualização agora';
+  }
+}
+
+async function limpar(){
+  if(!confirm('Cancelar o empurrão? Usuários param de receber o modal.')) return;
+  try {
+    const r = await api(URL_SAVE, {method:'POST', bodyObj:{link:'https://placeholder-nao-usar/', mensagem:''}});
+    if(r.ok){ toast('Empurrão cancelado.',''); carregar(); }
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+carregar();
+</script>
+
+</body>
+</html>

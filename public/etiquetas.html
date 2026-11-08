@@ -1,0 +1,222 @@
+<meta charset="utf-8">
+<title>Etiquetas — Exportar</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),#a855f7);font-weight:800;font-size:18px}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.wrap{max-width:1400px;margin:24px auto;padding:0 22px 40px}
+.filtros{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);padding:14px 18px;margin-bottom:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.filtros label{display:flex;flex-direction:column;gap:4px;font-size:.72rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px}
+.filtros select,.filtros input{padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-family:inherit;font-size:.85rem;color:var(--ink);outline:none;min-width:170px}
+.filtros button{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.filtros button.btn-export{background:linear-gradient(135deg,var(--ok),#10b981)}
+.card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.card-title{margin:0;font-size:1rem;font-weight:700}
+.badge-total{background:var(--purple);color:#fff;padding:4px 12px;border-radius:12px;font-size:.75rem;font-weight:700}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem}
+.tbl thead{background:#fafbfc;border-bottom:2px solid var(--line)}
+.tbl th{padding:10px 14px;text-align:left;font-size:.72rem;text-transform:uppercase;color:var(--muted);letter-spacing:.5px;font-weight:700}
+.tbl td{padding:10px 14px;border-bottom:1px solid #f5f7fb}
+.tbl tr:hover td{background:#fafbfc}
+.tag{background:#f0e7ff;color:var(--purple);padding:2px 8px;border-radius:10px;font-size:.72rem;font-weight:600;margin-right:4px;display:inline-block;margin-bottom:2px}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.pill-fin{background:#fef2f2;color:var(--err);padding:2px 8px;border-radius:8px;font-size:.7rem;font-weight:600}
+.pill-open{background:#f0fdf4;color:var(--ok);padding:2px 8px;border-radius:8px;font-size:.7rem;font-weight:600}
+</style>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark"><i class="bi bi-tags-fill"></i></div>
+    <div>
+      <div class="brand-title">Etiquetas</div>
+      <div class="brand-sub">EXPORTAR CONTATOS</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="chat.html" class="btn-nav"><i class="bi bi-chat-dots"></i> Chat</a>
+    <a href="gestao.html" class="btn-nav"><i class="bi bi-graph-up"></i> Gestão</a>
+    <a href="index.html" class="btn-nav"><i class="bi bi-box-arrow-right"></i> Sair</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="filtros">
+    <label>Conta
+      <select id="fConta"><option value="">Todas</option></select>
+    </label>
+    <label>Etiqueta 1
+      <select id="fEtiq1"><option value="">Todas etiquetas</option></select>
+    </label>
+    <label>+ Etiqueta 2 (AND)
+      <select id="fEtiq2"><option value="">Nenhuma</option></select>
+    </label>
+    <label>Consultor
+      <select id="fConsultor"><option value="">Todos</option></select>
+    </label>
+    <label>De
+      <input type="date" id="fDataDe">
+    </label>
+    <label>Até
+      <input type="date" id="fDataAte">
+    </label>
+    <button onclick="carregar()"><i class="bi bi-funnel-fill"></i> Aplicar</button>
+    <button class="btn-export" onclick="exportarCSV()"><i class="bi bi-download"></i> Exportar CSV</button>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-list-ul"></i> Contatos etiquetados</h3>
+      <span class="badge-total"><span id="totalCount">0</span> contatos</span>
+    </div>
+    <div style="max-height:70vh;overflow:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Telefone</th>
+            <th>Consultor</th>
+            <th>Etiquetas</th>
+            <th>Aplicada em</th>
+            <th>Última msg</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr><td colspan="7" class="empty">Aplique os filtros e clique em <b>Aplicar</b> pra carregar</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+let LINHAS = [];
+
+function esc(s){ return String(s||'').replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":"&#39;"}[c])); }
+
+function fmtDate(iso){
+  if(!iso) return '-';
+  try{ const d = new Date(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}); }
+  catch(_){ return iso; }
+}
+
+function fmtTel(t){
+  const s = String(t||'').replace(/\D/g,'');
+  if(s.length === 13) return '+'+s.slice(0,2)+' ('+s.slice(2,4)+') '+s.slice(4,9)+'-'+s.slice(9);
+  if(s.length === 12) return '+'+s.slice(0,2)+' ('+s.slice(2,4)+') '+s.slice(4,8)+'-'+s.slice(8);
+  return s;
+}
+
+async function carregar(){
+  const params = [];
+  const conta = document.getElementById('fConta').value;
+  const et1 = document.getElementById('fEtiq1').value;
+  const et2 = document.getElementById('fEtiq2').value;
+  const cons = document.getElementById('fConsultor').value;
+  const de = document.getElementById('fDataDe').value;
+  const ate = document.getElementById('fDataAte').value;
+  if(conta) params.push('conta_id='+encodeURIComponent(conta));
+  if(et1) params.push('etiqueta='+encodeURIComponent(et1));
+  if(et2) params.push('etiqueta2='+encodeURIComponent(et2));
+  if(cons) params.push('consultor='+encodeURIComponent(cons));
+  if(de) params.push('data_de='+encodeURIComponent(de));
+  if(ate) params.push('data_ate='+encodeURIComponent(ate));
+  document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty">Carregando...</td></tr>';
+  try{
+    const r = await fetch(URL_BASE + '/webhook/chat-etiquetas-export?' + params.join('&'));
+    const j = await r.json();
+    if(!j || !j.ok){ document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty">Erro: '+esc(j&&j.erro||'sem resposta')+'</td></tr>'; return; }
+    LINHAS = j.rows || [];
+    renderTabela();
+  } catch(e){
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty">Erro: '+esc(e.message)+'</td></tr>';
+  }
+}
+
+function renderTabela(){
+  document.getElementById('totalCount').textContent = LINHAS.length;
+  if(!LINHAS.length){
+    document.getElementById('tbody').innerHTML = '<tr><td colspan="7" class="empty">Nenhum contato encontrado com esses filtros</td></tr>';
+    return;
+  }
+  document.getElementById('tbody').innerHTML = LINHAS.map(r => {
+    const etiqs = String(r.etiquetas||'').split(',').map(e => e.trim()).filter(Boolean);
+    const tags = etiqs.map(e => '<span class="tag">'+esc(e)+'</span>').join('');
+    const status = r.finalizada ? '<span class="pill-fin">Finalizada</span>' : '<span class="pill-open">Aberta</span>';
+    return `<tr>
+      <td><b>${esc(r.nome||'—')}</b></td>
+      <td>${esc(fmtTel(r.telefone))}</td>
+      <td>${esc(r.consultor||'—')}</td>
+      <td>${tags}</td>
+      <td>${esc(fmtDate(r.aplicada_em))}</td>
+      <td>${esc(fmtDate(r.ultima_msg))}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join('');
+}
+
+function exportarCSV(){
+  if(!LINHAS.length){ alert('Sem dados pra exportar. Carrega primeiro.'); return; }
+  const header = ['Nome','Telefone','Consultor','Etiquetas','Aplicada em','Ultima msg','Status'];
+  const rows = LINHAS.map(r => [
+    r.nome||'',
+    r.telefone||'',
+    r.consultor||'',
+    (r.etiquetas||'').replace(/"/g,"'"),
+    r.aplicada_em ? new Date(r.aplicada_em).toLocaleString('pt-BR') : '',
+    r.ultima_msg ? new Date(r.ultima_msg).toLocaleString('pt-BR') : '',
+    r.finalizada ? 'Finalizada' : 'Aberta'
+  ]);
+  const csv = '﻿' + [header, ...rows].map(l => l.map(v => '"'+String(v).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'etiquetas_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function popularFiltros(){
+  try{
+    const [rC, rE, rA] = await Promise.all([
+      fetch(URL_BASE + '/webhook/chat-contas-list').then(r => r.json()),
+      fetch(URL_BASE + '/webhook/chat-etiquetas-list').then(r => r.json()),
+      fetch(URL_BASE + '/webhook/chat-atendentes-list').then(r => r.json())
+    ]);
+    const contas = (rC && rC.contas) || [];
+    const selC = document.getElementById('fConta');
+    selC.innerHTML = '<option value="">Todas contas</option>' +
+      contas.map(c => `<option value="${esc(c.codigo)}">${esc(c.nome||c.codigo)}</option>`).join('');
+
+    const etiqs = (rE && rE.etiquetas) || [];
+    const optsEtiq = '<option value="">Todas etiquetas</option>' +
+      etiqs.map(e => `<option value="${esc(e.etiqueta)}">${esc(e.etiqueta)} (${e.total||0})</option>`).join('');
+    document.getElementById('fEtiq1').innerHTML = optsEtiq;
+    document.getElementById('fEtiq2').innerHTML = '<option value="">Nenhuma</option>' +
+      etiqs.map(e => `<option value="${esc(e.etiqueta)}">${esc(e.etiqueta)} (${e.total||0})</option>`).join('');
+
+    const atd = (rA && rA.atendentes) || [];
+    document.getElementById('fConsultor').innerHTML = '<option value="">Todos</option>' +
+      atd.map(a => `<option value="${esc((a.usuario||'').toLowerCase())}">${esc(a.nome||a.usuario)}</option>`).join('');
+  }catch(_){}
+}
+
+popularFiltros();
+</script>

@@ -1,55 +1,108 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Login — ChatBackend</title>
-  <link rel="stylesheet" href="/styles.css" />
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Chat Multi-Conta</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--green:#25d366;--green-700:#128c7e;--ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2}
+*{box-sizing:border-box}
+body{min-height:100vh;display:flex;align-items:center;justify-content:center;margin:0;
+  font-family:'Inter',system-ui,sans-serif;position:relative;overflow:hidden;
+  background:radial-gradient(1200px 700px at 15% 10%,#024a93 0%,transparent 55%),
+             radial-gradient(900px 600px at 90% 90%,#25d36633 0%,transparent 50%),
+             linear-gradient(135deg,#001a3a 0%,var(--blue) 50%,var(--blue-700) 100%)}
+body::before,body::after{content:"";position:absolute;border-radius:50%;filter:blur(40px);opacity:.5;z-index:0}
+body::before{width:300px;height:300px;background:#3b6fb0;top:-80px;left:-60px;animation:float 9s ease-in-out infinite}
+body::after{width:260px;height:260px;background:var(--green);bottom:-70px;right:-50px;animation:float 11s ease-in-out infinite reverse}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(26px)}}
+
+.login-card{position:relative;z-index:2;background:rgba(255,255,255,.97);border-radius:22px;
+  padding:2.6rem 2.4rem;width:100%;max-width:420px;
+  box-shadow:0 30px 70px rgba(0,10,30,.45);border:1px solid rgba(255,255,255,.6);
+  animation:rise .5s cubic-bezier(.2,.8,.2,1)}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+.brand-mark{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;margin:0 auto 1.1rem;
+  background:linear-gradient(135deg,var(--green),var(--green-700));color:#fff;font-size:1.9rem;
+  box-shadow:0 12px 26px rgba(37,211,102,.4)}
+.login-card h1{font-family:'Plus Jakarta Sans',sans-serif;color:var(--blue);font-size:1.45rem;font-weight:800;text-align:center;margin:0 0 .2rem}
+.login-card .sub{color:var(--muted);font-size:.82rem;text-align:center;margin-bottom:1.8rem;letter-spacing:.3px}
+
+.field{margin-bottom:1.05rem}
+.field label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:.4rem}
+.input-wrap{position:relative}
+.input-wrap i{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:1rem}
+.input-wrap input{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:.78rem .9rem .78rem 2.6rem;
+  font-size:.95rem;transition:.2s;background:#fbfcfe}
+.input-wrap input:focus{border-color:var(--green);box-shadow:0 0 0 4px rgba(37,211,102,.14);outline:none;background:#fff}
+
+.btn-entrar{width:100%;border:none;color:#fff;font-weight:700;padding:.85rem;border-radius:12px;font-size:.95rem;
+  letter-spacing:.4px;background:linear-gradient(135deg,var(--green),var(--green-700));
+  box-shadow:0 10px 24px rgba(37,211,102,.4);transition:.2s;margin-top:.4rem;
+  display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-entrar:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(37,211,102,.5);color:#fff}
+.btn-entrar:disabled{opacity:.75;cursor:not-allowed;transform:none}
+
+.msg{margin-top:1rem;font-size:.84rem;text-align:center;min-height:1.2rem;font-weight:600}
+.foot{margin-top:1.4rem;text-align:center;font-size:.72rem;color:#b9c4d4}
+.foot i{color:var(--green)}
+</style>
 </head>
 <body>
-  <div class="login-wrap">
-    <form class="login-card" onsubmit="doLogin(event)">
-      <h1>ChatBackend</h1>
-      <p class="sub">Painel de administração</p>
+<div class="login-card">
+  <div class="brand-mark"><i class="bi bi-whatsapp"></i></div>
+  <h1>Chat Multi-Conta</h1>
+  <div class="sub">UniFECAF · Oficial + Evolution</div>
 
-      <label for="user">Usuário</label>
-      <input id="user" type="text" required autocomplete="username" autofocus />
-
-      <label for="pass">Senha</label>
-      <input id="pass" type="password" required autocomplete="current-password" />
-
-      <button class="btn" type="submit">Entrar</button>
-      <div id="msg"></div>
-    </form>
+  <div class="field">
+    <label for="usuario">Usuário</label>
+    <div class="input-wrap">
+      <i class="bi bi-person"></i>
+      <input id="usuario" type="text" autocomplete="username" placeholder="seu usuário">
+    </div>
   </div>
 
-  <script>
-    async function doLogin(e) {
-      e.preventDefault();
-      const user = document.getElementById('user').value.trim();
-      const pass = document.getElementById('pass').value;
-      const msg = document.getElementById('msg');
-      msg.textContent = '';
-      try {
-        const r = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ usuario: user, senha: pass }),
-        });
-        const data = await r.json();
-        if (!data.ok) {
-          msg.className = 'error';
-          msg.textContent = data.erro || 'Login inválido';
-          return;
-        }
-        localStorage.setItem('chat_backend_user', JSON.stringify(data.user || { usuario: user }));
-        localStorage.setItem('chat_backend_token', data.token || 'mock');
-        location.href = '/';
-      } catch (err) {
-        msg.className = 'error';
-        msg.textContent = 'Erro de conexão: ' + err.message;
-      }
-    }
-  </script>
+  <div class="field">
+    <label for="senha">Senha</label>
+    <div class="input-wrap">
+      <i class="bi bi-lock"></i>
+      <input id="senha" type="password" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.keyCode===13)entrar()">
+    </div>
+  </div>
+
+  <button class="btn-entrar" onclick="entrar()"><i class="bi bi-box-arrow-in-right"></i> ENTRAR</button>
+  <p id="msg" class="msg"></p>
+  <div class="foot"><i class="bi bi-shield-lock-fill"></i> Conexão segura · UniFECAF 2026</div>
+</div>
+<script>
+async function entrar(){
+var u=document.getElementById("usuario").value.trim();
+var s=document.getElementById("senha").value;
+var m=document.getElementById("msg");
+if(!u||!s){m.style.color="#dc3545";m.textContent="Preencha usuário e senha";return;}
+m.style.color="#6b7a90";m.textContent="Entrando...";
+try{
+var r=await fetch("/webhook/chat-auth",{method:"POST",headers:{"Content-Type":"text/plain;charset=UTF-8"},body:JSON.stringify({usuario:u,senha:s})});
+var txt=await r.text();var d;try{d=JSON.parse(txt);}catch(_){d={ok:false,erro:"Servidor nao respondeu"};}
+if(!d.ok){m.style.color="#dc3545";m.textContent=d.erro||"Login invalido";return;}
+m.style.color="#198754";m.textContent="Acesso liberado!";
+try{
+  localStorage.setItem("chat_token", d.token);
+  localStorage.setItem("chat_usuario", d.usuario||u);
+  localStorage.setItem("chat_nome", d.nome||d.usuario||u);
+  localStorage.setItem("chat_papel", d.papel||"consultor");
+  localStorage.setItem("chat_foto", d.foto_url||"");
+}catch(_){}
+location.href="/chat.html?token="+encodeURIComponent(d.token);
+}catch(e){m.style.color="#dc3545";m.textContent="Erro: "+e.message;}
+}
+</script>
 </body>
 </html>

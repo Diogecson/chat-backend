@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Motivos de Fechamento</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),#9060ff);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(124,58,237,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:960px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:20px}
+
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.28)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-sm{padding:6px 11px;font-size:.78rem}
+
+.mot-item{display:grid;grid-template-columns:12px 1fr 100px 100px 60px auto;gap:12px;align-items:center;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;margin-bottom:8px}
+.mot-cor{width:12px;height:24px;border-radius:4px}
+.mot-nome{font-weight:700;font-size:.95rem}
+.mot-ordem{color:var(--muted);font-size:.78rem;text-align:center}
+.mot-tipo-pill{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px;justify-self:start}
+.mot-tipo-pill.ganho{background:#dcfce7;color:#166534}
+.mot-tipo-pill.perda{background:#fce8e8;color:#991b1b}
+
+.switch-mini{position:relative;display:inline-block;width:38px;height:20px;cursor:pointer}
+.switch-mini input{opacity:0;width:0;height:0}
+.slider-mini{position:absolute;inset:0;background:#cbd5e1;border-radius:20px;transition:.2s}
+.slider-mini::before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch-mini input:checked+.slider-mini{background:var(--ok)}
+.switch-mini input:checked+.slider-mini::before{transform:translateX(18px)}
+
+.empty{padding:38px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:2.4rem;display:block;margin-bottom:8px;opacity:.5}
+
+.chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);font-size:.85rem;border-left:4px solid var(--ok);animation:slidein .25s ease-out;min-width:240px;color:#111}
+.chat-toast.err{border-left-color:var(--err)}
+.chat-toast.warn{border-left-color:var(--warn)}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+
+.modal-back{display:none;position:fixed;inset:0;background:rgba(15,27,45,.5);z-index:9998;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex}
+.modal-card{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:500px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:1rem}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.4rem;line-height:1}
+.modal-body{padding:20px}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:#fbfcfe}
+
+.lbl{display:block;font-size:.72rem;letter-spacing:.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;margin-top:14px}
+.lbl:first-child{margin-top:0}
+.input,.select{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.9rem;color:var(--ink);outline:none;transition:.15s;background:#fff}
+.input:focus,.select:focus{border-color:var(--purple)}
+
+.cor-picker{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.cor-swatch{width:32px;height:32px;border-radius:8px;cursor:pointer;border:2px solid transparent;transition:.15s}
+.cor-swatch:hover{transform:scale(1.1)}
+.cor-swatch.selected{border-color:var(--ink);transform:scale(1.15)}
+
+.helper{font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.4}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">🏷️</div>
+    <div>
+      <div class="brand-title">Motivos de Fechamento</div>
+      <div class="brand-sub">CHAT MULTI-CONTA</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn-nav" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-tags-fill"></i> Motivos configurados</h3>
+      <button class="btn btn-primary" onclick="abrirNovo()"><i class="bi bi-plus-lg"></i> Novo motivo</button>
+    </div>
+    <div class="card-body" id="listaMot">
+      <div class="empty"><i class="bi bi-hourglass-split"></i>Carregando...</div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-body" style="font-size:.85rem;color:var(--muted);line-height:1.5">
+      <b>Como funciona:</b><br>
+      • <b>Ganho</b>: motivo conta como conversão (ex: Matriculado, Boleto pago) → entra na métrica de "Matrículas" e "Taxa de conversão"<br>
+      • <b>Perda</b>: motivo NÃO conta como conversão (ex: Sem interesse, Sem verba) → só serve pra classificar<br>
+      • A cor aparece como badge visual na conversa finalizada<br>
+      • Ordem menor = aparece primeiro no dropdown ao finalizar conversa
+    </div>
+  </div>
+</div>
+
+<!-- MODAL Motivo -->
+<div class="modal-back" id="modalBack">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalTit">Novo motivo</h3>
+      <button class="modal-close" onclick="fechar()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="fCodigo">
+      <label class="lbl">Nome</label>
+      <input class="input" id="fNome" placeholder="Ex: Matriculado" maxlength="60">
+
+      <label class="lbl">Tipo</label>
+      <select class="select" id="fTipo">
+        <option value="ganho">✅ Ganho — conta como matrícula</option>
+        <option value="perda" selected>❌ Perda — não converte</option>
+      </select>
+
+      <label class="lbl">Cor da badge</label>
+      <div class="cor-picker" id="corPicker"></div>
+      <input type="hidden" id="fCor" value="#94a3b8">
+
+      <label class="lbl">Ordem (menor = aparece primeiro)</label>
+      <input class="input" id="fOrdem" type="number" min="0" max="999" value="100" style="width:120px">
+
+      <label class="lbl" style="margin-top:14px">
+        <input type="checkbox" id="fAtivo" checked style="margin-right:6px"> Ativo
+      </label>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="fechar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvar()"><i class="bi bi-check-lg"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<div class="chat-toasts-stack" id="toasts"></div>
+
+<script>
+const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_LIST = URL_BASE + '/webhook/chat-motivos-list-all';
+const URL_SAVE = URL_BASE + '/webhook/chat-motivo-save';
+const URL_DEL  = URL_BASE + '/webhook/chat-motivo-delete';
+
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+const USUARIO = sessionStorage.getItem('chat_usuario') || localStorage.getItem('chat_usuario') || '';
+if(!TOKEN || !USUARIO){ window.location.href='login.html'; }
+
+let MOTIVOS = [];
+const CORES = ['#16a34a','#dc2626','#f59e0b','#3b82f6','#8b5cf6','#ec4899','#14b8a6','#94a3b8','#78350f','#0891b2'];
+
+function qs(s){ return document.querySelector(s); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sair(){ sessionStorage.clear(); localStorage.removeItem('chat_token'); localStorage.removeItem('chat_usuario'); location.href='login.html'; }
+function toast(msg,tipo){
+  const st=qs('#toasts');if(!st)return;
+  const el=document.createElement('div');
+  el.className='chat-toast'+(tipo?' '+tipo:'');el.textContent=msg;st.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3000);
+}
+
+async function api(url, opt){
+  opt = opt || {}; opt.headers = opt.headers || {};
+  if(!opt.method || opt.method==='GET'){
+    const sep = url.includes('?')?'&':'?';
+    url = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(url); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  } else {
+    opt.headers['Content-Type'] = 'text/plain;charset=UTF-8';
+    if(opt.bodyObj){
+      opt.body = JSON.stringify({token:TOKEN, usuario:USUARIO, _actor:USUARIO, ...opt.bodyObj});
+      delete opt.bodyObj;
+    }
+    const r = await fetch(url, opt); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  }
+}
+
+async function carregar(){
+  try {
+    const r = await api(URL_LIST);
+    MOTIVOS = (r && r.motivos) || [];
+    render();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function render(){
+  const cont = qs('#listaMot');
+  if(!MOTIVOS.length){
+    cont.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum motivo. Clique em "Novo motivo".</div>';
+    return;
+  }
+  cont.innerHTML = MOTIVOS.map(m => {
+    const tipoLbl = m.tipo === 'ganho' ? '✅ Ganho' : '❌ Perda';
+    const ativo = m.ativo !== false;
+    return `<div class="mot-item" style="${!ativo?'opacity:.5':''}">
+      <div class="mot-cor" style="background:${esc(m.cor)}"></div>
+      <div>
+        <div class="mot-nome">${esc(m.nome)}</div>
+      </div>
+      <span class="mot-tipo-pill ${m.tipo}">${tipoLbl}</span>
+      <div class="mot-ordem">Ordem: ${m.ordem}</div>
+      <label class="switch-mini" title="${ativo?'Desativar':'Ativar'}">
+        <input type="checkbox" ${ativo?'checked':''} onchange="toggleAtivo('${esc(m.codigo)}', this.checked)">
+        <span class="slider-mini"></span>
+      </label>
+      <div style="display:flex;gap:5px">
+        <button class="btn btn-secondary btn-sm" onclick="editar('${esc(m.codigo)}')" title="Editar"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="deletar('${esc(m.codigo)}')" title="Deletar"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCorPicker(selected){
+  const cont = qs('#corPicker');
+  cont.innerHTML = CORES.map(c => `<div class="cor-swatch ${c===selected?'selected':''}" style="background:${c}" onclick="escolherCor('${c}')"></div>`).join('');
+}
+function escolherCor(cor){
+  qs('#fCor').value = cor;
+  renderCorPicker(cor);
+}
+
+function abrirNovo(){
+  qs('#modalTit').textContent = 'Novo motivo';
+  qs('#fCodigo').value = '';
+  qs('#fNome').value = '';
+  qs('#fTipo').value = 'perda';
+  qs('#fOrdem').value = 100;
+  qs('#fAtivo').checked = true;
+  qs('#fCor').value = '#94a3b8';
+  renderCorPicker('#94a3b8');
+  qs('#modalBack').classList.add('on');
+}
+function editar(codigo){
+  const m = MOTIVOS.find(x => x.codigo === codigo);
+  if(!m) return;
+  qs('#modalTit').textContent = 'Editar motivo';
+  qs('#fCodigo').value = m.codigo;
+  qs('#fNome').value = m.nome;
+  qs('#fTipo').value = m.tipo;
+  qs('#fOrdem').value = m.ordem;
+  qs('#fAtivo').checked = m.ativo !== false;
+  qs('#fCor').value = m.cor;
+  renderCorPicker(m.cor);
+  qs('#modalBack').classList.add('on');
+}
+function fechar(){ qs('#modalBack').classList.remove('on'); }
+
+async function salvar(){
+  const codigo = qs('#fCodigo').value || undefined;
+  const nome = qs('#fNome').value.trim();
+  const tipo = qs('#fTipo').value;
+  const cor = qs('#fCor').value;
+  const ordem = Number(qs('#fOrdem').value) || 100;
+  const ativo = qs('#fAtivo').checked;
+  if(!nome){ toast('Nome obrigatório','warn'); return; }
+  try {
+    const r = await api(URL_SAVE, {method:'POST', bodyObj:{codigo, nome, tipo, cor, ordem, ativo}});
+    if(r.ok){ toast('Motivo salvo.',''); fechar(); carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function toggleAtivo(codigo, ativo){
+  const m = MOTIVOS.find(x => x.codigo === codigo);
+  if(!m) return;
+  try {
+    const r = await api(URL_SAVE, {method:'POST', bodyObj:{codigo, nome:m.nome, tipo:m.tipo, cor:m.cor, ordem:m.ordem, ativo}});
+    if(r.ok){ m.ativo = ativo; toast(ativo?'Ativado':'Desativado',''); }
+    else { toast('Erro','err'); carregar(); }
+  } catch(e){ toast('Erro: '+e.message,'err'); carregar(); }
+}
+
+async function deletar(codigo){
+  const m = MOTIVOS.find(x => x.codigo === codigo);
+  if(!m) return;
+  if(!confirm('Deletar "'+m.nome+'"?\n\nConversas já finalizadas com esse motivo mantêm o texto salvo mas perdem a badge colorida.')) return;
+  try {
+    const r = await api(URL_DEL, {method:'POST', bodyObj:{codigo}});
+    if(r.ok){ toast('Removido.',''); carregar(); }
+    else toast('Erro','err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+carregar();
+</script>
+
+</body>
+</html>

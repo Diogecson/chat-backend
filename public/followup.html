@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Follow-up IA</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--blue-300:#3b6fb0;--orange:#ff6b00;--green:#25d366;--green-700:#128c7e;
+  --meta:#1877f2;--ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --brand:var(--blue); --brand-2:var(--blue-700); --brand-3:var(--blue-300); --accent:var(--orange);
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--brand),var(--brand-2));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--accent),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:flex;align-items:center;gap:6px}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.btn-nav.primary{background:linear-gradient(135deg,var(--accent),#ff9347);border-color:transparent;box-shadow:0 6px 14px rgba(255,107,0,.35)}
+
+.wrap{max-width:960px;margin:24px auto;padding:0 22px 60px}
+.intro{background:linear-gradient(135deg,var(--brand-3)22,transparent);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin-bottom:20px;font-size:.9rem;color:var(--ink);display:flex;align-items:center;gap:12px}
+.intro i{font-size:1.4rem;color:var(--brand);flex-shrink:0}
+
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:14px;transition:.15s}
+.card.ativo{border-left:4px solid var(--ok)}
+.card-head{padding:14px 18px;display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;border-bottom:1px solid var(--line)}
+.conta-info{display:flex;align-items:center;gap:12px;min-width:0}
+.conta-ico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:1rem;flex-shrink:0}
+.conta-ico.meta{background:linear-gradient(135deg,var(--meta),#0e5fc7)}
+.conta-ico.evolution{background:linear-gradient(135deg,var(--green),var(--green-700))}
+.conta-nome{font-weight:700;font-size:.95rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:'Plus Jakarta Sans',sans-serif}
+.conta-tipo{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
+.pill-status{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+.pill-status.on{background:#e6f9ee;color:var(--ok)}
+.pill-status.off{background:#f1f4f9;color:var(--muted)}
+
+.card-body{padding:16px 18px;display:none}
+.card.ativo .card-body{display:block}
+.card.ativo .card-body.forceHide{display:none}
+
+/* Toggle switch */
+.toggle{position:relative;display:inline-block;width:48px;height:26px}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#cbd5e1;transition:.2s;border-radius:26px}
+.toggle-slider:before{position:absolute;content:"";height:20px;width:20px;left:3px;bottom:3px;background:#fff;transition:.2s;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+.toggle input:checked + .toggle-slider{background:var(--ok)}
+.toggle input:checked + .toggle-slider:before{transform:translateX(22px)}
+
+.chip-toggle{display:inline-flex;gap:4px;background:#f1f4f9;border-radius:9px;padding:3px;flex-wrap:wrap}
+.chip-toggle button{border:none;background:transparent;font-size:.78rem;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;transition:.15s}
+.chip-toggle button.active{background:#fff;color:var(--brand);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+
+.field{margin-bottom:14px}
+.field label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.field input{border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.92rem;background:#fbfcfe;transition:.15s;width:120px}
+.field input:focus{border-color:var(--brand-3);box-shadow:0 0 0 4px rgba(59,111,176,.12);outline:none;background:#fff}
+.field .hint{font-size:.75rem;color:var(--muted);margin-top:4px}
+
+.dias-checks{display:flex;gap:6px;flex-wrap:wrap}
+.dia-check{flex:1;min-width:56px;text-align:center;padding:8px 6px;border:1.5px solid var(--line);border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;transition:.15s;background:#fff;user-select:none}
+.dia-check:hover{border-color:var(--brand-3)}
+.dia-check.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+.time-input{border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.92rem;background:#fbfcfe;width:120px}
+
+.card-actions{padding:12px 18px;background:#fbfcfe;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.btn{border:none;padding:9px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#fff;box-shadow:0 6px 14px rgba(0,40,85,.32)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 18px rgba(0,40,85,.4)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+.msg-inline{font-size:.8rem;font-weight:600;display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px}
+.msg-inline.ok{background:#e6f9ee;color:var(--ok)}
+.msg-inline.err{background:#fce8e8;color:var(--err)}
+
+.state{text-align:center;padding:40px 20px;color:var(--muted)}
+.state i{font-size:2.5rem;opacity:.4;display:block;margin-bottom:8px}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:600px){.grid2{grid-template-columns:1fr}}
+
+/* ==== HISTÓRICO ==== */
+.hist-sec{margin-top:32px}
+.hist-titulo{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;color:var(--brand);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.metricas{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+@media (max-width:700px){.metricas{grid-template-columns:repeat(2,1fr)}}
+.metrica{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-sm)}
+.metrica .lbl{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:700;margin-bottom:4px}
+.metrica .val{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.6rem;font-weight:800;color:var(--brand);line-height:1}
+.metrica .sub{font-size:.72rem;color:var(--muted);margin-top:4px}
+.metrica.taxa .val{color:var(--ok)}
+.metrica.taxa.baixa .val{color:var(--warn)}
+.metrica.taxa.zero .val{color:var(--muted)}
+
+.hist-filtros{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.chip-filtro{border:1.5px solid var(--line);background:#fff;padding:6px 14px;border-radius:20px;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s}
+.chip-filtro:hover{border-color:var(--brand-3)}
+.chip-filtro.active{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+.hist-lista{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.hist-tbl{width:100%;border-collapse:collapse}
+.hist-tbl th{padding:10px 14px;font-size:.68rem;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;text-align:left;background:#fbfcfe;border-bottom:1.5px solid var(--line)}
+.hist-tbl td{padding:11px 14px;border-bottom:1px solid #f0f3f8;font-size:.83rem;vertical-align:top}
+.hist-tbl tr:hover td{background:#f6f9ff}
+.hist-tbl tr:last-child td{border-bottom:none}
+.hist-quando{font-weight:600;color:var(--ink);white-space:nowrap}
+.hist-quando .rel{font-weight:400;color:var(--muted);font-size:.72rem;display:block}
+.hist-contato{font-weight:700;color:var(--brand)}
+.hist-contato .tel{font-weight:400;color:var(--muted);font-size:.72rem;display:block;font-family:ui-monospace,Menlo,monospace}
+.hist-msg{max-width:340px;line-height:1.4;color:var(--ink)}
+.hist-resp{font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.hist-resp.sim{background:#e6f9ee;color:var(--ok)}
+.hist-resp.nao{background:#eef1f7;color:var(--muted)}
+.hist-empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.hist-empty i{font-size:2.5rem;opacity:.4;display:block;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Follow-up IA</div>
+      <div class="brand-sub">Re-engajamento automático</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a id="linkChat" href="chat.html" class="btn-nav primary"><i class="bi bi-chat-square-dots-fill"></i> Voltar ao chat</a>
+    <a href="#" onclick="event.preventDefault();sair()" class="btn-nav"><i class="bi bi-box-arrow-right"></i> Sair</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="intro">
+    <i class="bi bi-robot"></i>
+    <div>
+      A IA analisa cada conversa <b>onde o cliente sumiu</b> e envia UMA mensagem de reengajamento personalizada com base no que ele já disse. Configura por conta e ativa/desativa quando quiser. <b>Requer Groq ou OpenAI API key na conta</b> (a mesma usada pra transcrição).
+    </div>
+  </div>
+
+  <div id="lista">
+    <div class="state"><div class="spinner-border spinner-border-sm text-primary"></div><br>Carregando contas...</div>
+  </div>
+
+  <div class="hist-sec">
+    <h2 class="hist-titulo"><i class="bi bi-clock-history"></i> Histórico de follow-ups enviados</h2>
+
+    <div class="metricas">
+      <div class="metrica"><div class="lbl">Total de conversas</div><div class="val" id="mTotalChats">-</div><div class="sub" id="mTotalChatsSub">todas as contas</div></div>
+      <div class="metrica"><div class="lbl">Aguardando cliente</div><div class="val" id="mSemResp">-</div><div class="sub">última msg foi sua</div></div>
+      <div class="metrica"><div class="lbl">Prontos pra disparar</div><div class="val" id="mProntos" style="color:var(--warn)">-</div><div class="sub" id="mProntosSub">bateram o tempo</div></div>
+      <div class="metrica"><div class="lbl">Já receberam FUP</div><div class="val" id="mJaFup">-</div><div class="sub">ciclo atual</div></div>
+    </div>
+    <div class="metricas" style="margin-top:6px">
+      <div class="metrica"><div class="lbl">Hoje</div><div class="val" id="mHoje">-</div><div class="sub">follow-ups enviados</div></div>
+      <div class="metrica"><div class="lbl">Últimos 7 dias</div><div class="val" id="m7d">-</div><div class="sub">no total</div></div>
+      <div class="metrica"><div class="lbl">Últimos 30 dias</div><div class="val" id="m30d">-</div><div class="sub">no total</div></div>
+      <div class="metrica taxa zero" id="mTaxaBox"><div class="lbl">Taxa de resposta</div><div class="val" id="mTaxa">-</div><div class="sub" id="mTaxaSub">clientes que responderam</div></div>
+    </div>
+
+    <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:.95rem;color:var(--brand);margin:20px 0 8px;display:flex;align-items:center;gap:8px"><i class="bi bi-hourglass-split" style="color:var(--warn)"></i> Fila — aguardando disparo</h3>
+    <div class="hist-lista" id="filaLista" style="margin-bottom:24px">
+      <div class="hist-empty"><div class="spinner-border spinner-border-sm text-primary"></div><br>Carregando fila...</div>
+    </div>
+
+    <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:.95rem;color:var(--brand);margin:20px 0 8px;display:flex;align-items:center;gap:8px"><i class="bi bi-list-check"></i> Follow-ups já enviados</h3>
+    <div class="hist-filtros">
+      <button class="chip-filtro active" data-f="all" onclick="filtroHist('all')">Todos</button>
+      <button class="chip-filtro" data-f="respondeu" onclick="filtroHist('respondeu')">Responderam</button>
+      <button class="chip-filtro" data-f="sem" onclick="filtroHist('sem')">Sem resposta</button>
+      <button class="chip-filtro" onclick="carregarLog();carregarFila()" style="margin-left:auto;background:transparent;border-color:transparent;color:var(--muted)"><i class="bi bi-arrow-clockwise"></i> Recarregar tudo</button>
+    </div>
+
+    <div class="hist-lista" id="histLista">
+      <div class="hist-empty"><div class="spinner-border spinner-border-sm text-primary"></div><br>Carregando histórico...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = "https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook";
+let TOKEN = "";
+let configs = [];
+
+const NOMES_DIAS = ['D','S','T','Q','Q','S','S']; // dom, seg, ter, qua, qui, sex, sab
+const NOMES_DIAS_LONGOS = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
+function sair(){try{localStorage.removeItem('chat_token');localStorage.removeItem('chat_usuario')}catch(_){}location.href=LOGIN_URL}
+
+async function api(path, body){
+  const url = BASE + path;
+  if(!body){
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'token=' + encodeURIComponent(TOKEN));
+    return await r.json();
+  }
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({...body,token:TOKEN})});
+  return await r.json();
+}
+
+// Helper: pega contas permitidas do usuário logado (SUPER vê tudo)
+async function getContasPermitidasFU(){
+  const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel === 'SUPER') return '__all__';
+  try {
+    const r = await fetch(BASE + '/chat-atendentes-list');
+    const j = await r.json();
+    const me = (j.atendentes||[]).find(a => String(a.usuario||'').toLowerCase() === String(localStorage.getItem('chat_usuario')||'').toLowerCase());
+    if(me){
+      const raw = String(me.contas_permitidas || '').trim();
+      if(!raw || raw === '*' || raw.toLowerCase() === '__all__') return '__all__';
+      if(raw.toLowerCase() === '__none__') return '__none__';
+      return raw;
+    }
+    return (papel === 'ADM' || papel === 'ADMIN') ? '__all__' : '__none__';
+  } catch(_){ return '__all__'; }
+}
+function _isContaPermFU(contaId, perm){
+  if(perm === '__all__' || perm === '*') return true;
+  if(!perm || perm === '__none__') return false;
+  return perm.split(',').map(s=>s.trim()).includes(String(contaId));
+}
+
+async function carregar(){
+  try{
+    const perm = await getContasPermitidasFU();
+    const r = await api('/chat-followup-list');
+    let cfgs = r.configs || [];
+    // Filtra pelas contas permitidas
+    if(perm !== '__all__'){
+      cfgs = cfgs.filter(c => _isContaPermFU(c.conta_id || c.conta_codigo || c.id, perm));
+    }
+    configs = cfgs;
+    render();
+  }catch(e){ qs('#lista').innerHTML = '<div class="state" style="color:var(--err)">Erro: '+esc(e.message)+'</div>' }
+}
+
+function render(){
+  const el = qs('#lista');
+  if(!configs.length){ el.innerHTML='<div class="state"><i class="bi bi-inbox"></i>Nenhuma conta cadastrada. Cadastre uma conta primeiro em <b>Contas</b>.</div>';return }
+  // Pós-render: carrega templates das contas Meta pra popular os dropdowns
+  setTimeout(()=>{ configs.forEach((c,i)=>{ if(c.conta_tipo==='meta') carregarTplsMeta(i, false); }); }, 100);
+  el.innerHTML = configs.map((c,i)=>{
+    const dias = (c.agenda_dias||'').split(',').map(x=>parseInt(x,10)).filter(x=>x>=0&&x<=6);
+    const iconClass = c.conta_tipo==='meta' ? 'meta' : 'evolution';
+    const iconBi = c.conta_tipo==='meta' ? 'bi-check-circle-fill' : 'bi-whatsapp';
+    return `
+    <div class="card ${c.ativo?'ativo':''}" id="card-${i}">
+      <div class="card-head">
+        <div class="conta-info">
+          <div class="conta-ico ${iconClass}"><i class="bi ${iconBi}"></i></div>
+          <div style="min-width:0">
+            <div class="conta-nome">${esc(c.conta_nome)}</div>
+            <div class="conta-tipo">${c.conta_tipo==='meta'?'Meta Oficial':'Evolution'}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <span class="pill-status ${c.ativo?'on':'off'}">${c.ativo?'Ativo':'Desativado'}</span>
+          <label class="toggle">
+            <input type="checkbox" ${c.ativo?'checked':''} onchange="onToggle(${i}, this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>Modo</label>
+          <div class="chip-toggle" data-idx="${i}">
+            <button type="button" class="${c.modo==='intervalo'?'active':''}" onclick="setModo(${i},'intervalo')">Após X horas sem resposta</button>
+            <button type="button" class="${c.modo==='agenda'?'active':''}" onclick="setModo(${i},'agenda')">Em horário fixo</button>
+          </div>
+        </div>
+
+        <div id="cfgIntervalo-${i}" style="display:${c.modo==='intervalo'?'block':'none'}">
+          <div class="field">
+            <label>Enviar follow-up após quanto tempo sem resposta do cliente</label>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input type="number" min="1" max="1440" value="${c.intervalo_valor||c.intervalo_horas||24}" id="intValor-${i}" style="width:100px">
+              <select id="intUnidade-${i}" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.92rem;background:#fbfcfe">
+                <option value="minutos" ${(c.intervalo_unidade||'horas')==='minutos'?'selected':''}>minutos</option>
+                <option value="horas"   ${(c.intervalo_unidade||'horas')==='horas'?'selected':''}>horas</option>
+                <option value="dias"    ${(c.intervalo_unidade||'horas')==='dias'?'selected':''}>dias</option>
+              </select>
+            </div>
+            <div class="hint">Ex: <b>30 minutos</b> pra chamar atenção rápido · <b>24 horas</b> pra reengajamento no dia seguinte · <b>3 dias</b> pra follow-up leve. Máx: 1440min / 720h / 90d.<br>⏱ O scheduler checa a cada 5min quem já bateu esse tempo.</div>
+          </div>
+        </div>
+
+        ${c.conta_tipo==='meta' ? `
+        <div class="field">
+          <label>Template HSM pra fora da janela 24h (só Meta oficial)</label>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <select id="tplMeta-${i}" style="border:1.5px solid var(--line);border-radius:10px;padding:9px 12px;font-family:inherit;font-size:.92rem;background:#fbfcfe;min-width:260px">
+              <option value="">— nenhum (não enviar fora da janela) —</option>
+            </select>
+            <input id="tplLang-${i}" type="text" value="${c.template_followup_lang||'pt_BR'}" placeholder="pt_BR" style="width:100px">
+            <button type="button" onclick="recarregarTpls(${i})" class="chip-filtro" title="Recarregar templates da Meta"><i class="bi bi-arrow-clockwise"></i></button>
+          </div>
+          <div class="hint">
+            🕐 <b>Dentro da janela 24h</b> (cliente respondeu nas últimas 24h): manda texto livre gerado pela IA.<br>
+            ⏰ <b>Fora da janela</b>: manda o template escolhido (só templates <b>APPROVED</b>). Deixe vazio pra não enviar fora da janela.
+          </div>
+        </div>` : ''}
+
+        <div id="cfgAgenda-${i}" style="display:${c.modo==='agenda'?'block':'none'}">
+          <div class="field">
+            <label>Dias da semana</label>
+            <div class="dias-checks" id="diasChecks-${i}">
+              ${NOMES_DIAS_LONGOS.map((d,idx)=>`<div class="dia-check ${dias.includes(idx)?'on':''}" onclick="toggleDia(${i},${idx})" data-dia="${idx}">${d}</div>`).join('')}
+            </div>
+          </div>
+          <div class="field">
+            <label>Horário</label>
+            <input type="time" class="time-input" value="${c.agenda_hora||'10:00'}" id="agendaHora-${i}">
+            <div class="hint">A IA vai checar quem precisa de follow-up nesse horário nos dias marcados.</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-actions">
+        <span class="msg-inline" id="msg-${i}" style="display:none"></span>
+        <button class="btn btn-primary" onclick="salvar(${i})"><i class="bi bi-check2"></i> Salvar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onToggle(i, val){
+  configs[i].ativo = val;
+  document.getElementById('card-'+i).classList.toggle('ativo', val);
+  const pill = document.querySelector('#card-'+i+' .pill-status');
+  pill.className = 'pill-status ' + (val?'on':'off');
+  pill.textContent = val ? 'Ativo' : 'Desativado';
+}
+function setModo(i, m){
+  configs[i].modo = m;
+  document.querySelectorAll(`#card-${i} .chip-toggle button`).forEach((b,idx)=>{
+    b.classList.toggle('active', (idx===0 && m==='intervalo') || (idx===1 && m==='agenda'));
+  });
+  document.getElementById('cfgIntervalo-'+i).style.display = m==='intervalo' ? 'block' : 'none';
+  document.getElementById('cfgAgenda-'+i).style.display    = m==='agenda'    ? 'block' : 'none';
+}
+function toggleDia(i, dia){
+  const el = document.querySelector(`#diasChecks-${i} [data-dia="${dia}"]`);
+  el.classList.toggle('on');
+}
+
+async function salvar(i){
+  const c = configs[i];
+  const modo = c.modo || 'intervalo';
+  const intValor = parseInt(document.getElementById('intValor-'+i)?.value || c.intervalo_valor || c.intervalo_horas || 24, 10);
+  const intUnidade = document.getElementById('intUnidade-'+i)?.value || c.intervalo_unidade || 'horas';
+  const diasOn = Array.from(document.querySelectorAll(`#diasChecks-${i} .dia-check.on`)).map(e=>e.dataset.dia).join(',');
+  const agHora = document.getElementById('agendaHora-'+i)?.value || c.agenda_hora || '10:00';
+  const tplMeta = document.getElementById('tplMeta-'+i)?.value || c.template_followup_meta || '';
+  const tplLang = document.getElementById('tplLang-'+i)?.value || c.template_followup_lang || 'pt_BR';
+  const msg = document.getElementById('msg-'+i);
+  msg.style.display='inline-flex'; msg.className='msg-inline'; msg.textContent='Salvando...';
+  try{
+    const r = await api('/chat-followup-save', {
+      conta_id: c.conta_id,
+      ativo: c.ativo,
+      modo,
+      intervalo_valor: intValor,
+      intervalo_unidade: intUnidade,
+      agenda_dias: diasOn,
+      agenda_hora: agHora,
+      template_followup_meta: tplMeta,
+      template_followup_lang: tplLang
+    });
+    if(!r.ok){ msg.className='msg-inline err'; msg.textContent='Erro: '+(r.erro||'servidor'); return; }
+    msg.className='msg-inline ok'; msg.innerHTML='<i class="bi bi-check-circle-fill"></i> Salvo';
+    setTimeout(()=>{ msg.style.display='none'; }, 2500);
+  }catch(e){
+    msg.className='msg-inline err'; msg.textContent='Erro: '+e.message;
+  }
+}
+
+// Carrega templates aprovados da conta Meta e popula o dropdown
+const tplsCache = {}; // conta_id -> templates
+async function carregarTplsMeta(i, force){
+  const c = configs[i];
+  if(!c || c.conta_tipo !== 'meta') return;
+  const sel = document.getElementById('tplMeta-'+i);
+  if(!sel) return;
+  if(!force && tplsCache[c.conta_id]){
+    popularSelectTpls(sel, tplsCache[c.conta_id], c.template_followup_meta);
+    return;
+  }
+  sel.innerHTML = '<option value="">Carregando templates...</option>';
+  try{
+    const r = await api('/chat-templates?conta_id=' + encodeURIComponent(c.conta_id));
+    const templates = (r.templates||[]).filter(t => (t.status||'').toUpperCase() === 'APPROVED');
+    tplsCache[c.conta_id] = templates;
+    popularSelectTpls(sel, templates, c.template_followup_meta);
+  }catch(e){
+    sel.innerHTML = '<option value="">Erro ao carregar templates</option>';
+  }
+}
+function popularSelectTpls(sel, templates, selected){
+  const opts = ['<option value="">— nenhum (não enviar fora da janela) —</option>'];
+  for(const t of templates){
+    const sel2 = t.name === selected ? 'selected' : '';
+    opts.push(`<option value="${esc(t.name)}" data-lang="${esc(t.language||'pt_BR')}" ${sel2}>${esc(t.name)} · ${esc(t.language||'')} · ${esc(t.category||'')}</option>`);
+  }
+  if(!templates.length){
+    opts.push('<option value="" disabled>Nenhum template APPROVED encontrado</option>');
+  }
+  sel.innerHTML = opts.join('');
+}
+function recarregarTpls(i){ carregarTplsMeta(i, true); }
+
+// ==== FILA DE FOLLOW-UPS AGUARDANDO DISPARO ====
+let filaCache = [];
+
+async function carregarFila(){
+  const el = document.getElementById('filaLista');
+  el.innerHTML = '<div class="hist-empty"><div class="spinner-border spinner-border-sm text-primary"></div><br>Carregando fila...</div>';
+  try{
+    const r = await api('/chat-followup-fila');
+    filaCache = r.fila || [];
+    atualizarMetricasTotais();
+    renderFila();
+  }catch(e){
+    el.innerHTML = '<div class="hist-empty" style="color:var(--err)">Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function atualizarMetricasTotais(){
+  // Total = todas linhas retornadas (uma por conversa em cada conta ativa)
+  const total = filaCache.length;
+  const semResp = filaCache.length; // toda linha da fila = alguém aguardando cliente (última=out)
+  const prontos = filaCache.filter(f => f.pronto_pra_disparar && !f.ja_teve_fup && f.ativo).length;
+  const jaTiveram = filaCache.filter(f => f.ja_teve_fup).length;
+
+  document.getElementById('mTotalChats').textContent = total;
+  document.getElementById('mSemResp').textContent = semResp;
+  document.getElementById('mProntos').textContent = prontos;
+  document.getElementById('mJaFup').textContent = jaTiveram;
+
+  // Sub-descrição pros prontos
+  const contasComPronto = new Set(filaCache.filter(f => f.pronto_pra_disparar && !f.ja_teve_fup && f.ativo).map(f => f.conta_id));
+  document.getElementById('mProntosSub').textContent = prontos === 0 ? 'nenhum agora' : (contasComPronto.size + ' conta(s) · próximo tick em ≤ 5min');
+}
+
+function fmtDuracao(minutos){
+  const m = Math.floor(minutos);
+  if(m < 1) return 'agora';
+  if(m < 60) return m + 'min';
+  const h = Math.floor(m/60);
+  const restoM = m % 60;
+  if(h < 24) return h + 'h' + (restoM ? ' ' + restoM + 'min' : '');
+  const d = Math.floor(h/24);
+  return d + 'd' + (h%24 ? ' ' + (h%24) + 'h' : '');
+}
+
+function renderFila(){
+  const el = document.getElementById('filaLista');
+  if(!filaCache.length){
+    el.innerHTML = '<div class="hist-empty"><i class="bi bi-check-circle"></i>Nenhuma conversa na fila — todas as conversas estão respondidas ou a conta não tem follow-up ativo.</div>';
+    return;
+  }
+  // Ordena: prontos primeiro, depois pelos mais antigos
+  const arr = filaCache.slice().sort((a,b)=>{
+    const ap = (a.pronto_pra_disparar && !a.ja_teve_fup && a.ativo) ? 0 : 1;
+    const bp = (b.pronto_pra_disparar && !b.ja_teve_fup && b.ativo) ? 0 : 1;
+    if(ap !== bp) return ap - bp;
+    return (b.minutos_desde_ultima||0) - (a.minutos_desde_ultima||0);
+  });
+  el.innerHTML = '<table class="hist-tbl"><thead><tr><th style="width:130px">Última msg sua</th><th style="width:180px">Contato</th><th style="width:120px">Conta</th><th style="width:120px">Config</th><th style="width:130px">Status</th></tr></thead><tbody>' +
+    arr.slice(0,50).map(l=>{
+      const tempo = fmtDuracao(l.minutos_desde_ultima||0);
+      let statusHtml = '';
+      if(!l.ativo){
+        statusHtml = '<span class="hist-resp nao" style="background:#f1f4f9;color:var(--muted)">Conta inativa</span>';
+      } else if(l.ja_teve_fup){
+        statusHtml = '<span class="hist-resp sim" style="background:#e0e7ff;color:#3730a3"><i class="bi bi-check2"></i> Já enviado</span>';
+      } else if(l.pronto_pra_disparar){
+        statusHtml = '<span class="hist-resp sim" style="background:#fff3e0;color:#c76b00"><i class="bi bi-hourglass-bottom"></i> Próximo tick</span>';
+      } else {
+        const faltamMin = Math.max(0, Math.ceil(l.intervalo_minutos - l.minutos_desde_ultima));
+        statusHtml = '<span class="hist-resp nao">Faltam ' + fmtDuracao(faltamMin) + '</span>';
+      }
+      return '<tr>'+
+        '<td class="hist-quando">'+esc(new Date(l.ultima_hora).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))+'<span class="rel">há '+esc(tempo)+'</span></td>'+
+        '<td class="hist-contato">'+esc(l.nome_contato||l.telefone||'-')+'<span class="tel">+'+esc(l.telefone||'')+'</span></td>'+
+        '<td style="font-size:.78rem">'+esc(l.conta_nome||l.conta_id)+'<div style="font-size:.65rem;color:var(--muted);text-transform:uppercase">'+esc(l.conta_tipo||'')+'</div></td>'+
+        '<td style="font-size:.78rem">'+esc(l.intervalo_valor + ' ' + l.intervalo_unidade)+'</td>'+
+        '<td>'+statusHtml+'</td>'+
+      '</tr>';
+    }).join('') +
+    (arr.length > 50 ? '<tr><td colspan="5" style="text-align:center;color:var(--muted);font-size:.75rem">... e mais ' + (arr.length-50) + ' conversas na fila</td></tr>' : '')
+    + '</tbody></table>';
+}
+
+// ==== HISTÓRICO DE FOLLOW-UPS ====
+let logCache = [];
+let filtroAtual = 'all';
+
+async function carregarLog(){
+  const el = document.getElementById('histLista');
+  el.innerHTML = '<div class="hist-empty"><div class="spinner-border spinner-border-sm text-primary"></div><br>Carregando histórico...</div>';
+  try{
+    const r = await api('/chat-followup-log');
+    logCache = r.log || [];
+    calcularMetricas();
+    renderHist();
+  }catch(e){
+    el.innerHTML = '<div class="hist-empty" style="color:var(--err)">Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function fmtDataRel(iso){
+  const d = new Date(iso);
+  const agora = new Date();
+  const diffSeg = Math.floor((agora - d)/1000);
+  const diffMin = Math.floor(diffSeg/60);
+  const diffH = Math.floor(diffMin/60);
+  const diffD = Math.floor(diffH/24);
+  if(diffSeg < 60) return 'agora';
+  if(diffMin < 60) return diffMin + 'min atrás';
+  if(diffH < 24) return diffH + 'h atrás';
+  if(diffD < 7) return diffD + 'd atrás';
+  return d.toLocaleDateString('pt-BR');
+}
+
+function calcularMetricas(){
+  const agora = Date.now();
+  const dia = 86400000;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  let cHoje=0, c7=0, c30=0, cRespondeu=0;
+  for(const l of logCache){
+    const t = new Date(l.enviado_em).getTime();
+    const ageMs = agora - t;
+    if(t >= hoje.getTime()) cHoje++;
+    if(ageMs <= 7*dia) c7++;
+    if(ageMs <= 30*dia) c30++;
+    if(l.respondido_em) cRespondeu++;
+  }
+  document.getElementById('mHoje').textContent = cHoje;
+  document.getElementById('m7d').textContent = c7;
+  document.getElementById('m30d').textContent = c30;
+  const box = document.getElementById('mTaxaBox');
+  const total = logCache.length;
+  if(total === 0){
+    document.getElementById('mTaxa').textContent = '-';
+    document.getElementById('mTaxaSub').textContent = 'sem dados ainda';
+    box.className = 'metrica taxa zero';
+  } else {
+    const pct = Math.round((cRespondeu/total)*100);
+    document.getElementById('mTaxa').textContent = pct + '%';
+    document.getElementById('mTaxaSub').textContent = cRespondeu + ' de ' + total + ' responderam';
+    box.className = 'metrica taxa ' + (pct >= 30 ? '' : (pct === 0 ? 'zero' : 'baixa'));
+  }
+}
+
+function filtroHist(f){
+  filtroAtual = f;
+  document.querySelectorAll('.chip-filtro[data-f]').forEach(b=>b.classList.toggle('active', b.dataset.f===f));
+  renderHist();
+}
+
+function renderHist(){
+  const el = document.getElementById('histLista');
+  let arr = logCache;
+  if(filtroAtual === 'respondeu') arr = arr.filter(l=>l.respondido_em);
+  else if(filtroAtual === 'sem') arr = arr.filter(l=>!l.respondido_em);
+  if(!arr.length){
+    el.innerHTML = '<div class="hist-empty"><i class="bi bi-inbox"></i>' + (logCache.length===0 ? 'Nenhum follow-up enviado ainda. Ative uma conta acima pra o scheduler começar a rodar.' : 'Nenhum resultado com esse filtro.') + '</div>';
+    return;
+  }
+  el.innerHTML = '<table class="hist-tbl"><thead><tr><th style="width:130px">Quando</th><th style="width:180px">Contato</th><th>Mensagem enviada</th><th style="width:100px">Cliente<br>respondeu?</th></tr></thead><tbody>' +
+    arr.map(l=>{
+      const quando = new Date(l.enviado_em).toLocaleString('pt-BR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+      const rel = fmtDataRel(l.enviado_em);
+      const resp = l.respondido_em
+        ? '<span class="hist-resp sim"><i class="bi bi-check-circle-fill"></i> Sim</span><div style="font-size:.68rem;color:var(--muted);margin-top:3px">'+fmtDataRel(l.respondido_em)+'</div>'
+        : '<span class="hist-resp nao">— aguardando</span>';
+      return '<tr>'+
+        '<td class="hist-quando">'+esc(quando)+'<span class="rel">'+esc(rel)+'</span></td>'+
+        '<td class="hist-contato">'+esc(l.nome_contato||l.telefone||'-')+'<span class="tel">+'+esc(l.telefone||'')+'</span><div style="font-size:.65rem;color:var(--muted);margin-top:2px">'+esc(l.conta_nome||l.conta_id||'')+'</div></td>'+
+        '<td class="hist-msg">'+esc(l.texto||'')+'</td>'+
+        '<td>'+resp+'</td>'+
+      '</tr>';
+    }).join('') + '</tbody></table>';
+}
+
+window.onload=()=>{
+  TOKEN = new URLSearchParams(location.search).get('token') || (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})(); if(new URLSearchParams(location.search).get('token')){try{localStorage.setItem('chat_token',TOKEN)}catch(_){} history.replaceState(null,'',location.pathname);}
+  if(!TOKEN){location.href=LOGIN_URL;return}
+  document.getElementById('linkChat').href = location.pathname.includes('/webhook/') ? '/webhook/chat-app?token=' + encodeURIComponent(TOKEN) : 'chat.html';
+  carregar();
+  carregarLog();
+  carregarFila();
+  // auto-refresh de log e fila a cada 60s
+  setInterval(()=>{ carregarLog(); carregarFila(); }, 60000);
+};
+</script>
+</body>
+</html>

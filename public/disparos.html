@@ -1,119 +1,965 @@
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Disparos — ChatBackend</title>
-  <link rel="stylesheet" href="/styles.css" />
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Disparos</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px}
+.grid{display:grid;grid-template-columns:1fr;gap:18px}
+@media (min-width: 960px){ .grid{grid-template-columns:1fr 1.15fr} }
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:18px}
+
+.label{display:block;font-size:.72rem;letter-spacing:.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px}
+.field{margin-bottom:14px}
+.input,.select,.textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-family:inherit;font-size:.88rem;color:var(--ink);outline:none;transition:.15s}
+.input:focus,.select:focus,.textarea:focus{border-color:var(--meta);box-shadow:0 0 0 3px rgba(24,119,242,.12)}
+.textarea{min-height:150px;font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-size:.83rem;line-height:1.5;resize:vertical}
+
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.86rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32)}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-block{width:100%;justify-content:center}
+
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:9px 12px;font-size:.65rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700;text-align:left;background:#fbfcfe;border-bottom:1.5px solid var(--line)}
+.tbl td{padding:10px 12px;border-bottom:1px solid #f0f3f8;font-size:.83rem;vertical-align:middle}
+
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.pill.rascunho{background:#f0f2f7;color:#4b5563}
+.pill.agendado{background:#dbeafe;color:#1e40af}
+.pill.em_andamento{background:#fef3c7;color:#92400e}
+.pill.pausado{background:#e0e7ff;color:#3730a3}
+.btn-warning{background:#f59e0b;color:#fff;border:none}
+.btn-warning:hover{background:#d97706}
+.btn-success{background:#16a34a;color:#fff;border:none}
+.btn-success:hover{background:#15803d}
+.pill.concluido{background:#e6f9ee;color:var(--ok)}
+.pill.cancelado{background:#fce8e8;color:var(--err)}
+
+.helper{font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.4}
+.count-line{display:flex;gap:14px;margin-top:6px;font-size:.75rem;color:var(--muted);flex-wrap:wrap}
+.count-line strong{color:var(--ink)}
+
+.chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);
+  font-size:.85rem;border-left:4px solid var(--ok);animation:slidein .25s ease-out;min-width:240px;color:#111}
+.chat-toast.err{border-left-color:var(--err)}
+.chat-toast.warn{border-left-color:var(--warn)}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+
+.preview{background:#f8fafc;border:1px dashed var(--line);border-radius:10px;padding:12px;font-size:.82rem;color:var(--ink);white-space:pre-wrap;line-height:1.5;max-height:200px;overflow-y:auto}
+.preview .var{background:#fef3c7;padding:1px 5px;border-radius:4px;font-weight:600}
+
+.empty{padding:38px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:2.4rem;display:block;margin-bottom:8px;opacity:.5}
+
+.progress{width:100%;height:6px;background:#f0f2f7;border-radius:3px;overflow:hidden;margin-top:4px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--meta),var(--ok));transition:width .3s}
+
+.quando-opts{display:flex;gap:10px}
+.quando-opt{flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;cursor:pointer;transition:.15s;user-select:none;font-size:.88rem;font-weight:600;color:var(--ink)}
+.quando-opt:hover{border-color:#c9d3e0;background:#fbfcfe}
+.quando-opt.active{border-color:var(--meta);background:#eff6ff;color:var(--meta);box-shadow:0 0 0 3px rgba(24,119,242,.1)}
+.quando-opt input{margin:0;accent-color:var(--meta)}
+.quando-opt i{font-size:1rem}
+</style>
 </head>
 <body>
-  <div id="page">
-    <h1>Disparos</h1>
 
-    <div class="card">
-      <h3>Nova campanha</h3>
-      <form onsubmit="criar(event)">
-        <label>Conta remetente</label>
-        <select id="conta_id">
-          <option value="meta_1316884364850837">VLC — Comunicados Curitiba</option>
-          <option value="meta_1195683866964715">UniFECAF Sede</option>
-        </select>
-
-        <label>Nome da campanha</label>
-        <input id="nome" placeholder="Ex: Comunicado Black Friday" />
-
-        <label>Template Meta (aprovado)</label>
-        <input id="template_name" placeholder="retomar_atendimento" value="retomar_atendimento" />
-
-        <label>Idioma do template</label>
-        <input id="template_language" value="pt_BR" />
-
-        <label>Destinatários (um por linha — formato: telefone[;nome;extra1;extra2...])</label>
-        <textarea id="destinatarios" placeholder="5511999991111;Fulano&#10;5511999992222;Beltrana"></textarea>
-
-        <button class="btn" type="submit" style="margin-top:16px;">Criar campanha</button>
-        <div id="resultado"></div>
-      </form>
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Disparos em Massa</div>
+      <div class="brand-sub">CHAT MULTI-CONTA</div>
     </div>
+  </div>
+  <div class="header-actions">
+    <a href="chat.html" class="btn-nav"><i class="bi bi-chat-dots"></i> Voltar ao chat</a>
+    <a href="#" onclick="sair();return false" class="btn-nav"><i class="bi bi-box-arrow-right"></i> Sair</a>
+  </div>
+</header>
 
-    <div class="card">
-      <h3>Últimas campanhas</h3>
-      <button class="btn outline sm" onclick="carregar()" style="margin-bottom:12px;">Atualizar</button>
-      <table id="tabela">
-        <thead>
-          <tr><th>Código</th><th>Nome</th><th>Conta</th><th>Status</th><th>Progresso</th><th>Criada</th></tr>
-        </thead>
-        <tbody><tr><td colspan="6">Carregando…</td></tr></tbody>
+<div class="wrap">
+<div class="grid">
+
+  <!-- Formulario nova campanha -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-megaphone-fill"></i> Nova campanha</h3>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label class="label">Nome da campanha</label>
+        <input class="input" id="fNome" placeholder="Ex: Reengajamento Setembro" maxlength="120">
+      </div>
+
+      <div class="field">
+        <label class="label">Conta remetente (Meta oficial)</label>
+        <select class="select" id="fConta" onchange="onContaChange()"><option value="">— carregando —</option></select>
+      </div>
+
+      <div class="field">
+        <label class="label">Template HSM aprovado</label>
+        <select class="select" id="fTpl" onchange="onTplChange()"><option value="">— selecione uma conta primeiro —</option></select>
+        <div class="helper">Templates com status APPROVED aparecem aqui. Só eles podem enviar fora da janela 24h.</div>
+      </div>
+
+      <div class="field">
+        <label class="label">Consultor responsável <span style="color:#7b8aa0;font-weight:400;text-transform:none">(opcional — atribui os contatos automaticamente)</span></label>
+        <select class="select" id="fDono">
+          <option value="">— Nenhum (auto-atribuir quando cliente responder) —</option>
+        </select>
+        <div class="helper">Ao selecionar, cada contato do disparo já cai na fila deste consultor assim que a msg é enviada.</div>
+      </div>
+
+      <div class="field" id="fVarsWrap" style="display:none">
+        <label class="label">Variáveis do template</label>
+        <div id="fVars"></div>
+        <div class="helper">Use <span class="var" style="background:#fef3c7;padding:1px 5px;border-radius:4px;font-weight:600">{nome}</span> em qualquer variável — será substituído pelo nome de cada destinatário.</div>
+      </div>
+
+      <div class="field">
+        <label class="label">Preview</label>
+        <div class="preview" id="fPreview">Selecione um template pra ver o preview.</div>
+      </div>
+
+      <div class="field">
+        <label class="label">Destinatários (um por linha)</label>
+        <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap;align-items:center">
+          <button type="button" class="btn btn-secondary" style="font-size:.75rem;padding:6px 10px" onclick="importarAuto('aguardando_resposta')" title="Contatos que voce mandou msg mas nao responderam ainda"><i class="bi bi-hourglass-split"></i> Aguardando resposta</button>
+          <button type="button" class="btn btn-secondary" style="font-size:.75rem;padding:6px 10px" onclick="importarAuto('livres_sem_triagem')" title="Contatos sem consultor e sem triagem preenchida"><i class="bi bi-person-x"></i> Livres sem triagem</button>
+          <div style="display:flex;align-items:center;gap:4px">
+            <i class="bi bi-tag" style="color:#7b8aa0;font-size:.85rem"></i>
+            <select id="fImportEtiqueta" style="font-size:.75rem;padding:6px 10px;border:1px solid #dae4f2;border-radius:8px;background:#fbfcfe;font-family:inherit;cursor:pointer;max-width:180px" title="Etiqueta principal (obrigatória)">
+              <option value="">Por etiqueta...</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <i class="bi bi-plus-lg" style="color:#16a34a;font-size:.85rem"></i>
+            <select id="fImportEtiqueta2" style="font-size:.75rem;padding:6px 10px;border:1px solid #dae4f2;border-radius:8px;background:#f0fdf4;font-family:inherit;cursor:pointer;max-width:180px" title="Também tem esta etiqueta (AND)">
+              <option value="">+ E também tem...</option>
+            </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <i class="bi bi-slash-circle" style="color:#dc2626;font-size:.85rem"></i>
+            <select id="fImportEtiquetaNao" style="font-size:.75rem;padding:6px 10px;border:1px solid #dae4f2;border-radius:8px;background:#fef2f2;font-family:inherit;cursor:pointer;max-width:180px" title="NÃO tem esta etiqueta (excluir)">
+              <option value="">− NÃO tem...</option>
+            </select>
+          </div>
+          <button type="button" class="btn btn-primary" style="font-size:.75rem;padding:6px 12px" onclick="aplicarFiltroEtiquetas()" title="Aplica os 3 filtros de etiqueta"><i class="bi bi-funnel-fill"></i> Aplicar</button>
+          <span id="fImportInfo" style="font-size:.72rem;color:#7b8aa0;align-self:center"></span>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;align-items:center;font-size:.75rem;color:#5b6b83;padding:8px 10px;background:#fafbfc;border:1px dashed #dae4f2;border-radius:8px">
+          <label style="display:flex;align-items:center;gap:6px">Última msg há mais de:
+            <input type="number" id="fHorasMin" min="0" max="720" value="0" oninput="reimportarSePreciso()" style="width:60px;padding:4px 6px;border:1px solid #dae4f2;border-radius:6px;font-family:inherit"> horas
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" id="fInclDisparos" onchange="reimportarSePreciso()"> Incluir disparos anteriores
+          </label>
+        </div>
+        <textarea class="textarea" id="fDest" placeholder="5511999999999,João Silva
+5511888888888,Maria Santos
+5511777777777"></textarea>
+        <div class="helper">Formato: <code>telefone,nome</code> ou só <code>telefone</code>. Ou usa um dos botões acima pra puxar automaticamente. Duplicados e inválidos são removidos.</div>
+        <div class="count-line" id="fCount"><span>0 números válidos</span></div>
+      </div>
+
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;padding:12px;background:#f5f8fd;border:1px solid #dae4f2;border-radius:8px">
+          <input type="checkbox" id="fPularExist" checked style="width:18px;height:18px;cursor:pointer">
+          <div>
+            <div style="font-weight:600;font-size:.9rem;color:#1a2438">Pular contatos que ja tem chat</div>
+            <div style="font-size:.75rem;color:#7b8aa0;margin-top:2px">Numeros que ja receberam ou enviaram mensagem nesta conta serao ignorados.</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="field" style="position:relative">
+        <label class="label">Etiquetas do disparo <span style="color:#7b8aa0;font-weight:400;text-transform:none">(opcional — pra mapear origem do contato)</span></label>
+        <div id="fEtiqChips" style="display:flex;flex-wrap:wrap;gap:6px;min-height:38px;padding:6px;border:1.5px solid #dae4f2;border-radius:8px;background:#fbfcfe;align-items:center;cursor:text">
+          <input type="text" id="fEtiqInput" placeholder="Clique pra escolher ou digite pra criar nova..." autocomplete="off" style="flex:1;min-width:180px;border:none;outline:none;background:transparent;font-family:inherit;font-size:.85rem;padding:4px">
+        </div>
+        <div id="fEtiqDropdown" style="display:none;position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;border:1.5px solid #dae4f2;border-radius:8px;box-shadow:0 6px 16px rgba(0,10,30,.12);max-height:280px;overflow-y:auto;z-index:100">
+          <div id="fEtiqDropdownHead" style="padding:8px 12px;font-size:.7rem;color:#7b8aa0;font-weight:700;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #f0f3f8;position:sticky;top:0;background:#fbfcfe">
+            Etiquetas existentes
+          </div>
+          <div id="fEtiqDropdownList"></div>
+          <div id="fEtiqDropdownEmpty" style="padding:16px;text-align:center;color:#7b8aa0;font-size:.78rem;display:none">Nenhuma etiqueta encontrada.</div>
+        </div>
+        <div class="helper">Escolha existentes ou digite + <b>Enter</b> pra criar nova. Cada etiqueta é aplicada em <b>todos os contatos</b> do disparo.</div>
+      </div>
+
+      <div class="field">
+        <label class="label">Quando enviar</label>
+        <div class="quando-opts">
+          <label class="quando-opt active" data-val="agora">
+            <input type="radio" name="rQuando" value="agora" checked>
+            <i class="bi bi-lightning-charge-fill"></i>
+            <span>Enviar agora</span>
+          </label>
+          <label class="quando-opt" data-val="agendar">
+            <input type="radio" name="rQuando" value="agendar">
+            <i class="bi bi-clock-fill"></i>
+            <span>Agendar</span>
+          </label>
+        </div>
+        <input class="input" id="fQuando" type="datetime-local" style="display:none;margin-top:8px">
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:16px">
+        <button class="btn btn-primary btn-block" id="btnDisparar" onclick="disparar()">
+          <i class="bi bi-send-fill"></i> <span id="btnDispararLabel">Disparar agora</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de campanhas -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-clock-history"></i> Campanhas</h3>
+      <button class="btn btn-secondary" onclick="carregarCampanhas()"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+    <div style="max-height:70vh;overflow-y:auto">
+      <table class="tbl">
+        <thead><tr>
+          <th>Campanha</th>
+          <th style="width:110px">Status</th>
+          <th style="width:120px">Progresso</th>
+          <th style="width:80px;text-align:center" title="Matrículas (motivo tipo ganho)">Matr.</th>
+          <th style="width:80px;text-align:center" title="Perdas (motivo tipo perda)">Perdas</th>
+          <th style="width:80px;text-align:center" title="Taxa de conversão sobre enviadas">Conv.</th>
+          <th style="width:70px"></th>
+        </tr></thead>
+        <tbody id="tblCampanhas"><tr><td colspan="7" class="empty"><i class="bi bi-inbox"></i>Carregando…</td></tr></tbody>
       </table>
     </div>
   </div>
-  <script src="/layout.js"></script>
-  <script>
-    function parseDest(texto) {
-      return texto.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
-        const parts = l.split(/[;,\t]/);
-        return {
-          telefone: (parts[0] || '').replace(/\D/g,''),
-          nome: (parts[1] || '').trim(),
-          extra_vars: parts.slice(2).map(s => s.trim()),
-        };
-      }).filter(d => d.telefone);
-    }
 
-    async function criar(e) {
+</div>
+</div>
+
+<div class="chat-toasts-stack" id="toasts"></div>
+
+<script>
+// ======== CONFIG ========
+const params = new URLSearchParams(location.search);
+const URL_BASE = params.get('base') || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_CONTAS   = URL_BASE + '/webhook/chat-contas-list';
+const URL_TPLS     = URL_BASE + '/webhook/chat-templates';
+const URL_CRIAR    = URL_BASE + '/webhook/chat-disparos-criar';
+const URL_LIST     = URL_BASE + '/webhook/chat-disparos-list';
+const URL_CANCELAR = URL_BASE + '/webhook/chat-disparos-cancelar';
+const URL_ATENDENTES = URL_BASE + '/webhook/chat-atendentes-list';
+
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+const USUARIO = sessionStorage.getItem('chat_usuario') || localStorage.getItem('chat_usuario') || '';
+const PAPEL = sessionStorage.getItem('chat_papel') || localStorage.getItem('chat_papel') || 'USER';
+
+if(!TOKEN || !USUARIO){ window.location.href='login.html'; }
+
+let contas = [];
+let templates = [];
+let tplSelecionado = null;
+
+function qs(s){ return document.querySelector(s); }
+function toast(msg,tipo){
+  const st=qs('#toasts');if(!st){console.warn('toast:',msg);return}
+  const el=document.createElement('div');
+  el.className='chat-toast'+(tipo?' '+tipo:'');el.textContent=msg;st.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3200);
+}
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function api(url, opt){
+  opt = opt || {};
+  opt.headers = opt.headers || {};
+  if(!opt.method || opt.method==='GET'){
+    const sep = url.includes('?')?'&':'?';
+    url = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(url);
+    const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  } else {
+    opt.headers['Content-Type'] = 'text/plain;charset=UTF-8';
+    if(opt.bodyObj){
+      opt.body = JSON.stringify({token:TOKEN, usuario:USUARIO, _actor:USUARIO, ...opt.bodyObj});
+      delete opt.bodyObj;
+    }
+    const r = await fetch(url, opt);
+    const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  }
+}
+
+function sair(){
+  sessionStorage.clear(); localStorage.removeItem('chat_token');
+  localStorage.removeItem('chat_usuario'); localStorage.removeItem('chat_papel');
+  window.location.href='login.html';
+}
+
+// ======== CARREGAR ATENDENTES (pra select "Consultor responsável") ========
+// Guarda a lista crua pra re-filtrar quando mudar conta
+let _ATENDENTES_RAW = [];
+async function carregarAtendentes(){
+  const sel = qs('#fDono');
+  if(!sel) return;
+  try{
+    const r = await api(URL_ATENDENTES);
+    _ATENDENTES_RAW = (r.atendentes||[]).filter(a => (a.ativo !== false));
+    renderDropdownConsultores();
+  }catch(e){ /* silencioso — campo continua opcional */ }
+}
+
+// ======== CARREGAR CONTAS (só Meta, filtradas pelas permitidas do usuário logado) ========
+// Pega as contas permitidas do usuário atual via /chat-atendentes-list
+async function getContasPermitidasDoUsuario(){
+  const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel === 'SUPER') return '__all__'; // SUPER vê tudo
+  try {
+    const r = await api(URL_BASE + '/webhook/chat-atendentes-list');
+    const me = (r.atendentes||[]).find(a => String(a.usuario||'').toLowerCase() === String(localStorage.getItem('chat_usuario')||'').toLowerCase());
+    if(me){
+      const raw = String(me.contas_permitidas || '').trim();
+      if(!raw || raw === '*' || raw.toLowerCase() === '__all__') return '__all__';
+      if(raw.toLowerCase() === '__none__') return '__none__';
+      return raw;
+    }
+    return (papel === 'ADM' || papel === 'ADMIN') ? '__all__' : '__none__';
+  } catch(_){ return '__all__'; }
+}
+function _isContaPermitidaDisparos(contaId, perm){
+  if(perm === '__all__' || perm === '*') return true;
+  if(!perm || perm === '__none__') return false;
+  return perm.split(',').map(s=>s.trim()).includes(String(contaId));
+}
+async function carregarContas(){
+  try{
+    const perm = await getContasPermitidasDoUsuario();
+    const r = await api(URL_CONTAS);
+    const todas = (r.contas||[]).filter(c => (c.tipo||c.canal||'').toLowerCase()==='meta' && (c.status||'ativo')==='ativo');
+    contas = todas.filter(c => _isContaPermitidaDisparos(c.id || c.codigo, perm));
+    const sel = qs('#fConta');
+    if(!contas.length){
+      const msg = todas.length
+        ? '— sem contas liberadas pra você —'
+        : '— nenhuma conta Meta ativa —';
+      sel.innerHTML = '<option value="">' + msg + '</option>';
+      if(todas.length){
+        toast('Você não tem acesso a nenhuma conta Meta. Fale com o SUPER.','warn');
+      } else {
+        toast('Nenhuma conta Meta oficial cadastrada. Vá em Contas primeiro.','warn');
+      }
+      return;
+    }
+    sel.innerHTML = '<option value="">— selecione —</option>' +
+      contas.map(c => '<option value="'+(c.id||c.codigo)+'">'+escapeHtml(c.nome||c.id||c.codigo)+'</option>').join('');
+  }catch(e){ toast('Erro ao carregar contas: '+e.message,'err'); }
+}
+
+// ======== Renderiza dropdown de consultores filtrados pela conta ativa ========
+// Admin/Super que NÃO escolheu conta: mostra todos ativos
+// Admin/Super com conta escolhida: mostra só os que têm essa conta em contas_permitidas
+// USER (não deveria chegar aqui — guard do head), mas se chegar, só ele mesmo
+function renderDropdownConsultores(){
+  const sel = qs('#fDono');
+  if(!sel) return;
+  const papel = String(PAPEL||'').toUpperCase();
+  const contaAtiva = (qs('#fConta')||{}).value || '';
+  let atd = _ATENDENTES_RAW.slice();
+  if(papel !== 'ADM' && papel !== 'ADMIN' && papel !== 'SUPER'){
+    atd = atd.filter(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
+  } else if(contaAtiva){
+    // Filtra: consultor precisa ter essa conta nas contas_permitidas (ou '*'/__all__)
+    atd = atd.filter(a => {
+      const perm = String(a.contas_permitidas||'*').trim();
+      if(!perm || perm === '*' || perm.toLowerCase() === '__all__') return true;
+      if(perm.toLowerCase() === '__none__') return false;
+      return perm.split(',').map(s=>s.trim()).includes(contaAtiva);
+    });
+  }
+  atd.sort((a,b) => String(a.nome||a.usuario||'').localeCompare(String(b.nome||b.usuario||'')));
+  sel.innerHTML = '<option value="">— Nenhum (auto-atribuir quando cliente responder) —</option>' +
+    atd.map(a => '<option value="'+escapeHtml((a.usuario||'').toLowerCase())+'">'+escapeHtml(a.nome||a.usuario)+'</option>').join('');
+}
+
+// ======== CARREGAR TEMPLATES ========
+async function onContaChange(){
+  const conta_id = qs('#fConta').value;
+  const sel = qs('#fTpl');
+  templates = []; tplSelecionado = null; renderVars(); renderPreview();
+  // Re-renderiza consultores filtrados pela conta
+  renderDropdownConsultores();
+  // Recarrega etiquetas filtradas pela conta
+  carregarEtiquetasDatalist(conta_id);
+  if(!conta_id){ sel.innerHTML='<option value="">— selecione uma conta —</option>'; return; }
+  sel.innerHTML = '<option value="">— carregando —</option>';
+  try{
+    const r = await api(URL_TPLS + '?conta_id=' + encodeURIComponent(conta_id));
+    console.log('templates resp:', r);
+    const all = r.templates||r.data||[];
+    // Mostra todos, marcando visualmente o status. Soh envia APPROVED (Meta rejeita outros).
+    templates = all;
+    if(!templates.length){
+      sel.innerHTML = '<option value="">— nenhum template cadastrado —</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">— selecione —</option>' +
+      templates.map((t,i) => {
+        const st = (t.status||'?').toUpperCase();
+        const label = t.name + ' ('+ (t.language||'') +') · ' + st;
+        return '<option value="'+i+'"'+ (st!=='APPROVED'?' disabled':'') +'>'+escapeHtml(label)+'</option>';
+      }).join('');
+  }catch(e){ toast('Erro ao carregar templates: '+e.message,'err'); sel.innerHTML='<option value="">— erro —</option>'; }
+}
+
+function onTplChange(){
+  const idx = qs('#fTpl').value;
+  tplSelecionado = idx !== '' ? templates[Number(idx)] : null;
+  renderVars();
+  renderPreview();
+}
+
+function extractVars(text){
+  const matches = String(text||'').match(/\{\{(\d+)\}\}/g) || [];
+  const nums = [...new Set(matches.map(m => Number(m.replace(/[^0-9]/g,''))))].sort((a,b)=>a-b);
+  return nums;
+}
+
+function renderVars(){
+  const wrap = qs('#fVarsWrap');
+  const container = qs('#fVars');
+  if(!tplSelecionado){ wrap.style.display='none'; container.innerHTML=''; return; }
+  const bodyComp = (tplSelecionado.components||[]).find(c => (c.type||'').toUpperCase()==='BODY');
+  const bodyText = bodyComp ? (bodyComp.text || '') : '';
+  const nums = extractVars(bodyText);
+  if(!nums.length){ wrap.style.display='none'; container.innerHTML=''; return; }
+  wrap.style.display='block';
+  container.innerHTML = nums.map(n => `
+    <div style="margin-bottom:8px">
+      <div style="font-size:.72rem;color:#7b8aa0;font-weight:700;margin-bottom:4px">{{${n}}}</div>
+      <input class="input tpl-var" data-idx="${n-1}" placeholder="Valor da variavel ${n} (use {nome} pra usar o nome do destinatario)">
+    </div>
+  `).join('');
+  container.querySelectorAll('.tpl-var').forEach(el => el.addEventListener('input', renderPreview));
+}
+
+function renderPreview(){
+  const preview = qs('#fPreview');
+  if(!tplSelecionado){ preview.textContent = 'Selecione um template pra ver o preview.'; return; }
+  const bodyComp = (tplSelecionado.components||[]).find(c => (c.type||'').toUpperCase()==='BODY');
+  let text = bodyComp ? (bodyComp.text || '') : '';
+  const vars = getVars();
+  text = text.replace(/\{\{(\d+)\}\}/g, (m, n) => {
+    const v = vars[Number(n)-1] || '';
+    return v ? `<span class="var">${escapeHtml(v)}</span>` : m;
+  });
+  preview.innerHTML = text;
+}
+
+function getVars(){
+  const inputs = qs('#fVars').querySelectorAll('.tpl-var');
+  const arr = [];
+  inputs.forEach(el => {
+    const idx = Number(el.dataset.idx);
+    arr[idx] = el.value || '';
+  });
+  return arr;
+}
+
+// ======== DESTINATARIOS ========
+let __ULTIMA_ORIGEM_AUTO = ''; // guarda qual foi o ultimo botao clicado
+
+function reimportarSePreciso(){
+  if(!__ULTIMA_ORIGEM_AUTO) return;
+  clearTimeout(window.__reimportTimer);
+  window.__reimportTimer = setTimeout(() => importarAuto(__ULTIMA_ORIGEM_AUTO, true, window.__ULTIMA_ETIQ_EXTRA || '', window.__ULTIMA_ETIQ_2 || '', window.__ULTIMA_ETIQ_NAO || ''), 400);
+}
+
+async function importarAuto(origem, silencioso, etiquetaExtra, etiqueta2, etiquetaNao){
+  __ULTIMA_ORIGEM_AUTO = origem;
+  window.__ULTIMA_ETIQ_EXTRA = etiquetaExtra || '';
+  window.__ULTIMA_ETIQ_2 = etiqueta2 || '';
+  window.__ULTIMA_ETIQ_NAO = etiquetaNao || '';
+  const btns = document.querySelectorAll('button[onclick^="importarAuto"], button[onclick^="aplicarFiltroEtiquetas"]');
+  btns.forEach(b => b.disabled = true);
+  const info = qs('#fImportInfo');
+  if(info) info.textContent = '⏳ Buscando contatos...';
+  try{
+    const conta = qs('#fConta').value || '';
+    const horasMin = Number((qs('#fHorasMin')||{}).value || 0);
+    const inclDisp = !!(qs('#fInclDisparos') && qs('#fInclDisparos').checked);
+    const params = ['origem=' + encodeURIComponent(origem)];
+    if(conta) params.push('conta_id=' + encodeURIComponent(conta));
+    if(horasMin > 0) params.push('horas_min=' + horasMin);
+    if(inclDisp) params.push('incluir_disparos=true');
+    if(etiquetaExtra) params.push('etiqueta=' + encodeURIComponent(etiquetaExtra));
+    if(etiqueta2) params.push('etiqueta2=' + encodeURIComponent(etiqueta2));
+    if(etiquetaNao) params.push('etiqueta_nao=' + encodeURIComponent(etiquetaNao));
+    const url = URL_BASE + '/webhook/chat-disparos-buscar-auto?' + params.join('&');
+    const r = await fetch(url);
+    const j = await r.json();
+    if(!j || !j.ok){ if(!silencioso) toast('Erro: ' + ((j&&j.erro)||'sem retorno'), 'err'); if(info) info.textContent=''; return; }
+    const contatos = j.contatos || [];
+    const ta = qs('#fDest');
+    if(!contatos.length){
+      // Em modo silencioso, apenas limpa. Em modo interativo, avisa.
+      if(silencioso){ ta.value = ''; ta.dispatchEvent(new Event('input')); }
+      else if(!silencioso) toast('Nenhum contato encontrado', 'warn');
+      if(info) info.textContent = '0 contatos com esse filtro';
+      return;
+    }
+    // Modo silencioso: sempre substitui (comportamento de "filtro dinamico")
+    // Modo interativo: pergunta se quer substituir ou adicionar
+    let modo = 'substituir';
+    const tinha = (ta.value||'').trim();
+    if(!silencioso && tinha){
+      modo = confirm('Ja tem ' + (tinha.split(/\r?\n/).filter(Boolean).length) + ' linhas no campo.\n\nOK = ADICIONAR os ' + contatos.length + ' novos ao final\nCancelar = SUBSTITUIR tudo pelos ' + contatos.length + ' novos') ? 'adicionar' : 'substituir';
+    }
+    const linhas = contatos.map(c => (c.telefone||'') + (c.nome ? ',' + c.nome.replace(/[,;\n]/g,' ') : ''));
+    ta.value = (modo === 'adicionar') ? (tinha + '\n' + linhas.join('\n')) : linhas.join('\n');
+    ta.dispatchEvent(new Event('input'));
+    const label = origem === 'aguardando_resposta' ? 'aguardando resposta'
+                : origem === 'livres_sem_triagem' ? 'livres sem triagem'
+                : origem === 'por_etiqueta' ? ('etiqueta: ' + (etiquetaExtra||'')) : origem;
+    // AJUSTA "pular existentes" automaticamente:
+    // - "aguardando resposta" = contatos que JA TEM chat -> desmarca (senao pula todos)
+    // - "livres sem triagem" = contatos sem chat previo geralmente -> mantem marcado (padrao)
+    const cbPular = qs('#fPularExist');
+    if(cbPular){
+      if((origem === 'aguardando_resposta' || origem === 'por_etiqueta') && cbPular.checked){
+        cbPular.checked = false;
+        if(!silencioso) toast('"Pular existentes" desmarcado — esses contatos JA tem chat, senao seriam todos pulados', 'warn');
+      } else if(origem === 'livres_sem_triagem' && !cbPular.checked){
+        cbPular.checked = true;
+      }
+    }
+    if(!silencioso) toast(contatos.length + ' contatos importados (' + label + ')','');
+    if(info) info.textContent = '✓ ' + contatos.length + ' importados de "' + label + '"';
+  }catch(e){
+    if(!silencioso) toast('Erro: ' + e.message, 'err');
+    if(info) info.textContent='';
+  }finally{
+    btns.forEach(b => b.disabled = false);
+  }
+}
+
+function parseDest(){
+  const raw = qs('#fDest').value || '';
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const dest = []; const seen = new Set();
+  for(const line of lines){
+    const parts = line.split(/[,;\t|]/).map(p => p.trim());
+    const tel = parts[0].replace(/\D/g,'');
+    if(!tel || tel.length < 10) continue;
+    if(seen.has(tel)) continue;
+    seen.add(tel);
+    // parts[0]=tel, parts[1]=nome, parts[2+]=valores das variáveis {{2}}, {{3}}, ...
+    const nome = parts[1] || '';
+    const extras = parts.slice(2);
+    dest.push({ telefone: tel, nome, extra_vars: extras });
+  }
+  return dest;
+}
+
+qs('#fDest').addEventListener('input', () => {
+  const d = parseDest();
+  qs('#fCount').innerHTML = '<span><strong>'+d.length+'</strong> números válidos</span>';
+});
+
+// Toggle "Enviar agora" vs "Agendar"
+document.querySelectorAll('.quando-opt').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.quando-opt').forEach(o => o.classList.remove('active'));
+    opt.classList.add('active');
+    const val = opt.dataset.val;
+    const inputRadio = opt.querySelector('input[type=radio]');
+    if(inputRadio) inputRadio.checked = true;
+    const dt = qs('#fQuando');
+    const btnLabel = qs('#btnDispararLabel');
+    if(val === 'agendar'){
+      dt.style.display = 'block';
+      // Default: amanha 9h se vazio
+      if(!dt.value){
+        const d = new Date(); d.setDate(d.getDate()+1); d.setHours(9,0,0,0);
+        dt.value = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().substring(0,16);
+      }
+      btnLabel.textContent = 'Agendar campanha';
+    } else {
+      dt.style.display = 'none';
+      dt.value = '';
+      btnLabel.textContent = 'Disparar agora';
+    }
+  });
+});
+
+// ======== DISPARAR ========
+async function disparar(){
+  const btn = qs('#btnDisparar');
+  const conta_id = qs('#fConta').value;
+  const tplIdx = qs('#fTpl').value;
+  const nome = qs('#fNome').value.trim();
+  const modo = (document.querySelector('input[name="rQuando"]:checked')||{}).value || 'agora';
+  const quando = modo === 'agendar' ? qs('#fQuando').value : '';
+  if(modo === 'agendar' && !quando){ toast('Selecione data e hora pra agendar','warn'); return; }
+  if(!conta_id){ toast('Selecione a conta','warn'); return; }
+  if(tplIdx===''){ toast('Selecione o template','warn'); return; }
+  const tpl = templates[Number(tplIdx)];
+  const dest = parseDest();
+  if(!dest.length){ toast('Adicione pelo menos 1 destinatário válido','warn'); return; }
+  const template_body_vars = getVars();
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando...';
+  try{
+    const bodyComp = (tpl.components||[]).find(c => (c.type||'').toUpperCase()==='BODY');
+    const template_body_text = bodyComp ? (bodyComp.text||'') : '';
+    const dono = (qs('#fDono')?.value || '').trim().toLowerCase();
+    const pular_existentes = !!(qs('#fPularExist')?.checked);
+    // Antes de pegar, adiciona o texto pendente no input (caso o user não tenha clicado Enter)
+    const pend = (qs('#fEtiqInput')?.value || '').trim();
+    if(pend) addEtiqDisparo(pend);
+    const etiquetas = Array.from(FDISPARO_ETIQS);
+    const r = await api(URL_CRIAR, {method:'POST', bodyObj:{
+      nome: nome || ('Campanha '+ new Date().toLocaleDateString('pt-BR')),
+      conta_id,
+      template_name: tpl.name,
+      template_language: tpl.language || 'pt_BR',
+      template_body_vars,
+      template_body_text,
+      quando_agendar: quando ? new Date(quando).toISOString() : null,
+      dono,
+      pular_existentes,
+      etiquetas,
+      destinatarios: dest
+    }});
+    if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+    const puladosTxt = Number(r.pulados||0) > 0 ? ' ('+r.pulados+' pulados por ja terem chat)' : '';
+    toast('Campanha criada com '+r.total_msgs+' msgs'+puladosTxt+'.','');
+    // Limpa form
+    qs('#fDest').value = ''; qs('#fCount').innerHTML='<span>0 números válidos</span>';
+    qs('#fNome').value = ''; qs('#fQuando').value = '';
+    FDISPARO_ETIQS.clear(); renderChipsEtiq();
+    // Recarrega datalist pra pegar as etiquetas que acabaram de ser criadas
+    carregarEtiquetasDatalist();
+    carregarCampanhas();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+  finally{
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-fill"></i> Criar campanha';
+  }
+}
+
+// ======== LISTA CAMPANHAS ========
+async function carregarCampanhas(){
+  const tbody = qs('#tblCampanhas');
+  try{
+    const perm = await getContasPermitidasDoUsuario();
+    const r = await api(URL_LIST);
+    let camps = r.campanhas || [];
+    // Filtra campanhas por contas permitidas (SUPER vê tudo)
+    if(perm !== '__all__'){
+      camps = camps.filter(c => _isContaPermitidaDisparos(c.conta_id, perm));
+    }
+    if(!camps.length){
+      tbody.innerHTML = '<tr><td colspan="7" class="empty"><i class="bi bi-inbox"></i>Nenhuma campanha ainda.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = camps.map(c => {
+      const total = Number(c.total_msgs||0);
+      const enviadas = Number(c.enviadas||0);
+      const falharam = Number(c.falharam||0);
+      const pulados = Number(c.pulados_count||0);
+      const matriculas = Number(c.matriculas_count||0);
+      const perdas = Number(c.perdas_count||0);
+      const pct = total ? Math.round(((enviadas+falharam)/total)*100) : 0;
+      const convPct = enviadas > 0 ? ((matriculas/enviadas)*100).toFixed(1) : '0';
+      const dt = new Date(c.criado_em||Date.now()).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const podeCanc = ['agendado','em_andamento','pausado'].includes(c.status);
+      const podePausar = c.status === 'em_andamento';
+      const podeRetomar = c.status === 'pausado';
+      const btnPulados = pulados > 0
+        ? `<button class="btn btn-secondary" onclick="baixarPulados('${escapeHtml(c.codigo)}')" title="${pulados} contato(s) pulado(s) por ja terem chat — clique pra baixar CSV" style="margin-right:4px"><i class="bi bi-file-earmark-arrow-down"></i></button>`
+        : '';
+      const btnPausa = podePausar
+        ? `<button class="btn btn-warning" onclick="pausarCampanha('${escapeHtml(c.codigo)}')" title="Pausar disparo (cron para de enviar até você retomar)" style="margin-right:4px"><i class="bi bi-pause-fill"></i></button>`
+        : (podeRetomar
+          ? `<button class="btn btn-success" onclick="retomarCampanha('${escapeHtml(c.codigo)}')" title="Retomar disparo" style="margin-right:4px"><i class="bi bi-play-fill"></i></button>`
+          : '');
+      const corMat = matriculas > 0 ? '#16a34a' : '#94a3b8';
+      const corPerda = perdas > 0 ? '#dc2626' : '#94a3b8';
+      const corConv = Number(convPct) >= 5 ? '#16a34a' : (Number(convPct) >= 1 ? '#c78100' : '#94a3b8');
+      return `<tr>
+        <td>
+          <div style="font-weight:700">${escapeHtml(c.nome||c.codigo)}</div>
+          <div style="font-size:.72rem;color:#7b8aa0;margin-top:2px">${escapeHtml(c.template_name)} · ${dt}${pulados>0?` · <span style="color:#c78100;font-weight:600">${pulados} pulados</span>`:''}</div>
+        </td>
+        <td><span class="pill ${c.status}">${c.status.replace('_',' ')}</span></td>
+        <td>
+          <div style="font-size:.75rem"><strong>${enviadas+falharam}/${total}</strong> ${falharam?`<span style="color:var(--err)">· ${falharam} erro</span>`:''}</div>
+          <div class="progress"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </td>
+        <td style="text-align:center;font-weight:700;color:${corMat}"><i class="bi bi-mortarboard-fill" style="font-size:.85rem"></i> ${matriculas}</td>
+        <td style="text-align:center;font-weight:700;color:${corPerda}"><i class="bi bi-x-circle-fill" style="font-size:.85rem"></i> ${perdas}</td>
+        <td style="text-align:center;font-weight:700;color:${corConv}">${convPct}%</td>
+        <td style="white-space:nowrap">${btnPulados}${btnPausa}${podeCanc?`<button class="btn btn-danger" onclick="cancelar('${escapeHtml(c.codigo)}')" title="Cancelar"><i class="bi bi-x-lg"></i></button>`:''}</td>
+      </tr>`;
+    }).join('');
+    window.__camps_cache = camps;
+  }catch(e){
+    tbody.innerHTML = '<tr><td colspan="7" class="empty" style="color:var(--err)"><i class="bi bi-exclamation-triangle"></i>Erro: '+escapeHtml(e.message)+'</td></tr>';
+  }
+}
+
+function baixarPulados(codigo){
+  const camps = window.__camps_cache || [];
+  const c = camps.find(x => x.codigo === codigo);
+  if(!c){ toast('Campanha nao encontrada','err'); return; }
+  let pulados = c.pulados_json || [];
+  if(typeof pulados === 'string'){ try{ pulados = JSON.parse(pulados); }catch(_){ pulados = []; } }
+  if(!Array.isArray(pulados) || !pulados.length){ toast('Nenhum contato pulado nessa campanha',''); return; }
+  const linhas = ['telefone,nome'];
+  for(const p of pulados){
+    const tel = String(p.telefone||'').replace(/[",\n]/g,'');
+    const nome = String(p.nome||'').replace(/[",\n]/g,' ');
+    linhas.push(tel+','+nome);
+  }
+  const csv = '﻿' + linhas.join('\n'); // BOM pro Excel abrir UTF-8
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeNome = String(c.nome||c.codigo).replace(/[^a-zA-Z0-9_-]+/g,'_').substring(0,40);
+  a.download = 'pulados_'+safeNome+'.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
+  toast(pulados.length+' contatos exportados','');
+}
+
+async function cancelar(campanha){
+  if(!confirm('Cancelar essa campanha? Msgs pendentes NÃO serão enviadas.')) return;
+  try{
+    const r = await api(URL_CANCELAR, {method:'POST', bodyObj:{campanha}});
+    if(r.ok){ toast('Campanha cancelada.',''); carregarCampanhas(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function pausarCampanha(campanha){
+  try{
+    const r = await api(URL_BASE + '/webhook/chat-disparos-pausar', {method:'POST', bodyObj:{campanha, acao:'pausar'}});
+    if(r.ok){ toast('Campanha pausada. Cron não enviará até você retomar.',''); carregarCampanhas(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function retomarCampanha(campanha){
+  try{
+    const r = await api(URL_BASE + '/webhook/chat-disparos-pausar', {method:'POST', bodyObj:{campanha, acao:'retomar'}});
+    if(r.ok){ toast('Campanha retomada. Cron voltará a enviar.',''); carregarCampanhas(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ======== ETIQUETAS (chips + autocomplete) ========
+let FDISPARO_ETIQS = new Set(); // etiquetas selecionadas na campanha nova
+let ETIQ_EXISTENTES = [];       // {etiqueta, total} do banco
+
+async function carregarEtiquetasDatalist(conta_id){
+  try{
+    // Prioridade: conta_id passado → conta do form → contas permitidas do usuário
+    let cId = conta_id || (qs('#fConta')||{}).value || '';
+    if(!cId){
+      // Nenhuma conta escolhida: usa contas permitidas (pode ser CSV, __all__ ou __none__)
+      cId = await getContasPermitidasDoUsuario();
+    }
+    const url = URL_BASE + '/webhook/chat-etiquetas-list?conta_id=' + encodeURIComponent(cId);
+    const r = await fetch(url);
+    const j = await r.json();
+    ETIQ_EXISTENTES = ((j && j.etiquetas) || []).sort((a,b) => (b.total||0)-(a.total||0));
+    renderDropdownEtiq('');
+    // Popula os 3 selects de filtro de etiqueta
+    const populaSel = (id, placeholder) => {
+      const s = qs(id);
+      if(!s) return;
+      const prev = s.value;
+      s.innerHTML = '<option value="">' + placeholder + '</option>' +
+        ETIQ_EXISTENTES.map(e => `<option value="${escapeHtml(e.etiqueta)}">${escapeHtml(e.etiqueta)} (${e.total||0})</option>`).join('');
+      if(prev) s.value = prev;
+    };
+    populaSel('#fImportEtiqueta', 'Por etiqueta...');
+    populaSel('#fImportEtiqueta2', '+ E também tem...');
+    populaSel('#fImportEtiquetaNao', '− NÃO tem...');
+  }catch(_){ /* silencioso */ }
+}
+
+async function aplicarFiltroEtiquetas(){
+  const et = (qs('#fImportEtiqueta')||{}).value || '';
+  const et2 = (qs('#fImportEtiqueta2')||{}).value || '';
+  const etNao = (qs('#fImportEtiquetaNao')||{}).value || '';
+  if(!et){ toast('Escolha a etiqueta principal', 'err'); return; }
+  await importarAuto('por_etiqueta', false, et, et2, etNao);
+}
+
+function renderDropdownEtiq(filtro){
+  const list = qs('#fEtiqDropdownList');
+  const empty = qs('#fEtiqDropdownEmpty');
+  if(!list) return;
+  const f = String(filtro||'').toLowerCase().trim();
+  const filtradas = ETIQ_EXISTENTES.filter(e => {
+    if(FDISPARO_ETIQS.has(e.etiqueta)) return false; // já selecionadas somem
+    if(!f) return true;
+    return String(e.etiqueta).toLowerCase().includes(f);
+  });
+  if(!filtradas.length){
+    list.innerHTML = '';
+    empty.style.display = f ? '' : 'none';
+    if(!f && !ETIQ_EXISTENTES.length){
+      empty.textContent = 'Nenhuma etiqueta cadastrada ainda. Digite pra criar a primeira.';
+      empty.style.display = '';
+    } else if(!f) {
+      empty.textContent = 'Todas as etiquetas existentes já foram adicionadas.';
+      empty.style.display = '';
+    } else {
+      empty.textContent = 'Nenhuma etiqueta bate com "' + f + '". Aperte Enter pra criar nova.';
+    }
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = filtradas.map(e => `
+    <div class="etiq-item" data-etiqueta="${escapeHtml(e.etiqueta)}" style="padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #f5f7fb;font-size:.85rem" onmouseover="this.style.background='#f0f6ff'" onmouseout="this.style.background='transparent'" onclick="addEtiqDisparo('${escapeHtml(e.etiqueta).replace(/'/g,"\\'")}')">
+      <span style="color:#1a2438;font-weight:500">${escapeHtml(e.etiqueta)}</span>
+      <span style="color:#7b8aa0;font-size:.72rem;background:#f0f3f8;padding:2px 8px;border-radius:12px;font-weight:600">${e.total||0}</span>
+    </div>
+  `).join('');
+}
+
+function abrirDropdownEtiq(){
+  renderDropdownEtiq(qs('#fEtiqInput').value);
+  qs('#fEtiqDropdown').style.display = '';
+}
+function fecharDropdownEtiq(){
+  qs('#fEtiqDropdown').style.display = 'none';
+}
+
+function renderChipsEtiq(){
+  const box = qs('#fEtiqChips');
+  const input = qs('#fEtiqInput');
+  if(!box || !input) return;
+  // Remove chips atuais (mantém input + datalist)
+  box.querySelectorAll('.etiq-chip').forEach(c => c.remove());
+  // Adiciona chips na frente do input
+  Array.from(FDISPARO_ETIQS).forEach(et => {
+    const chip = document.createElement('span');
+    chip.className = 'etiq-chip';
+    chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;background:#e7f0fe;color:#1e40af;font-size:.75rem;font-weight:600;padding:3px 6px 3px 10px;border-radius:12px';
+    const exist = ETIQ_EXISTENTES.find(e => e.etiqueta === et);
+    const label = exist ? et : (et + ' ✨');
+    chip.innerHTML = `${escapeHtml(label)}<button type="button" style="background:transparent;border:none;color:#1e40af;cursor:pointer;padding:0 2px;font-size:.9rem;line-height:1" onclick="removerEtiqDisparo('${escapeHtml(et).replace(/'/g,"\\'")}')" title="Remover">×</button>`;
+    box.insertBefore(chip, input);
+  });
+}
+
+function addEtiqDisparo(txt){
+  const et = String(txt||'').trim().substring(0,40);
+  if(!et) return;
+  if(FDISPARO_ETIQS.size >= 8){ toast('Máximo 8 etiquetas por campanha','warn'); return; }
+  FDISPARO_ETIQS.add(et);
+  renderChipsEtiq();
+  const input = qs('#fEtiqInput');
+  if(input){ input.value = ''; input.focus(); }
+  renderDropdownEtiq(''); // atualiza dropdown removendo a que acabou de ser adicionada
+}
+
+function removerEtiqDisparo(et){
+  FDISPARO_ETIQS.delete(et);
+  renderChipsEtiq();
+  renderDropdownEtiq(qs('#fEtiqInput')?.value || '');
+}
+
+// Listeners do input
+(function(){
+  const input = qs('#fEtiqInput');
+  if(!input) return;
+  input.addEventListener('focus', abrirDropdownEtiq);
+  input.addEventListener('input', e => {
+    renderDropdownEtiq(input.value);
+    abrirDropdownEtiq();
+  });
+  input.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ','){
       e.preventDefault();
-      const payload = {
-        conta_id: document.getElementById('conta_id').value,
-        nome: document.getElementById('nome').value.trim() || ('Campanha ' + new Date().toLocaleDateString('pt-BR')),
-        template_name: document.getElementById('template_name').value.trim(),
-        template_language: document.getElementById('template_language').value.trim() || 'pt_BR',
-        destinatarios: parseDest(document.getElementById('destinatarios').value),
-      };
-      const res = document.getElementById('resultado');
-      res.innerHTML = '';
-      if (!payload.destinatarios.length) {
-        res.innerHTML = '<p class="error">Adicione pelo menos 1 destinatário.</p>';
-        return;
-      }
-      try {
-        const data = await apiFetch('/api/disparos/criar', { method:'POST', body: JSON.stringify(payload) });
-        if (!data.ok) {
-          res.innerHTML = `<p class="error">${data.erro}</p>`;
-          return;
-        }
-        res.innerHTML = `<p class="success">✓ Campanha criada (${data.total_msgs} msgs, ${data.dedup_removidos || 0} dedup). Código: ${data.campanha_codigo || '-'}.</p>`;
-        if (data.skeleton) res.innerHTML += '<p style="color:var(--warn)">⚠ Esqueleto — ainda não grava no banco (próximo passo).</p>';
-        carregar();
-      } catch (err) {
-        res.innerHTML = `<p class="error">${err.message}</p>`;
-      }
+      if(input.value.trim()) addEtiqDisparo(input.value);
+    } else if(e.key === 'Backspace' && !input.value && FDISPARO_ETIQS.size > 0){
+      const last = Array.from(FDISPARO_ETIQS).pop();
+      removerEtiqDisparo(last);
+    } else if(e.key === 'Escape'){
+      fecharDropdownEtiq();
     }
+  });
+  // Clicar em qualquer lugar do box foca o input
+  const box = qs('#fEtiqChips');
+  if(box){
+    box.addEventListener('click', e => {
+      if(e.target === box || e.target === input) input.focus();
+    });
+  }
+  // Click fora do dropdown fecha
+  document.addEventListener('click', e => {
+    const container = box;
+    const dropdown = qs('#fEtiqDropdown');
+    if(!container || !dropdown) return;
+    if(container.contains(e.target) || dropdown.contains(e.target)) return;
+    fecharDropdownEtiq();
+  });
+})();
 
-    async function carregar() {
-      const tbody = document.querySelector('#tabela tbody');
-      try {
-        const data = await apiFetch('/api/disparos/list');
-        const lista = data.campanhas || [];
-        if (!lista.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">Nenhuma campanha ainda.</td></tr>'; return; }
-        tbody.innerHTML = lista.map(c => {
-          const pct = c.total_msgs ? Math.round(((c.enviadas||0)*100)/c.total_msgs) : 0;
-          const badge = { agendado:'info', em_andamento:'warn', concluido:'ok', cancelado:'err', pausado:'info' }[c.status] || 'info';
-          const conta = c.conta_id === 'meta_1316884364850837' ? 'VLC' : c.conta_id === 'meta_1195683866964715' ? 'Sede' : c.conta_id;
-          return `<tr>
-            <td><code style="font-size:11px;">${c.codigo}</code></td>
-            <td>${c.nome || '-'}</td>
-            <td>${conta}</td>
-            <td><span class="badge ${badge}">${c.status}</span></td>
-            <td>${c.enviadas || 0}/${c.total_msgs} (${pct}%)</td>
-            <td style="font-size:12px;color:var(--text-dim)">${new Date(c.criado_em).toLocaleString('pt-BR')}</td>
-          </tr>`;
-        }).join('');
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" class="error">${err.message}</td></tr>`;
-      }
-    }
+// ======== INIT ========
+carregarContas();
+carregarEtiquetasDatalist();
+carregarAtendentes();
+carregarCampanhas();
+setInterval(carregarCampanhas, 15000); // refresh a cada 15s
+</script>
 
-    carregar();
-  </script>
 </body>
 </html>

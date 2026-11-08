@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Fila de Distribuição</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),#9060ff);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(124,58,237,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:960px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:20px}
+
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.28)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-warn{background:#fef3c7;color:#78350f}
+.btn-sm{padding:6px 11px;font-size:.78rem}
+
+/* Status card */
+.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:700px){ .status-grid{grid-template-columns:1fr} }
+.status-box{background:#fbfcfe;border:1.5px solid var(--line);border-radius:12px;padding:14px}
+.status-lbl{font-size:.7rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.status-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--ink);font-size:1.1rem;display:flex;align-items:center;gap:8px}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.pill.ativa{background:#e6f9ee;color:var(--ok)}
+.pill.pausada{background:#fef3c7;color:#92400e}
+
+.switch{position:relative;display:inline-block;width:50px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:26px;transition:.2s}
+.slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--ok)}
+.switch input:checked+.slider::before{transform:translateX(24px)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-top:1px solid var(--line)}
+.toggle-row:first-of-type{border-top:none}
+.toggle-info strong{display:block;font-size:.95rem;color:var(--ink);margin-bottom:2px}
+.toggle-info span{font-size:.78rem;color:var(--muted)}
+
+/* Lista fila */
+.fila-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;transition:.15s;border:1.5px solid transparent}
+.fila-item.proximo{background:linear-gradient(90deg,rgba(22,163,74,.08),transparent);border-color:rgba(22,163,74,.3)}
+.fila-item + .fila-item{margin-top:6px}
+.fila-pos{width:32px;height:32px;border-radius:50%;background:var(--line);color:var(--muted);display:grid;place-items:center;font-weight:800;font-size:.85rem;flex-shrink:0}
+.fila-item.proximo .fila-pos{background:linear-gradient(135deg,var(--ok),#15803d);color:#fff;box-shadow:0 4px 10px rgba(22,163,74,.4)}
+.fila-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;display:inline-grid;place-items:center;font-weight:700;font-size:.85rem;overflow:hidden;flex-shrink:0}
+.fila-avatar img{width:100%;height:100%;object-fit:cover}
+.fila-body{flex:1;min-width:0}
+.fila-nome{font-weight:700;color:var(--ink);display:flex;align-items:center;gap:6px}
+.fila-user{font-size:.72rem;color:var(--muted)}
+.badge-proximo{background:var(--ok);color:#fff;font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.badge-ultimo{background:#eef2f7;color:var(--muted);font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+
+.helper{font-size:.75rem;color:var(--muted);margin-top:4px;line-height:1.4}
+.empty{padding:30px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:2rem;display:block;margin-bottom:8px;opacity:.5}
+
+.chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);font-size:.85rem;border-left:4px solid var(--ok);animation:slidein .25s ease-out;min-width:240px;color:#111}
+.chat-toast.err{border-left-color:var(--err)}
+.chat-toast.warn{border-left-color:var(--warn)}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.1);border-top-color:var(--purple);border-radius:50%;animation:sp .6s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">🔀</div>
+    <div>
+      <div class="brand-title">Fila de Distribuição</div>
+      <div class="brand-sub">CHAT MULTI-CONTA</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn-nav" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar ao chat</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- Card 1: Status -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-toggles"></i> Status da fila</h3>
+      <button class="btn btn-secondary btn-sm" onclick="carregar()"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+    <div class="card-body">
+      <div class="status-grid">
+        <div class="status-box">
+          <div class="status-lbl">Estado</div>
+          <div class="status-val">
+            <span id="statusPill" class="pill ativa">Ativa</span>
+            <label class="switch" style="margin-left:auto">
+              <input type="checkbox" id="chkAtiva" onchange="salvarConfig()">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="helper" style="margin-top:8px">Quando pausada, novas triagens finalizadas não são atribuídas automaticamente.</div>
+        </div>
+        <div class="status-box">
+          <div class="status-lbl">Próximo a receber</div>
+          <div class="status-val" id="statusProximo">
+            <span class="spinner"></span>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-warn btn-sm" onclick="resetar()"><i class="bi bi-arrow-counterclockwise"></i> Resetar rotação</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filtro de conta (só SUPER/ADM) -->
+  <div class="card" id="filtroContaCard" style="display:none">
+    <div class="card-body" style="padding:12px 16px;display:flex;align-items:center;gap:12px">
+      <label style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Filtrar por conta:</label>
+      <select id="filtroConta" onchange="aplicarFiltroConta()" style="flex:1;max-width:400px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:.85rem;background:#fff;cursor:pointer">
+        <option value="">Todas as contas</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Card 2: Consultores na fila -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-people-fill"></i> Consultores na fila <span id="countFila" style="background:var(--ok);color:#fff;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px">0</span></h3>
+    </div>
+    <div class="card-body" id="listaFila">
+      <div class="empty"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+  <!-- Card 3: Consultores fora da fila -->
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-person-plus"></i> Adicionar à fila <span id="countFora" style="background:#e5e7eb;color:#4b5563;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px">0</span></h3>
+    </div>
+    <div class="card-body" id="listaFora">
+      <div class="empty"><span class="spinner"></span></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="chat-toasts-stack" id="toasts"></div>
+
+<script>
+const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_STATUS = URL_BASE + '/webhook/chat-fila-status';
+const URL_CONFIG = URL_BASE + '/webhook/chat-fila-config';
+const URL_TOGGLE = URL_BASE + '/webhook/chat-fila-toggle';
+
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+const USUARIO = sessionStorage.getItem('chat_usuario') || localStorage.getItem('chat_usuario') || '';
+if(!TOKEN || !USUARIO){ window.location.href='login.html'; }
+
+let ESTADO = null;
+
+function qs(s){ return document.querySelector(s); }
+function esc(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function iniciais(nome){ return String(nome||'?').trim().split(/\s+/).map(p=>p[0]||'').join('').substring(0,2).toUpperCase(); }
+function sair(){ sessionStorage.clear(); localStorage.removeItem('chat_token'); localStorage.removeItem('chat_usuario'); location.href='login.html'; }
+function toast(msg,tipo){
+  const st=qs('#toasts');if(!st)return;
+  const el=document.createElement('div');
+  el.className='chat-toast'+(tipo?' '+tipo:'');el.textContent=msg;st.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3000);
+}
+
+async function api(url, opt){
+  opt = opt || {}; opt.headers = opt.headers || {};
+  if(!opt.method || opt.method==='GET'){
+    const sep = url.includes('?')?'&':'?';
+    url = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(url); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  } else {
+    opt.headers['Content-Type'] = 'text/plain;charset=UTF-8';
+    if(opt.bodyObj){
+      opt.body = JSON.stringify({token:TOKEN, usuario:USUARIO, _actor:USUARIO, ...opt.bodyObj});
+      delete opt.bodyObj;
+    }
+    const r = await fetch(url, opt); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  }
+}
+
+// Contas permitidas do usuário logado (SUPER vê tudo)
+let _MINHAS_CONTAS = '__all__';
+async function _carregarMinhasContas(){
+  const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel === 'SUPER'){ _MINHAS_CONTAS = '__all__'; return; }
+  try {
+    const r = await fetch('https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook/chat-atendentes-list');
+    const j = await r.json();
+    const me = (j.atendentes||[]).find(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
+    if(me){
+      const raw = String(me.contas_permitidas || '').trim();
+      if(!raw || raw === '*' || raw.toLowerCase() === '__all__') _MINHAS_CONTAS = '__all__';
+      else if(raw.toLowerCase() === '__none__') _MINHAS_CONTAS = '__none__';
+      else _MINHAS_CONTAS = raw;
+    }
+  } catch(_){ _MINHAS_CONTAS = '__all__'; }
+}
+// Filtra lista de consultores pelos que compartilham ao menos 1 conta comigo
+function _filtrarConsultoresPorConta(lista){
+  if(!Array.isArray(lista)) return [];
+  if(_MINHAS_CONTAS === '__all__') return lista;
+  if(_MINHAS_CONTAS === '__none__') return [];
+  const minhasContas = new Set(_MINHAS_CONTAS.split(',').map(s=>s.trim()).filter(Boolean));
+  return lista.filter(a => {
+    const perm = String(a.contas_permitidas||'*').trim();
+    if(!perm || perm === '*' || perm.toLowerCase() === '__all__') return true;
+    if(perm.toLowerCase() === '__none__') return false;
+    const asContas = perm.split(',').map(s=>s.trim()).filter(Boolean);
+    return asContas.some(c => minhasContas.has(c));
+  });
+}
+
+// Filtro adicional por conta selecionada no dropdown (só SUPER/ADM)
+let _CONTA_FILTRO = ''; // '' = todas
+function _filtrarPorContaSelecionada(lista){
+  if(!_CONTA_FILTRO || !Array.isArray(lista)) return lista;
+  return lista.filter(a => {
+    const perm = String(a.contas_permitidas||'*').trim();
+    if(!perm || perm === '*' || perm.toLowerCase() === '__all__') return true;
+    if(perm.toLowerCase() === '__none__') return false;
+    const asContas = perm.split(',').map(s=>s.trim()).filter(Boolean);
+    return asContas.includes(_CONTA_FILTRO);
+  });
+}
+
+let _ESTADO_RAW = null;
+async function _popularSeletorContas(){
+  try {
+    const r = await fetch('https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook/chat-contas-list?token=' + encodeURIComponent(TOKEN||''));
+    const j = await r.json();
+    const contas = (j.contas || []).filter(c => c.status === 'ativo' || !c.status);
+    // Se tem contas_permitidas restritas, filtra o dropdown
+    let visiveis = contas;
+    if(_MINHAS_CONTAS !== '__all__' && _MINHAS_CONTAS !== '__none__'){
+      const minhas = new Set(_MINHAS_CONTAS.split(',').map(s=>s.trim()).filter(Boolean));
+      visiveis = contas.filter(c => minhas.has(c.id));
+    }
+    const sel = document.getElementById('filtroConta');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">Todas as contas</option>' +
+      visiveis.map(c => `<option value="${c.id}">${c.nome || c.id}</option>`).join('');
+    // Mostra o card se tem 2+ contas visíveis OU é SUPER
+    const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+    const card = document.getElementById('filtroContaCard');
+    if(card && (visiveis.length > 1 || papel === 'SUPER')) card.style.display = 'block';
+  } catch(_){}
+}
+
+function aplicarFiltroConta(){
+  const sel = document.getElementById('filtroConta');
+  _CONTA_FILTRO = sel ? sel.value : '';
+  if(_ESTADO_RAW){
+    ESTADO = Object.assign({}, _ESTADO_RAW, {
+      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(_ESTADO_RAW.in_fila || [])),
+      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(_ESTADO_RAW.fora_fila || []))
+    });
+    renderStatus();
+    renderFila();
+    renderFora();
+  }
+}
+
+async function carregar(){
+  try {
+    await _carregarMinhasContas();
+    await _popularSeletorContas();
+    const r = await api(URL_STATUS);
+    if(!r.ok){ toast('Erro ao carregar', 'err'); return; }
+    _ESTADO_RAW = r;
+    // Filtra fila + fora_fila pelas contas permitidas + filtro do dropdown
+    ESTADO = Object.assign({}, r, {
+      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(r.in_fila || [])),
+      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(r.fora_fila || []))
+    });
+    renderStatus();
+    renderFila();
+    renderFora();
+  } catch(e){ toast('Erro: '+e.message, 'err'); }
+}
+
+function renderStatus(){
+  const ativa = !!ESTADO.ativa;
+  qs('#chkAtiva').checked = ativa;
+  const pill = qs('#statusPill');
+  pill.className = 'pill ' + (ativa ? 'ativa' : 'pausada');
+  pill.textContent = ativa ? 'Ativa' : 'Pausada';
+
+  const prox = qs('#statusProximo');
+  if(!ativa){
+    prox.innerHTML = '<span style="color:var(--muted);font-weight:600">Fila pausada</span>';
+  } else if(!ESTADO.proximo){
+    prox.innerHTML = '<span style="color:var(--muted);font-weight:600">Nenhum consultor na fila</span>';
+  } else {
+    const p = ESTADO.proximo;
+    const av = p.foto_url ? `<img src="${esc(p.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(p.nome))}'">` : iniciais(p.nome);
+    prox.innerHTML = `<div class="fila-avatar">${av}</div><div><div style="font-weight:700">${esc(p.nome)}</div><div style="font-size:.72rem;color:var(--muted);font-weight:500">@${esc(p.usuario)}</div></div>`;
+  }
+}
+
+function renderFila(){
+  const cont = qs('#listaFila');
+  const fila = ESTADO.in_fila || [];
+  qs('#countFila').textContent = fila.length;
+  if(!fila.length){
+    cont.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum consultor na fila.<br><span style="font-size:.85rem">Adicione um abaixo pra começar.</span></div>';
+    return;
+  }
+  const ultimo = String(ESTADO.ultimo_atribuido||'').toLowerCase();
+  const idxUltimo = fila.findIndex(a => a.usuario === ultimo);
+  const proximoIdx = (idxUltimo + 1) % fila.length;
+  cont.innerHTML = fila.map((a, i) => {
+    const isProximo = i === proximoIdx;
+    const isUltimo = i === idxUltimo;
+    const av = a.foto_url ? `<img src="${esc(a.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(a.nome))}'">` : iniciais(a.nome);
+    let badge = '';
+    if(isProximo) badge = '<span class="badge-proximo"><i class="bi bi-arrow-right"></i> próximo</span>';
+    else if(isUltimo) badge = '<span class="badge-ultimo">último</span>';
+    return `<div class="fila-item ${isProximo?'proximo':''}">
+      <div class="fila-pos">${i+1}</div>
+      <div class="fila-avatar">${av}</div>
+      <div class="fila-body">
+        <div class="fila-nome">${esc(a.nome)} ${badge}</div>
+        <div class="fila-user">@${esc(a.usuario)}</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="removerFila('${esc(a.usuario)}')" title="Remover da fila"><i class="bi bi-x-lg"></i></button>
+    </div>`;
+  }).join('');
+}
+
+function renderFora(){
+  const cont = qs('#listaFora');
+  const fora = ESTADO.fora_fila || [];
+  qs('#countFora').textContent = fora.length;
+  if(!fora.length){
+    cont.innerHTML = '<div class="empty"><i class="bi bi-check-circle"></i>Todos os consultores estão na fila.</div>';
+    return;
+  }
+  cont.innerHTML = fora.map(a => {
+    const av = a.foto_url ? `<img src="${esc(a.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(a.nome))}'">` : iniciais(a.nome);
+    return `<div class="fila-item">
+      <div class="fila-pos" style="background:#f0f2f7;color:var(--muted)">—</div>
+      <div class="fila-avatar">${av}</div>
+      <div class="fila-body">
+        <div class="fila-nome">${esc(a.nome)}</div>
+        <div class="fila-user">@${esc(a.usuario)}</div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="adicionarFila('${esc(a.usuario)}')"><i class="bi bi-plus-lg"></i> Adicionar</button>
+    </div>`;
+  }).join('');
+}
+
+async function salvarConfig(){
+  const ativa = qs('#chkAtiva').checked;
+  try {
+    const r = await api(URL_CONFIG, {method:'POST', bodyObj:{ativa, resetar:false}});
+    if(r.ok){ toast(ativa?'Fila ativada':'Fila pausada',''); carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function resetar(){
+  if(!confirm('Resetar rotação? O próximo atribuído volta a ser o primeiro consultor da fila.')) return;
+  try {
+    const r = await api(URL_CONFIG, {method:'POST', bodyObj:{ativa: qs('#chkAtiva').checked, resetar:true}});
+    if(r.ok){ toast('Rotação resetada.',''); carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function adicionarFila(usuario){
+  try {
+    const r = await api(URL_TOGGLE, {method:'POST', bodyObj:{usuario, na_fila:true}});
+    if(r.ok){ toast('Adicionado à fila','',); carregar(); }
+    else toast('Erro','err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function removerFila(usuario){
+  if(!confirm('Remover '+usuario+' da fila?')) return;
+  try {
+    const r = await api(URL_TOGGLE, {method:'POST', bodyObj:{usuario, na_fila:false}});
+    if(r.ok){ toast('Removido da fila',''); carregar(); }
+    else toast('Erro','err');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+carregar();
+setInterval(carregar, 30000);  // refresh a cada 30s
+</script>
+
+</body>
+</html>

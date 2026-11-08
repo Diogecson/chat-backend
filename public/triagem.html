@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Triagem IA</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--purple),#9060ff);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(124,58,237,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1000px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:20px}
+
+.lbl{display:block;font-size:.72rem;letter-spacing:.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;margin-top:14px}
+.lbl:first-child{margin-top:0}
+.input,.textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-family:inherit;font-size:.88rem;color:var(--ink);outline:none;transition:.15s}
+.input:focus,.textarea:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.textarea{min-height:80px;resize:vertical}
+.helper{font-size:.73rem;color:var(--muted);margin-top:4px;line-height:1.4}
+
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.28)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-secondary:hover{background:#e6eaf2}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-sm{padding:5px 9px;font-size:.75rem}
+
+/* Toggle switch */
+.switch{position:relative;display:inline-block;width:50px;height:26px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:#cbd5e1;border-radius:26px;transition:.2s}
+.slider::before{content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.switch input:checked+.slider{background:var(--purple)}
+.switch input:checked+.slider::before{transform:translateX(24px)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-top:1px solid var(--line)}
+.toggle-row:first-of-type{border-top:none}
+.toggle-info{flex:1;padding-right:16px}
+.toggle-info strong{display:block;font-size:.9rem;color:var(--ink);margin-bottom:2px}
+.toggle-info span{font-size:.78rem;color:var(--muted);line-height:1.4}
+
+.passo{background:#fbfcfe;border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+.passo-ordem{width:32px;height:32px;background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.85rem;flex-shrink:0}
+.passo-body{flex:1;min-width:0}
+.passo-linha1{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.passo-campo{background:#eff6ff;color:var(--meta);padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:lowercase}
+.passo-mensagem{font-size:.9rem;color:var(--ink);line-height:1.4;white-space:pre-wrap}
+.passo-valida{font-size:.75rem;color:var(--muted);margin-top:6px;font-style:italic;padding-left:8px;border-left:2px solid #d8ddea}
+.passo-actions{display:flex;gap:5px;flex-direction:column;flex-shrink:0}
+
+.chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);
+  font-size:.85rem;border-left:4px solid var(--ok);animation:slidein .25s ease-out;min-width:240px;color:#111}
+.chat-toast.err{border-left-color:var(--err)}
+.chat-toast.warn{border-left-color:var(--warn)}
+@keyframes slidein{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}
+
+.modal-back{display:none;position:fixed;inset:0;background:rgba(15,27,45,.5);z-index:9998;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex}
+.modal-card{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:780px;width:100%;max-height:90vh;overflow-y:auto}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:1rem}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.4rem;line-height:1}
+.modal-body{padding:20px}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:#fbfcfe}
+
+.empty{padding:30px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:2rem;display:block;margin-bottom:8px;opacity:.5}
+
+/* Tipo resposta segmented control */
+.seg{display:inline-flex;background:#f0f2f7;border-radius:10px;padding:3px;gap:2px}
+.seg label{cursor:pointer;padding:7px 14px;font-size:.82rem;font-weight:700;color:var(--muted);border-radius:8px;transition:.15s;user-select:none}
+.seg input{display:none}
+.seg label:has(input:checked){background:#fff;color:var(--purple);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+/* Fallback pra browsers sem :has */
+.seg label.on{background:#fff;color:var(--purple);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+
+/* Opções (botões) */
+.opcoes-wrap{border:1.5px dashed var(--line);border-radius:10px;padding:12px;background:#fafbfc;margin-top:4px}
+.opcoes-lista{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.opcoes-lista:empty::before{content:'Nenhuma opção. Clique em "Adicionar opção".';display:block;padding:14px;text-align:center;color:var(--muted);font-size:.8rem;font-style:italic}
+.opcao-row{display:grid;grid-template-columns:170px minmax(0,1fr) 180px 32px;gap:10px;align-items:end;background:#fff;padding:10px;border-radius:8px;border:1px solid var(--line)}
+.opcao-row .col{display:flex;flex-direction:column;gap:3px;min-width:0}
+.opcao-row .col-lbl{font-size:.62rem;letter-spacing:.5px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.opcao-row .input{padding:7px 10px;font-size:.83rem;width:100%}
+.opcao-row select{padding:7px 10px;font-size:.83rem;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);cursor:pointer;outline:none;transition:.15s;width:100%;text-overflow:ellipsis}
+.opcao-row select:focus{border-color:var(--purple)}
+.opcao-row .btn-rm{background:#fce8e8;color:var(--err);border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:.9rem;transition:.15s;display:grid;place-items:center;align-self:end}
+.opcao-row .btn-rm:hover{background:#f7c8c8}
+@media (max-width: 700px){
+  .opcao-row{grid-template-columns:1fr 32px;grid-auto-rows:auto}
+  .opcao-row .col:nth-child(1),.opcao-row .col:nth-child(2),.opcao-row .col:nth-child(3){grid-column:1}
+  .opcao-row .btn-rm{grid-column:2;grid-row:1/span 3}
+}
+
+/* Badges no card do passo */
+.passo-tipo-badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:800;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.passo-tipo-badge.text{background:#e5e7eb;color:#4b5563}
+.passo-tipo-badge.buttons{background:#dbeafe;color:#1e40af}
+.passo-tipo-badge.list{background:#fef3c7;color:#92400e}
+.passo-opcoes-preview{margin-top:8px;font-size:.78rem;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.passo-opcoes-preview code{background:#fef3c7;padding:1px 6px;border-radius:4px;color:#78350f;font-size:.72rem}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <div class="brand-mark">🤖</div>
+    <div>
+      <div class="brand-title">Triagem com IA</div>
+      <div class="brand-sub">CHAT MULTI-CONTA</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="chat.html" class="btn-nav"><i class="bi bi-chat-dots"></i> Voltar ao chat</a>
+    <a href="#" onclick="sair();return false" class="btn-nav"><i class="bi bi-box-arrow-right"></i> Sair</a>
+  </div>
+</header>
+
+<div class="wrap">
+
+<!-- Card 0: Seletor de Triagens -->
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head">
+    <h3 class="card-title"><i class="bi bi-collection"></i> Triagem</h3>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="novaTriagem()" style="background:#16a34a;border:0"><i class="bi bi-plus-lg"></i> Nova</button>
+      <button class="btn" onclick="duplicarTriagem()" style="background:#f3f4f6"><i class="bi bi-files"></i> Duplicar</button>
+      <button class="btn" onclick="renomearTriagem()" style="background:#f3f4f6"><i class="bi bi-pencil"></i> Renomear</button>
+      <button class="btn" onclick="ativarTriagem()" style="background:#7c3aed;color:#fff;border:0"><i class="bi bi-check-circle"></i> Ativar</button>
+      <button class="btn" onclick="excluirTriagem()" style="background:#fee2e2;color:#dc2626"><i class="bi bi-trash"></i> Excluir</button>
+    </div>
+  </div>
+  <div class="card-body">
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <label style="font-weight:600;font-size:13px">Editando:</label>
+      <select id="triagemSel" onchange="trocarTriagem()" style="flex:1;min-width:250px;padding:8px 12px;border:1px solid #e5e7eb;border-radius:6px;font-size:14px">
+        <option value="">Carregando...</option>
+      </select>
+      <span id="triagemAtivaBadge" style="display:none;padding:4px 10px;background:#dcfce7;color:#16a34a;border-radius:12px;font-size:12px;font-weight:700">🟢 ATIVA</span>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:#6b7280">
+      💡 Só <b>uma triagem</b> pode estar ativa por vez. Ao ativar uma, as outras ficam paradas (mas salvas).
+    </div>
+  </div>
+</div>
+
+<!-- Card 1: Config global -->
+<div class="card">
+  <div class="card-head">
+    <h3 class="card-title"><i class="bi bi-toggles"></i> Configuração global</h3>
+    <button class="btn btn-primary" onclick="salvarConfig()"><i class="bi bi-check-lg"></i> Salvar</button>
+  </div>
+  <div class="card-body">
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <strong>Ativar automaticamente para novas conversas</strong>
+        <span>Quando um contato novo mandar a primeira mensagem, a IA inicia a triagem antes de aparecer pro consultor.</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="cfgAtivaAuto">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="toggle-row" style="margin-top:12px">
+      <div class="toggle-info">
+        <strong>🔍 Ativar quando cliente digitar palavra-chave</strong>
+        <span>Aciona a triagem se a mensagem do cliente contiver uma das palavras abaixo. Só funciona pra conversas SEM consultor humano.</span>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="cfgAtivaKw">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <input class="input" id="cfgPalavrasChave" type="text" placeholder="matrícula, bolsa, inscrição, quero estudar" style="margin-top:8px">
+    <div class="helper">Separe por vírgula. Não faz diferença maiúscula/minúscula. Ex: <code>matrícula, bolsa, inscrição</code> — se o cliente digitar "quero fazer minha MATRÍCULA", aciona.</div>
+
+    <label class="lbl" style="margin-top:16px"><i class="bi bi-filter"></i> Ativar APENAS nas contas selecionadas (deixe vazio = todas)</label>
+    <div id="cfgContasBox" style="display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line,#e2e8f0);border-radius:8px;background:#fafafa;max-height:200px;overflow-y:auto">
+      <div style="font-size:.78rem;color:#64748b">Carregando contas...</div>
+    </div>
+    <div class="helper">Marque uma ou mais contas pra limitar a triagem só a elas. Se nenhuma marcada, ativa pra TODAS.</div>
+
+    <label class="lbl">Mensagem inicial (enviada antes do 1º passo)</label>
+    <textarea class="textarea" id="cfgMsgInicial" placeholder="Ex: Olá! Vou fazer algumas perguntas rápidas antes de te encaminhar..."></textarea>
+
+    <label class="lbl">Mensagem final (enviada quando concluir a triagem)</label>
+    <textarea class="textarea" id="cfgMsgFinal" placeholder="Ex: Obrigado! Um consultor vai te atender em breve."></textarea>
+
+    <label class="lbl">Máximo de tentativas por passo (se IA validar e rejeitar)</label>
+    <input class="input" id="cfgMaxTent" type="number" min="1" max="5" value="2" style="width:120px">
+    <div class="helper">Se a IA achar a resposta inválida (com base no critério do passo), pede pra tentar de novo até esse limite. Depois aceita e avança.</div>
+  </div>
+</div>
+
+<!-- Card 2: Passos -->
+<div class="card">
+  <div class="card-head">
+    <h3 class="card-title"><i class="bi bi-list-ol"></i> Passos da triagem</h3>
+    <button class="btn btn-primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
+  </div>
+  <div class="card-body" id="passosBody">
+    <div class="empty"><i class="bi bi-inbox"></i>Nenhum passo ainda. Adicione o primeiro.</div>
+  </div>
+</div>
+
+</div>
+
+<!-- MODAL Passo -->
+<div class="modal-back" id="modalPassoBack">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalPassoTitulo">Novo passo</h3>
+      <button class="modal-close" onclick="fecharPasso()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pCodigo">
+      <label class="lbl">Ordem</label>
+      <input class="input" id="pOrdem" type="number" min="1" max="99" value="1" style="width:100px">
+
+      <label class="lbl">Nome do campo (identificador na resposta)</label>
+      <input class="input" id="pCampo" placeholder="Ex: nome, curso, horario" maxlength="60">
+      <div class="helper">A resposta do cliente vai ser salva com esse nome. Ex: <code>respostas.curso = "administração"</code>.</div>
+
+      <label class="lbl">Mensagem enviada ao cliente</label>
+      <textarea class="textarea" id="pMensagem" placeholder="Ex: Qual curso te interessa?" maxlength="2000"></textarea>
+
+      <label class="lbl">Tipo de resposta</label>
+      <div class="seg" id="segTipo">
+        <label class="on"><input type="radio" name="pTipoResposta" value="text" checked> <i class="bi bi-chat-text"></i> Texto livre</label>
+        <label><input type="radio" name="pTipoResposta" value="buttons"> <i class="bi bi-grid-3x3-gap-fill"></i> Botões (até 3)</label>
+        <label><input type="radio" name="pTipoResposta" value="list"> <i class="bi bi-list-ul"></i> Lista (até 10)</label>
+      </div>
+      <div class="helper">Botões e lista só funcionam em contas <strong>Meta oficial</strong>.</div>
+
+      <div id="opcoesBox" style="display:none;margin-top:14px">
+        <label class="lbl" style="margin-top:0">Opções (o que o cliente pode escolher)</label>
+        <div class="opcoes-wrap">
+          <div class="opcoes-lista" id="opcoesLista"></div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addOpcao()"><i class="bi bi-plus-lg"></i> Adicionar opção</button>
+        </div>
+
+        <label class="lbl">Se cliente responder algo fora das opções</label>
+        <select class="input" id="pFallback">
+          <option value="">Repetir o mesmo passo com aviso</option>
+          <option value="__end__">Encerrar triagem e chamar consultor</option>
+        </select>
+        <div class="helper">Ou escolha um passo específico da lista pra desviar.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="fecharPasso()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPasso()"><i class="bi bi-check-lg"></i> Salvar passo</button>
+    </div>
+  </div>
+</div>
+
+<div class="chat-toasts-stack" id="toasts"></div>
+
+<script>
+const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_GET     = URL_BASE + '/webhook/chat-triagem-config';
+const URL_CFG     = URL_BASE + '/webhook/chat-triagem-config-save';
+const URL_PSAVE   = URL_BASE + '/webhook/chat-triagem-passo-save';
+const URL_PDEL    = URL_BASE + '/webhook/chat-triagem-passo-delete';
+const URL_MOTIVOS = URL_BASE + '/webhook/chat-motivos-list';
+const URL_TRI_LIST   = URL_BASE + '/webhook/chat-triagem-config-list';
+const URL_TRI_NOVA   = URL_BASE + '/webhook/chat-triagem-config-nova';
+const URL_TRI_REN    = URL_BASE + '/webhook/chat-triagem-config-rename';
+const URL_TRI_DUP    = URL_BASE + '/webhook/chat-triagem-config-duplicate';
+const URL_TRI_ACT    = URL_BASE + '/webhook/chat-triagem-config-set-active';
+const URL_TRI_DEL    = URL_BASE + '/webhook/chat-triagem-config-delete';
+
+let TRIAGEM_ATUAL = '';   // codigo da triagem sendo editada
+let TRIAGENS = [];        // lista de todas triagens
+
+let MOTIVOS_CACHE = [];
+async function carregarMotivosTriagem(){
+  try{
+    const r = await fetch(URL_MOTIVOS);
+    const j = await r.json();
+    MOTIVOS_CACHE = (j.motivos||[]).filter(m => m.ativo !== false);
+  }catch(_){ MOTIVOS_CACHE = []; }
+}
+
+const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
+const USUARIO = sessionStorage.getItem('chat_usuario') || localStorage.getItem('chat_usuario') || '';
+if(!TOKEN || !USUARIO){ window.location.href='login.html'; }
+
+let passos = [];
+
+function qs(s){ return document.querySelector(s); }
+function toast(msg,tipo){
+  const st=qs('#toasts');if(!st){console.warn('toast:',msg);return}
+  const el=document.createElement('div');
+  el.className='chat-toast'+(tipo?' '+tipo:'');el.textContent=msg;st.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3200);
+}
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function sair(){ sessionStorage.clear(); localStorage.removeItem('chat_token'); localStorage.removeItem('chat_usuario'); location.href='login.html'; }
+
+async function api(url, opt){
+  opt = opt || {}; opt.headers = opt.headers || {};
+  if(!opt.method || opt.method==='GET'){
+    const sep = url.includes('?')?'&':'?';
+    url = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(url); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  } else {
+    opt.headers['Content-Type'] = 'text/plain;charset=UTF-8';
+    if(opt.bodyObj){
+      opt.body = JSON.stringify({token:TOKEN, usuario:USUARIO, _actor:USUARIO, ...opt.bodyObj});
+      delete opt.bodyObj;
+    }
+    const r = await fetch(url, opt); const t = await r.text();
+    try{ return JSON.parse(t); }catch(_){ throw new Error('Resposta invalida'); }
+  }
+}
+
+// ======== MULTI TRIAGENS ========
+async function carregarListaTriagens(){
+  try {
+    const r = await api(URL_TRI_LIST);
+    if(!r.ok){ toast('Erro lista triagens: '+(r.erro||''),'err'); return; }
+    TRIAGENS = r.triagens || [];
+    const sel = qs('#triagemSel');
+    sel.innerHTML = TRIAGENS.map(t => {
+      const label = t.nome + (t.ativa ? ' 🟢' : '') + ' (' + (t.total_passos||0) + ' passos)';
+      return '<option value="'+escapeHtml(t.codigo)+'">'+escapeHtml(label)+'</option>';
+    }).join('');
+    // Seleciona a ativa por padrão (ou a atual se já tinha)
+    const alvo = TRIAGEM_ATUAL || (TRIAGENS.find(t => t.ativa) || TRIAGENS[0] || {}).codigo || '';
+    if(alvo){ sel.value = alvo; TRIAGEM_ATUAL = alvo; }
+    const tri = TRIAGENS.find(t => t.codigo === TRIAGEM_ATUAL);
+    qs('#triagemAtivaBadge').style.display = (tri && tri.ativa) ? 'inline-block' : 'none';
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function trocarTriagem(){
+  TRIAGEM_ATUAL = qs('#triagemSel').value;
+  await carregar();
+  const tri = TRIAGENS.find(t => t.codigo === TRIAGEM_ATUAL);
+  qs('#triagemAtivaBadge').style.display = (tri && tri.ativa) ? 'inline-block' : 'none';
+}
+
+async function novaTriagem(){
+  const nome = prompt('Nome da nova triagem:', 'Nova triagem');
+  if(!nome) return;
+  try {
+    const r = await api(URL_TRI_NOVA, {method:'POST', bodyObj:{nome}});
+    if(!r.ok){ toast('Erro: '+(r.erro||''),'err'); return; }
+    TRIAGEM_ATUAL = r.codigo;
+    await carregarListaTriagens();
+    await carregar();
+    toast('Triagem criada: '+r.nome,'');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function duplicarTriagem(){
+  if(!TRIAGEM_ATUAL){ toast('Selecione uma triagem primeiro','err'); return; }
+  const nome = prompt('Nome da nova (copia):', '');
+  if(nome === null) return; // cancelou
+  try {
+    const r = await api(URL_TRI_DUP, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL, nome_novo: nome}});
+    if(!r.ok){ toast('Erro: '+(r.erro||''),'err'); return; }
+    TRIAGEM_ATUAL = r.codigo;
+    await carregarListaTriagens();
+    await carregar();
+    toast('Duplicada! '+r.passos_copiados+' passos copiados','');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function renomearTriagem(){
+  if(!TRIAGEM_ATUAL){ toast('Selecione uma triagem primeiro','err'); return; }
+  const atual = (TRIAGENS.find(t => t.codigo === TRIAGEM_ATUAL) || {}).nome || '';
+  const novo = prompt('Novo nome:', atual);
+  if(!novo || novo === atual) return;
+  try {
+    const r = await api(URL_TRI_REN, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL, nome: novo}});
+    if(!r.ok){ toast('Erro: '+(r.erro||''),'err'); return; }
+    await carregarListaTriagens();
+    toast('Renomeada','');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function ativarTriagem(){
+  if(!TRIAGEM_ATUAL){ toast('Selecione uma triagem primeiro','err'); return; }
+  const nome = (TRIAGENS.find(t => t.codigo === TRIAGEM_ATUAL) || {}).nome || '';
+  if(!confirm('Ativar "'+nome+'"? Isso desativa a triagem atual.')) return;
+  try {
+    const r = await api(URL_TRI_ACT, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL}});
+    if(!r.ok){ toast('Erro: '+(r.erro||''),'err'); return; }
+    await carregarListaTriagens();
+    toast('Ativada!','');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function excluirTriagem(){
+  if(!TRIAGEM_ATUAL){ toast('Selecione uma triagem primeiro','err'); return; }
+  if(TRIAGEM_ATUAL === 'default'){ toast('Triagem padrão não pode ser excluída','err'); return; }
+  const nome = (TRIAGENS.find(t => t.codigo === TRIAGEM_ATUAL) || {}).nome || '';
+  if(!confirm('EXCLUIR "'+nome+'"? Todos os passos serão perdidos. Essa ação NÃO pode ser desfeita.')) return;
+  try {
+    const r = await api(URL_TRI_DEL, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL}});
+    if(!r.ok){ toast('Erro: '+(r.erro||''),'err'); return; }
+    TRIAGEM_ATUAL = '';
+    await carregarListaTriagens();
+    await carregar();
+    toast('Excluída','');
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ======== CARREGAR ========
+let CONTAS_DISPONIVEIS = [];
+async function _carregarContasDisponiveis(){
+  try {
+    const tok = localStorage.getItem('chat_token') || '';
+    const r = await fetch(URL_BASE + '/webhook/chat-contas-list?token=' + encodeURIComponent(tok));
+    const j = await r.json();
+    CONTAS_DISPONIVEIS = (j.contas || []).filter(c => c.status === 'ativo' || !c.status);
+  } catch(_){ CONTAS_DISPONIVEIS = []; }
+}
+function renderContasBox(contasSelecionadas){
+  const sel = new Set((contasSelecionadas || []).map(String));
+  const box = qs('#cfgContasBox');
+  if(!box) return;
+  if(!CONTAS_DISPONIVEIS.length){
+    box.innerHTML = '<div style="font-size:.78rem;color:#64748b">Nenhuma conta cadastrada.</div>';
+    return;
+  }
+  box.innerHTML = CONTAS_DISPONIVEIS.map(c => {
+    const checked = sel.has(String(c.id)) ? 'checked' : '';
+    const tipo = c.tipo === 'meta' ? '<span style="font-size:.68rem;color:#1877f2;font-weight:700;margin-left:6px">OFICIAL</span>' : '<span style="font-size:.68rem;color:#25d366;font-weight:700;margin-left:6px">EVO</span>';
+    return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 0;font-size:.85rem"><input type="checkbox" class="cfg-conta-chk" value="${escapeHtml(c.id)}" ${checked} style="width:16px;height:16px;cursor:pointer"><span>${escapeHtml(c.nome || c.id)}</span>${tipo}</label>`;
+  }).join('');
+}
+async function carregar(){
+  try{
+    await _carregarContasDisponiveis();
+    const sep = URL_GET.includes('?')?'&':'?';
+    const url = URL_GET + (TRIAGEM_ATUAL ? (sep + 'codigo=' + encodeURIComponent(TRIAGEM_ATUAL)) : '');
+    const r = await api(url);
+    if(!r.ok){ toast('Erro ao carregar: '+(r.erro||'servidor'),'err'); return; }
+    const cfg = r.config || {};
+    TRIAGEM_ATUAL = cfg.codigo || TRIAGEM_ATUAL || 'default';
+    qs('#cfgAtivaAuto').checked = !!cfg.ativa_auto;
+    qs('#cfgAtivaKw').checked = !!cfg.ativa_por_palavra_chave;
+    qs('#cfgPalavrasChave').value = Array.isArray(cfg.palavras_chave) ? cfg.palavras_chave.join(', ') : (cfg.palavras_chave || '');
+    qs('#cfgMsgInicial').value = cfg.mensagem_inicial || '';
+    qs('#cfgMsgFinal').value = cfg.mensagem_final || '';
+    qs('#cfgMaxTent').value = cfg.max_tentativas || 2;
+    renderContasBox(cfg.contas_ids || []);
+    passos = r.passos || [];
+    renderPassos();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function renderPassos(){
+  const body = qs('#passosBody');
+  if(!passos.length){
+    body.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum passo ainda. Adicione o primeiro.</div>';
+    return;
+  }
+  body.innerHTML = passos.map(p => {
+    const tipo = p.tipo_resposta || 'text';
+    const opcoes = Array.isArray(p.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p.opcoes||'[]')}catch(_){return []} })();
+    const tipoLabel = tipo==='buttons'?'BOTÕES':(tipo==='list'?'LISTA':'TEXTO');
+    const opcoesHtml = (tipo==='buttons'||tipo==='list') && opcoes.length ? `
+      <div class="passo-opcoes-preview">
+        ${opcoes.map(o => {
+          let destino;
+          if(o.proximo_codigo === '__end__') destino = '→ Finalizar (consultor)';
+          else if(o.proximo_codigo && o.proximo_codigo.startsWith('__close__')){
+            const motCodigo = o.proximo_codigo.replace('__close__','');
+            const mot = (MOTIVOS_CACHE||[]).find(m => m.codigo === motCodigo);
+            destino = '✗ Fechar: ' + escapeHtml(mot ? mot.nome : motCodigo);
+          }
+          else destino = o.proximo_codigo ? '→ ' + escapeHtml((passos.find(x=>x.codigo===o.proximo_codigo)||{}).campo || o.proximo_codigo) : '→ Próximo por ordem';
+          return `<div><code>${escapeHtml(o.titulo)}</code> ${destino}</div>`;
+        }).join('')}
+      </div>` : '';
+    return `
+    <div class="passo">
+      <div class="passo-ordem">${p.ordem}</div>
+      <div class="passo-body">
+        <div class="passo-linha1">
+          ${p.campo?`<span class="passo-campo">${escapeHtml(p.campo)}</span>`:''}
+          <span class="passo-tipo-badge ${tipo}">${tipoLabel}</span>
+        </div>
+        <div class="passo-mensagem">${escapeHtml(p.mensagem)}</div>
+        ${opcoesHtml}
+      </div>
+      <div class="passo-actions">
+        <button class="btn btn-secondary btn-sm" onclick="editarPasso('${escapeHtml(p.codigo)}')" title="Editar"><i class="bi bi-pencil"></i></button>
+        <button class="btn btn-danger btn-sm" onclick="deletarPasso('${escapeHtml(p.codigo)}')" title="Deletar"><i class="bi bi-trash"></i></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ======== SALVAR CONFIG ========
+async function salvarConfig(){
+  const ativa_auto = qs('#cfgAtivaAuto').checked;
+  const mensagem_inicial = qs('#cfgMsgInicial').value.trim();
+  const mensagem_final = qs('#cfgMsgFinal').value.trim();
+  const max_tentativas = Math.max(1, Math.min(5, Number(qs('#cfgMaxTent').value)||2));
+  try{
+    const ativa_por_palavra_chave = qs('#cfgAtivaKw').checked;
+    const palavras_chave = qs('#cfgPalavrasChave').value.split(',').map(s => s.trim()).filter(Boolean);
+    const contas_ids = Array.from(document.querySelectorAll('.cfg-conta-chk:checked')).map(el => el.value);
+    const r = await api(URL_CFG, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL || 'default', ativa_auto, ativa_por_palavra_chave, palavras_chave, contas_ids, mensagem_inicial, mensagem_final, max_tentativas}});
+    if(r.ok){ toast('Configuração salva.',''); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ======== MODAL PASSO ========
+function abrirPasso(codigo){
+  const p = codigo ? passos.find(x=>x.codigo===codigo) : null;
+  qs('#modalPassoTitulo').textContent = p ? 'Editar passo' : 'Novo passo';
+  qs('#pCodigo').value = p?.codigo || '';
+  qs('#pOrdem').value = p?.ordem || (passos.length + 1);
+  qs('#pCampo').value = p?.campo || '';
+  qs('#pMensagem').value = p?.mensagem || '';
+
+  // Tipo resposta
+  const tipo = (p?.tipo_resposta) || 'text';
+  document.querySelectorAll('#segTipo input[name="pTipoResposta"]').forEach(el => {
+    el.checked = el.value === tipo;
+    el.parentElement.classList.toggle('on', el.value === tipo);
+  });
+
+  // Fallback
+  atualizarSelectFallback();
+  qs('#pFallback').value = p?.fallback_codigo || '';
+
+  // Opções — carrega da lista salva ou vazia
+  const opcoes = (function(){
+    if(!p) return [];
+    try { return Array.isArray(p.opcoes) ? p.opcoes : JSON.parse(p.opcoes||'[]'); } catch(_){ return []; }
+  })();
+  renderOpcoesEditor(opcoes);
+
+  toggleOpcoesBox(tipo);
+  qs('#modalPassoBack').classList.add('on');
+}
+
+function fecharPasso(){ qs('#modalPassoBack').classList.remove('on'); }
+function editarPasso(codigo){ abrirPasso(codigo); }
+
+// Ao mudar tipo de resposta
+document.addEventListener('change', function(e){
+  if(e.target && e.target.name === 'pTipoResposta'){
+    document.querySelectorAll('#segTipo label').forEach(l => l.classList.remove('on'));
+    e.target.parentElement.classList.add('on');
+    toggleOpcoesBox(e.target.value);
+  }
+});
+
+function toggleOpcoesBox(tipo){
+  const box = qs('#opcoesBox');
+  if(!box) return;
+  box.style.display = (tipo === 'buttons' || tipo === 'list') ? 'block' : 'none';
+}
+
+function atualizarSelectFallback(){
+  const sel = qs('#pFallback');
+  if(!sel) return;
+  const meuCodigo = qs('#pCodigo').value;
+  const opts = ['<option value="">Repetir o mesmo passo com aviso</option>',
+    '<option value="__end__">Encerrar triagem e chamar consultor</option>'];
+  passos.filter(x => x.codigo !== meuCodigo).forEach(x => {
+    opts.push(`<option value="${escapeHtml(x.codigo)}">→ Passo ${x.ordem}: ${escapeHtml(x.campo||x.mensagem.substring(0,40))}</option>`);
+  });
+  sel.innerHTML = opts.join('');
+}
+
+function renderOpcoesEditor(opcoes){
+  const cont = qs('#opcoesLista');
+  if(!cont) return;
+  cont.innerHTML = '';
+  (opcoes||[]).forEach(o => addOpcao(o));
+}
+
+function addOpcao(preset){
+  const tipo = document.querySelector('input[name="pTipoResposta"]:checked')?.value || 'text';
+  const cont = qs('#opcoesLista');
+  const existentes = cont.querySelectorAll('.opcao-row').length;
+  const limite = tipo === 'buttons' ? 3 : 10;
+  if(existentes >= limite){ toast(`Máximo ${limite} opções pra ${tipo==='buttons'?'botões':'lista'}`,'warn'); return; }
+  const maxLen = tipo === 'buttons' ? 20 : 24;
+  const meuCodigo = qs('#pCodigo').value;
+  const proximoOpts = ['<option value="">→ Próximo por ordem</option>',
+    '<option value="__end__">→ Finalizar (encaminhar consultor)</option>'];
+  passos.filter(x => x.codigo !== meuCodigo).forEach(x => {
+    proximoOpts.push(`<option value="${escapeHtml(x.codigo)}"${preset && preset.proximo_codigo===x.codigo?' selected':''}>→ Passo ${x.ordem}: ${escapeHtml(x.campo||x.mensagem.substring(0,30))}</option>`);
+  });
+  // Motivos de fechamento — encerra conversa direto (sem consultor)
+  if((MOTIVOS_CACHE||[]).length){
+    proximoOpts.push('<option disabled>──────── Fechar conversa ────────</option>');
+    MOTIVOS_CACHE.forEach(m => {
+      const val = '__close__'+m.codigo;
+      const tipo = m.tipo === 'ganho' ? '✓' : (m.tipo === 'perda' ? '✗' : '•');
+      proximoOpts.push(`<option value="${escapeHtml(val)}">${tipo} Fechar como: ${escapeHtml(m.nome)}</option>`);
+    });
+  }
+  const row = document.createElement('div');
+  row.className = 'opcao-row';
+  const idAuto = 'opt_' + Date.now() + '_' + Math.random().toString(36).slice(2,5);
+  row.innerHTML = `
+    <div class="col">
+      <span class="col-lbl">Título do botão</span>
+      <input class="input opcao-titulo" placeholder="Ex: Sim" maxlength="${maxLen}" value="${escapeHtml(preset?.titulo||'')}" data-id="${escapeHtml(preset?.id || idAuto)}">
+    </div>
+    <div class="col">
+      <span class="col-lbl">Vai para</span>
+      <select class="opcao-proximo">${proximoOpts.join('')}</select>
+    </div>
+    <div class="col">
+      <span class="col-lbl">Etiqueta (opcional)</span>
+      <input class="input opcao-etiqueta" placeholder="Ex: Primeira Grad" maxlength="40" value="${escapeHtml(preset?.etiqueta||'')}">
+    </div>
+    <button type="button" class="btn-rm" title="Remover" onclick="this.parentElement.remove()"><i class="bi bi-x-lg"></i></button>
+  `;
+  cont.appendChild(row);
+  // Aplica selected corretamente (preset.proximo_codigo pode ser "__end__" ou "")
+  const sel = row.querySelector('.opcao-proximo');
+  if(preset){
+    sel.value = preset.proximo_codigo || '';
+  }
+}
+
+async function salvarPasso(){
+  const codigo = qs('#pCodigo').value || undefined;
+  const ordem = Math.max(1, Number(qs('#pOrdem').value)||1);
+  const campo = qs('#pCampo').value.trim();
+  const mensagem = qs('#pMensagem').value.trim();
+  const tipo_resposta = document.querySelector('input[name="pTipoResposta"]:checked')?.value || 'text';
+  const fallback_codigo = qs('#pFallback').value || '';
+  if(!mensagem){ toast('Mensagem obrigatória','warn'); return; }
+
+  let opcoes = [];
+  if(tipo_resposta === 'buttons' || tipo_resposta === 'list'){
+    const rows = qs('#opcoesLista').querySelectorAll('.opcao-row');
+    rows.forEach(r => {
+      const titulo = r.querySelector('.opcao-titulo').value.trim();
+      const id = r.querySelector('.opcao-titulo').dataset.id || ('opt_'+Date.now());
+      const proximo_codigo = r.querySelector('.opcao-proximo').value || '';
+      const etiqueta = (r.querySelector('.opcao-etiqueta')?.value || '').trim();
+      if(titulo) opcoes.push({ id, titulo, proximo_codigo, etiqueta });
+    });
+    if(!opcoes.length){ toast('Adicione pelo menos 1 opção','warn'); return; }
+  }
+
+  try{
+    const r = await api(URL_PSAVE, {method:'POST', bodyObj:{codigo, triagem_codigo: TRIAGEM_ATUAL || 'default', ordem, campo, mensagem, tipo_resposta, opcoes, fallback_codigo}});
+    if(r.ok){ toast('Passo salvo.',''); fecharPasso(); carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function deletarPasso(codigo){
+  if(!confirm('Deletar esse passo?')) return;
+  try{
+    const r = await api(URL_PDEL, {method:'POST', bodyObj:{codigo}});
+    if(r.ok){ toast('Passo removido.',''); carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// INIT
+carregarMotivosTriagem().then(carregarListaTriagens).then(carregar);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Manual do Consultor</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--blue-300:#3b6fb0;--orange:#ff6b00;--purple:#7c3aed;--purple-700:#5b21b6;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--purple),var(--purple-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(124,58,237,.28)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px;box-shadow:0 6px 16px rgba(255,107,0,.45)}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.header-actions{display:flex;gap:8px}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{display:grid;grid-template-columns:340px 1fr;gap:20px;max-width:1400px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;gap:8px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--purple);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+
+.tree{padding:12px 8px;max-height:calc(100vh - 260px);overflow-y:auto}
+.node{padding:8px 10px;border-radius:8px;cursor:pointer;font-size:.86rem;display:flex;align-items:center;gap:8px;margin:2px 0;border:1.5px solid transparent;transition:.12s}
+.node:hover{background:#f6f7fb}
+.node.active{background:#f3e8ff;border-color:var(--purple);color:var(--purple);font-weight:700}
+.node .chevron{color:var(--muted);width:14px;text-align:center}
+.node .titulo{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.node .badge-num{font-size:.65rem;background:var(--line);color:var(--muted);padding:2px 6px;border-radius:20px;font-weight:700}
+
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.83rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple-700));color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.32)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-secondary:hover{background:#e6eaf2}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-danger:hover{background:#fbd0d0}
+.btn-success{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 6px 14px rgba(22,163,74,.3)}
+.btn-sm{padding:5px 10px;font-size:.75rem;border-radius:8px}
+
+.form-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:0 0 6px}
+.form-input,.form-textarea,.form-select{width:100%;padding:10px 12px;border-radius:10px;border:1.5px solid var(--line);font-size:.9rem;font-family:inherit;color:var(--ink);background:#fff;transition:.15s;resize:vertical}
+.form-input:focus,.form-textarea:focus,.form-select:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.form-textarea{min-height:140px}
+.form-row{margin-bottom:16px}
+.form-hint{font-size:.72rem;color:var(--muted);margin-top:4px}
+
+.empty{padding:60px 20px;text-align:center;color:var(--muted)}
+.empty i{font-size:3rem;opacity:.4;display:block;margin-bottom:12px}
+
+.preview-box{background:linear-gradient(135deg,#faf5ff,#f3e8ff);border:1.5px dashed var(--purple);border-radius:12px;padding:14px;margin-top:12px}
+.preview-titulo{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--purple-700);font-size:.95rem;margin:0 0 6px}
+.preview-texto{font-size:.86rem;color:var(--ink);white-space:pre-wrap;line-height:1.55}
+.preview-btns{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+.preview-btn{background:#fff;border:1.5px solid var(--purple);color:var(--purple);padding:6px 12px;border-radius:20px;font-size:.75rem;font-weight:700}
+
+.toast{position:fixed;top:76px;right:22px;padding:12px 18px;border-radius:10px;color:#fff;font-weight:600;font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.15);z-index:9999;transition:.3s;transform:translateX(400px);max-width:340px}
+.toast.show{transform:translateX(0)}
+.toast.ok{background:var(--ok)}
+.toast.err{background:var(--err)}
+
+@media(max-width:900px){
+  .wrap{grid-template-columns:1fr;padding:0 12px 40px}
+  .tree{max-height:220px}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-title">Manual do Consultor</div>
+      <div class="brand-sub">EDITOR DE ÁRVORE</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn-nav" id="linkChat" href="#"><i class="bi bi-arrow-left"></i> Voltar ao Chat</a>
+    <button class="btn-nav" onclick="sair()"><i class="bi bi-box-arrow-right"></i> Sair</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-diagram-3-fill"></i> Árvore</h2>
+      <button class="btn btn-primary btn-sm" onclick="novoRaiz()"><i class="bi bi-plus-lg"></i> Raiz</button>
+    </div>
+    <div class="tree" id="tree">
+      <div class="empty"><i class="bi bi-hourglass-split"></i>Carregando...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title" id="editorTitulo"><i class="bi bi-pencil-fill"></i> Selecione ou crie um nó</h2>
+      <div style="display:flex;gap:6px" id="editorAcoes"></div>
+    </div>
+    <div class="card-body" id="editorBody">
+      <div class="empty"><i class="bi bi-hand-index-thumb"></i>Clique num nó da árvore ou crie um novo.</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BASE = location.pathname.includes('/webhook/') ? location.origin + '/webhook' : 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook';
+const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
+let TOKEN = '';
+let nos = [];
+let selecionado = null;
+let editandoNovo = null;
+
+function qs(s){return document.querySelector(s)}
+function esc(s){return (s+'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function sair(){try{localStorage.removeItem('chat_token');localStorage.removeItem('chat_usuario')}catch(_){}location.href=LOGIN_URL}
+function toast(msg, tipo){
+  const t = qs('#toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (tipo||'ok');
+  clearTimeout(t._h);
+  t._h = setTimeout(()=>{t.classList.remove('show')}, 3200);
+}
+
+async function api(path, body){
+  const url = BASE + path;
+  if(!body){
+    const r = await fetch(url + (url.includes('?')?'&':'?') + 'token=' + encodeURIComponent(TOKEN));
+    return await r.json();
+  }
+  const r = await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},body:JSON.stringify({...body,token:TOKEN})});
+  return await r.json();
+}
+
+async function carregar(){
+  try {
+    const r = await api('/chat-manual-nos-list');
+    nos = r.nos || [];
+    renderTree();
+  } catch(e) {
+    qs('#tree').innerHTML = '<div class="empty" style="color:var(--err)"><i class="bi bi-exclamation-triangle"></i>Erro: '+esc(e.message)+'</div>';
+  }
+}
+
+function filhosDe(pai){
+  return nos.filter(n => (n.pai_id||'') === (pai||'')).sort((a,b) => (a.ordem||0)-(b.ordem||0));
+}
+
+function renderNode(no, nivel){
+  const filhos = filhosDe(no.codigo);
+  const at = selecionado && selecionado.codigo === no.codigo ? ' active' : '';
+  const chevron = filhos.length ? '<i class="bi bi-chevron-right chevron"></i>' : '<span class="chevron">·</span>';
+  const badge = filhos.length ? '<span class="badge-num">'+filhos.length+'</span>' : '';
+  let html = '<div class="node'+at+'" style="margin-left:'+(nivel*16)+'px" onclick="selecionar(\''+esc(no.codigo)+'\')">'
+    + chevron
+    + '<span class="titulo">'+esc(no.titulo)+'</span>'
+    + badge
+    + '</div>';
+  for(const f of filhos){ html += renderNode(f, nivel+1); }
+  return html;
+}
+
+function renderTree(){
+  const raizes = filhosDe('');
+  if(!raizes.length){
+    qs('#tree').innerHTML = '<div class="empty"><i class="bi bi-diagram-2"></i>Nenhum nó ainda. Clique em <b>+ Raiz</b>.</div>';
+    return;
+  }
+  qs('#tree').innerHTML = raizes.map(r => renderNode(r, 0)).join('');
+}
+
+function selecionar(codigo){
+  const no = nos.find(n => n.codigo === codigo);
+  if(!no) return;
+  selecionado = no;
+  editandoNovo = null;
+  renderTree();
+  renderEditor();
+}
+
+function renderEditor(){
+  if(!selecionado && !editandoNovo){
+    qs('#editorTitulo').innerHTML = '<i class="bi bi-pencil-fill"></i> Selecione ou crie um nó';
+    qs('#editorAcoes').innerHTML = '';
+    qs('#editorBody').innerHTML = '<div class="empty"><i class="bi bi-hand-index-thumb"></i>Clique num nó da árvore ou crie um novo.</div>';
+    return;
+  }
+  const no = editandoNovo || selecionado;
+  const isNovo = !!editandoNovo;
+  const pais = [{codigo:'', titulo:'(raiz — sem pai)'}, ...nos.filter(n => !isNovo || n.codigo !== no.codigo)];
+
+  qs('#editorTitulo').innerHTML = '<i class="bi '+(isNovo?'bi-plus-circle-fill':'bi-pencil-fill')+'"></i> '+(isNovo?'Novo nó':esc(no.titulo));
+  qs('#editorAcoes').innerHTML = (isNovo ? '' : '<button class="btn btn-danger btn-sm" onclick="excluir()"><i class="bi bi-trash"></i> Excluir</button>')
+    + ' <button class="btn btn-primary btn-sm" onclick="novoFilho()"><i class="bi bi-plus-lg"></i> Filho</button>';
+
+  qs('#editorBody').innerHTML =
+    '<div class="form-row">'
+    +   '<label class="form-label">Título (uso interno / árvore)</label>'
+    +   '<input class="form-input" id="fTitulo" value="'+esc(no.titulo||'')+'" placeholder="Ex: Perguntar sobre redação">'
+    + '</div>'
+    + '<div class="form-row">'
+    +   '<label class="form-label">Label do botão (o que aparece no botão que leva a este nó)</label>'
+    +   '<input class="form-input" id="fLabel" value="'+esc(no.label_botao||'')+'" placeholder="Ex: Primeira graduação">'
+    +   '<div class="form-hint">Deixe em branco pra raízes. É o texto do botão que o consultor clica no nó pai.</div>'
+    + '</div>'
+    + '<div class="form-row">'
+    +   '<label class="form-label">Texto / script (o que o consultor deve dizer ou enviar)</label>'
+    +   '<textarea class="form-textarea" id="fTexto" placeholder="Ex: Como você está buscando a primeira graduação, o MEC exige...">'+esc(no.texto||'')+'</textarea>'
+    +   '<div class="form-hint">Este texto aparece no card e pode ser enviado direto no chat com o botão &quot;Enviar como mensagem&quot;.</div>'
+    + '</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+    +   '<div class="form-row">'
+    +     '<label class="form-label">Pai (nó anterior na árvore)</label>'
+    +     '<select class="form-select" id="fPai">'
+    +       pais.map(p => '<option value="'+esc(p.codigo)+'"'+(p.codigo===(no.pai_id||'')?' selected':'')+'>'+esc(p.titulo)+'</option>').join('')
+    +     '</select>'
+    +   '</div>'
+    +   '<div class="form-row">'
+    +     '<label class="form-label">Ordem (entre irmãos)</label>'
+    +     '<input class="form-input" id="fOrdem" type="number" value="'+(+no.ordem||0)+'">'
+    +   '</div>'
+    + '</div>'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">'
+    +   '<div style="font-size:.72rem;color:var(--muted)">Código: <code>'+esc(no.codigo||'(novo)')+'</code></div>'
+    +   '<div style="display:flex;gap:8px">'
+    +     '<button class="btn btn-secondary" onclick="cancelar()">Cancelar</button>'
+    +     '<button class="btn btn-success" onclick="salvar()"><i class="bi bi-check-lg"></i> Salvar</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="preview-box">'
+    +   '<div style="font-size:.65rem;font-weight:800;color:var(--purple);letter-spacing:1px;margin-bottom:6px">PRÉVIA DO CARD</div>'
+    +   '<div class="preview-titulo">'+esc(no.titulo||'(sem título)')+'</div>'
+    +   '<div class="preview-texto">'+esc(no.texto||'(sem texto)')+'</div>'
+    +   (function(){
+          if(isNovo) return '';
+          const fs = filhosDe(no.codigo);
+          if(!fs.length) return '<div style="font-size:.72rem;color:var(--muted);margin-top:8px;font-style:italic">Nó folha (sem opções)</div>';
+          return '<div class="preview-btns">' + fs.map(f => '<span class="preview-btn">'+esc(f.label_botao||f.titulo)+'</span>').join('') + '</div>';
+        })()
+    + '</div>';
+}
+
+function novoRaiz(){
+  editandoNovo = { codigo:'', pai_id:'', titulo:'', texto:'', label_botao:'', ordem: filhosDe('').length };
+  selecionado = null;
+  renderTree();
+  renderEditor();
+}
+
+function novoFilho(){
+  const pai = editandoNovo && editandoNovo.codigo ? editandoNovo : selecionado;
+  if(!pai || !pai.codigo){ toast('Salve o nó atual antes de criar um filho.','err'); return }
+  editandoNovo = { codigo:'', pai_id:pai.codigo, titulo:'', texto:'', label_botao:'', ordem: filhosDe(pai.codigo).length };
+  renderEditor();
+}
+
+function cancelar(){
+  editandoNovo = null;
+  if(selecionado){ renderEditor() } else { qs('#editorBody').innerHTML = '<div class="empty"><i class="bi bi-hand-index-thumb"></i>Clique num nó da árvore ou crie um novo.</div>'; qs('#editorTitulo').innerHTML = '<i class="bi bi-pencil-fill"></i> Selecione ou crie um nó'; qs('#editorAcoes').innerHTML=''; }
+}
+
+async function salvar(){
+  const dados = {
+    codigo: (editandoNovo && editandoNovo.codigo) || (selecionado && selecionado.codigo) || '',
+    pai_id: qs('#fPai').value || '',
+    titulo: qs('#fTitulo').value.trim(),
+    texto: qs('#fTexto').value,
+    label_botao: qs('#fLabel').value.trim(),
+    ordem: +qs('#fOrdem').value || 0
+  };
+  if(!dados.titulo){ toast('Título é obrigatório.','err'); return }
+  try {
+    const r = await api('/chat-manual-no-save', dados);
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return }
+    toast('Salvo!','ok');
+    editandoNovo = null;
+    await carregar();
+    if(r.codigo){ const n = nos.find(x=>x.codigo===r.codigo); if(n){ selecionado = n; renderEditor(); } }
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function excluir(){
+  if(!selecionado) return;
+  const filhos = filhosDe(selecionado.codigo);
+  const msg = filhos.length
+    ? 'Excluir "'+selecionado.titulo+'" e '+filhos.length+' filho(s)?'
+    : 'Excluir "'+selecionado.titulo+'"?';
+  if(!confirm(msg)) return;
+  try {
+    const r = await api('/chat-manual-no-delete', {codigo: selecionado.codigo});
+    if(!r.ok){ toast('Erro: '+(r.erro||'desconhecido'),'err'); return }
+    toast('Excluído.','ok');
+    selecionado = null;
+    editandoNovo = null;
+    await carregar();
+    renderEditor();
+  } catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+function pageUrl(nome){ return location.pathname.includes('/webhook/') ? '/webhook/chat-'+nome+'-page?token='+encodeURIComponent(TOKEN) : nome+'.html'+(TOKEN?'?token='+encodeURIComponent(TOKEN):''); }
+
+(async function init(){
+  const p = new URLSearchParams(location.search);
+  TOKEN = p.get('token') || localStorage.getItem('chat_token') || '';
+  if(!TOKEN){ location.href = LOGIN_URL; return }
+  try { localStorage.setItem('chat_token', TOKEN); } catch(_){}
+  qs('#linkChat').href = location.pathname.includes('/webhook/') ? '/webhook/chat-app?token='+encodeURIComponent(TOKEN) : 'chat.html';
+  await carregar();
+})();
+</script>
+</body>
+</html>
