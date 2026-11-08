@@ -1,9 +1,21 @@
 // Worker de disparos: consome a fila "disparos" com concurrency=1
 // Para cada job: lê msg_id do banco, chama Meta, atualiza status
+import http from 'node:http';
 import { getBoss, QUEUES, stopBoss } from '../services/queue.js';
 import { query, closePool, getPool } from '../services/db.js';
 import { enviarTemplate } from '../services/meta.js';
 import { config, hasDb } from '../config.js';
+
+// Mini HTTP server só pro EasyPanel não matar o container
+// (EasyPanel tem health check que mata processo sem porta aberta)
+const HEALTH_PORT = parseInt(process.env.PORT || '3100');
+const healthServer = http.createServer((req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: true, role: 'worker-disparos', uptime_s: Math.round(process.uptime()) }));
+});
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+  console.log(`[worker-disparos] health HTTP em :${HEALTH_PORT}`);
+});
 
 async function processarJob(job) {
   const { msg_id, campanha_id } = job.data || {};
@@ -142,6 +154,7 @@ async function main() {
 async function shutdown(signal) {
   console.log(`[worker-disparos] ${signal} — encerrando...`);
   try {
+    healthServer.close();
     await stopBoss();
     await closePool();
     process.exit(0);

@@ -1,7 +1,18 @@
 // Cron de contadores: atualiza chat_disparos.enviadas/falharam + marca 'concluido'
 // E recupera msgs presas em 'em_envio' por mais de 10 min
+import http from 'node:http';
 import { query, closePool } from '../services/db.js';
 import { hasDb } from '../config.js';
+
+// Mini HTTP server pro EasyPanel não matar (igual ao worker)
+const HEALTH_PORT = parseInt(process.env.PORT || '3100');
+const healthServer = http.createServer((req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.end(JSON.stringify({ ok: true, role: 'cron-contadores', uptime_s: Math.round(process.uptime()) }));
+});
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+  console.log(`[cron-contadores] health HTTP em :${HEALTH_PORT}`);
+});
 
 const INTERVAL_MS = 2 * 60 * 1000; // 2 min
 
@@ -48,6 +59,7 @@ async function tick() {
 
 async function shutdown(signal) {
   console.log(`[cron-contadores] ${signal} — encerrando...`);
+  healthServer.close();
   await closePool();
   process.exit(0);
 }
