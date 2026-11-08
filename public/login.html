@@ -106,8 +106,14 @@ try{
   localStorage.setItem("chat_token", d.token);
   localStorage.setItem("chat_usuario", d.usuario||u);
   localStorage.setItem("chat_nome", d.nome||d.usuario||u);
-  localStorage.setItem("chat_papel", d.papel||"consultor");
+  localStorage.setItem("chat_papel", String(d.papel||"consultor").toUpperCase());
   localStorage.setItem("chat_foto", d.foto_url||"");
+  // Salva contas_permitidas (array → string separada por vírgula, ou '*' pra tudo)
+  var cp = d.contas_permitidas;
+  var cpStr = '*';
+  if (Array.isArray(cp)) cpStr = cp.length ? cp.join(',') : '__none__';
+  else if (typeof cp === 'string' && cp) cpStr = cp;
+  localStorage.setItem("chat_contas_permitidas", cpStr);
 }catch(_){}
 location.href="/chat.html?token="+encodeURIComponent(d.token);
 }catch(e){m.style.color="#dc3545";m.textContent="Erro: "+e.message;}
