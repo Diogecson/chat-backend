@@ -1,12 +1,18 @@
 import { config } from '../config.js';
 
+// Upstream do n8n (pra reutilizar o chat-enviar que já grava em chat_mensagens)
+const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+
 /**
- * Envia template HSM pra Meta Cloud API.
- * accountCfg = { phone_number_id, access_token, waba_id, ... }
+ * Envia template HSM. Por padrão delega ao endpoint /webhook/chat-enviar do n8n
+ * (que faz Meta + grava em chat_mensagens). Isso mantém compatibilidade total
+ * com o feed de conversas do chat enquanto a migração está em andamento.
+ *
+ * accountCfg = { phone_number_id, access_token, waba_id, ... } (vem do chat_contas.config)
  */
-export async function enviarTemplate({ accountCfg, telefone, templateName, templateLanguage, bodyVars = [] }) {
+export async function enviarTemplate({ accountCfg, telefone, templateName, templateLanguage, bodyVars = [], campanha_id }) {
   if (config.dryRun) {
-    console.log(`[DRY_RUN] Meta send template "${templateName}" to ${telefone}`, bodyVars);
+    console.log(`[DRY_RUN] send template "${templateName}" to ${telefone}`, bodyVars);
     return {
       ok: true,
       wamid: `wamid.DRYRUN_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
@@ -14,49 +20,31 @@ export async function enviarTemplate({ accountCfg, telefone, templateName, templ
     };
   }
 
-  if (!accountCfg?.phone_number_id || !accountCfg?.access_token) {
-    return { ok: false, error: 'account_cfg_incompleto' };
-  }
-
-  const url = `https://graph.facebook.com/${config.metaApiVersion}/${accountCfg.phone_number_id}/messages`;
-  const components = [];
-  if (bodyVars.length) {
-    components.push({
-      type: 'body',
-      parameters: bodyVars.map((v) => ({ type: 'text', text: String(v || '') })),
-    });
-  }
-
-  const body = {
-    messaging_product: 'whatsapp',
-    to: telefone,
-    type: 'template',
-    template: {
-      name: templateName,
-      language: { code: templateLanguage || 'pt_BR' },
-      components,
-    },
+  // Delega pro chat-enviar do n8n (que já faz Meta + grava chat_mensagens)
+  const bodyChatEnviar = {
+    token: 'DISPARO_INTERNO',
+    usuario: 'disparo_' + (campanha_id || 'bg'),
+    conta_id: accountCfg?.codigo || accountCfg?.phone_number_id || '',
+    telefone,
+    tipo: 'template',
+    template_name: templateName,
+    template_language: templateLanguage || 'pt_BR',
+    template_body_vars: bodyVars,
+    template_body_text: '',
+    texto: '',
   };
 
   try {
-    const res = await fetch(url, {
+    const r = await fetch(`${N8N_UPSTREAM}/webhook/chat-enviar`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${accountCfg.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(bodyChatEnviar),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.error) {
-      return {
-        ok: false,
-        error: data?.error?.message || `HTTP ${res.status}`,
-        status: res.status,
-        raw: data,
-      };
+    const data = await r.json().catch(() => ({}));
+    if (!data.ok) {
+      return { ok: false, error: data.erro || `HTTP ${r.status}`, raw: data };
     }
-    const wamid = data?.messages?.[0]?.id || '';
+    const wamid = (data.mensagem && data.mensagem.external_id) || '';
     return { ok: true, wamid, raw: data };
   } catch (err) {
     return { ok: false, error: err.message || 'fetch_error' };
