@@ -12,6 +12,8 @@ import disparosRoutes from './routes/disparos.js';
 import authRoutes from './routes/auth.js';
 import contasRoutes from './routes/contas.js';
 import conversasRoutes from './routes/conversas.js';
+import aliasRoutes from './routes/aliases.js';
+import acoesRoutes from './routes/acoes.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
@@ -35,10 +37,11 @@ await fastify.register(disparosRoutes, { prefix: '/api' });
 await fastify.register(authRoutes, { prefix: '/api' });
 await fastify.register(contasRoutes, { prefix: '/api' });
 
-// Conversas/Contadores: registra SEM prefix pra responder tanto /api/* quanto /webhook/chat-*
-// (os paths exatos estão dentro do conversasRoutes)
-// IMPORTANTE: tem que registrar ANTES do proxy /webhook/* pra ter prioridade
+// Conversas/Contadores + aliases /webhook/*: TODOS registrados ANTES do proxy
+// pra ter prioridade sobre o proxy pro n8n
 await fastify.register(conversasRoutes);
+await fastify.register(aliasRoutes);
+await fastify.register(acoesRoutes);
 
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({

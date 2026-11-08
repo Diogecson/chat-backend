@@ -203,8 +203,81 @@ export default async function conversasRoutes(fastify) {
   fastify.get('/api/contadores', handleContadores);
   fastify.post('/api/contadores', handleContadores);
 
+  // === chat-conversas-delta ===
+  // Devolve só as conversas (até 500) que mudaram desde $since (ultima mensagem ou mudança de dono)
+  async function handleConversasDelta(req, reply) {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const conta_id = p(req, 'conta_id', '__all__');
+    const role = p(req, 'role', 'USER').toUpperCase();
+    const usuario = p(req, 'usuario', '');
+    const since = p(req, 'since', new Date(Date.now() - 300000).toISOString());
+    const contas_permitidas = p(req, 'contas_permitidas', '__all__');
+    const sql = `
+      WITH mudou_msg AS (
+        SELECT DISTINCT conta_id, telefone FROM chat_mensagens
+        WHERE timestamp > $4::timestamptz AND ($1 = '__all__' OR conta_id = $1)
+      ),
+      mudou_fim AS (
+        SELECT conta_id, telefone FROM chat_conversa_dono
+        WHERE (finalizada_em > $4::timestamptz OR atribuido_em > $4::timestamptz)
+          AND ($1 = '__all__' OR conta_id = $1)
+      ),
+      mudou AS (SELECT conta_id, telefone FROM mudou_msg UNION SELECT conta_id, telefone FROM mudou_fim),
+      ultimas AS (
+        SELECT DISTINCT ON (m.conta_id, m.telefone)
+          m.conta_id, m.telefone, m.nome_contato, m.texto, m.tipo, m.timestamp, m.direcao, m.atendente
+        FROM chat_mensagens m
+        INNER JOIN mudou md ON md.conta_id=m.conta_id AND md.telefone=m.telefone
+        ORDER BY m.conta_id, m.telefone, m.timestamp DESC
+      ),
+      etiquetas_agg AS (
+        SELECT e.conta_id, e.telefone, array_agg(DISTINCT e.etiqueta) AS etiquetas
+        FROM chat_conversa_etiquetas e
+        INNER JOIN mudou md ON md.conta_id=e.conta_id AND md.telefone=e.telefone
+        GROUP BY e.conta_id, e.telefone
+      ),
+      triagem_ativa AS (
+        SELECT DISTINCT t.conta_id, t.telefone FROM chat_triagem_sessoes t
+        INNER JOIN mudou md ON md.conta_id=t.conta_id AND md.telefone=t.telefone
+        WHERE t.status='ativa'
+      )
+      SELECT
+        u.conta_id, u.telefone,
+        COALESCE(cc.nome, u.nome_contato, '') AS nome_contato,
+        COALESCE(NULLIF(u.texto,''), u.tipo, '') AS ultima_msg,
+        u.timestamp AS ultima_hora,
+        CASE WHEN u.direcao='out' AND LOWER(COALESCE(u.atendente,'')) IN ('triagem_ia','ia_followup') THEN 'in' ELSE u.direcao END AS ultima_direcao,
+        COALESCE(cd.atendente, '') AS dono,
+        COALESCE(cd.finalizada, false) AS finalizada,
+        cd.motivo_fechamento,
+        mf.tipo AS motivo_tipo, mf.nome AS motivo_nome, mf.cor AS motivo_cor,
+        COALESCE(ea.etiquetas, '{}') AS etiquetas,
+        (ta.conta_id IS NOT NULL) AS em_triagem,
+        COALESCE(ias.ativa, false) AS ia_ativa
+      FROM ultimas u
+      LEFT JOIN chat_contatos_custom cc ON cc.conta_id=u.conta_id AND cc.telefone=u.telefone
+      LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+      LEFT JOIN chat_motivos_fechamento mf ON mf.codigo = cd.motivo_fechamento
+      LEFT JOIN etiquetas_agg ea ON ea.conta_id=u.conta_id AND ea.telefone=u.telefone
+      LEFT JOIN triagem_ativa ta ON ta.conta_id=u.conta_id AND ta.telefone=u.telefone
+      LEFT JOIN chat_ia_atendimento_state ias ON ias.conta_id=u.conta_id AND ias.telefone=u.telefone
+      WHERE (
+        $2 = 'SUPER'
+        OR ( ($5 = '__all__' OR $5 = '*' OR ($5 <> '__none__' AND $5 <> '' AND u.conta_id = ANY(string_to_array($5, ','))))
+          AND ( $2 = 'ADM' OR (cd.atendente <> '' AND LOWER(cd.atendente) = LOWER($3)) ) )
+      )
+      ORDER BY u.timestamp DESC LIMIT 500`;
+    try {
+      const r = await query(sql, [conta_id, role, usuario, since, contas_permitidas]);
+      return { ok: true, conversas: r.rows, now: new Date().toISOString() };
+    } catch (err) { reply.code(500); return { ok: false, error: err.message }; }
+  }
+  fastify.get('/webhook/chat-conversas-delta', handleConversasDelta);
+  fastify.post('/webhook/chat-conversas-delta', handleConversasDelta);
+  fastify.get('/api/conversas-delta', handleConversasDelta);
+  fastify.post('/api/conversas-delta', handleConversasDelta);
+
   // Aliases /webhook/* — interceptam ANTES do proxy pro n8n
-  // Assim o chat.html atual começa a usar o backend novo SEM precisar mudar nenhuma linha
   fastify.get('/webhook/chat-conversas', handleConversas);
   fastify.post('/webhook/chat-conversas', handleConversas);
   fastify.get('/webhook/chat-contadores', handleContadores);
