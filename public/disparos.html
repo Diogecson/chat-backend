@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Disparos — ChatBackend</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="page">
+    <h1>Disparos</h1>
+
+    <div class="card">
+      <h3>Nova campanha</h3>
+      <form onsubmit="criar(event)">
+        <label>Conta remetente</label>
+        <select id="conta_id">
+          <option value="meta_1316884364850837">VLC — Comunicados Curitiba</option>
+          <option value="meta_1195683866964715">UniFECAF Sede</option>
+        </select>
+
+        <label>Nome da campanha</label>
+        <input id="nome" placeholder="Ex: Comunicado Black Friday" />
+
+        <label>Template Meta (aprovado)</label>
+        <input id="template_name" placeholder="retomar_atendimento" value="retomar_atendimento" />
+
+        <label>Idioma do template</label>
+        <input id="template_language" value="pt_BR" />
+
+        <label>Destinatários (um por linha — formato: telefone[;nome;extra1;extra2...])</label>
+        <textarea id="destinatarios" placeholder="5511999991111;Fulano&#10;5511999992222;Beltrana"></textarea>
+
+        <button class="btn" type="submit" style="margin-top:16px;">Criar campanha</button>
+        <div id="resultado"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Últimas campanhas</h3>
+      <button class="btn outline sm" onclick="carregar()" style="margin-bottom:12px;">Atualizar</button>
+      <table id="tabela">
+        <thead>
+          <tr><th>Código</th><th>Nome</th><th>Conta</th><th>Status</th><th>Progresso</th><th>Criada</th></tr>
+        </thead>
+        <tbody><tr><td colspan="6">Carregando…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="/layout.js"></script>
+  <script>
+    function parseDest(texto) {
+      return texto.split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+        const parts = l.split(/[;,\t]/);
+        return {
+          telefone: (parts[0] || '').replace(/\D/g,''),
+          nome: (parts[1] || '').trim(),
+          extra_vars: parts.slice(2).map(s => s.trim()),
+        };
+      }).filter(d => d.telefone);
+    }
+
+    async function criar(e) {
+      e.preventDefault();
+      const payload = {
+        conta_id: document.getElementById('conta_id').value,
+        nome: document.getElementById('nome').value.trim() || ('Campanha ' + new Date().toLocaleDateString('pt-BR')),
+        template_name: document.getElementById('template_name').value.trim(),
+        template_language: document.getElementById('template_language').value.trim() || 'pt_BR',
+        destinatarios: parseDest(document.getElementById('destinatarios').value),
+      };
+      const res = document.getElementById('resultado');
+      res.innerHTML = '';
+      if (!payload.destinatarios.length) {
+        res.innerHTML = '<p class="error">Adicione pelo menos 1 destinatário.</p>';
+        return;
+      }
+      try {
+        const data = await apiFetch('/api/disparos/criar', { method:'POST', body: JSON.stringify(payload) });
+        if (!data.ok) {
+          res.innerHTML = `<p class="error">${data.erro}</p>`;
+          return;
+        }
+        res.innerHTML = `<p class="success">✓ Campanha criada (${data.total_msgs} msgs, ${data.dedup_removidos || 0} dedup). Código: ${data.campanha_codigo || '-'}.</p>`;
+        if (data.skeleton) res.innerHTML += '<p style="color:var(--warn)">⚠ Esqueleto — ainda não grava no banco (próximo passo).</p>';
+        carregar();
+      } catch (err) {
+        res.innerHTML = `<p class="error">${err.message}</p>`;
+      }
+    }
+
+    async function carregar() {
+      const tbody = document.querySelector('#tabela tbody');
+      try {
+        const data = await apiFetch('/api/disparos/list');
+        const lista = data.campanhas || [];
+        if (!lista.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-dim)">Nenhuma campanha ainda.</td></tr>'; return; }
+        tbody.innerHTML = lista.map(c => {
+          const pct = c.total_msgs ? Math.round(((c.enviadas||0)*100)/c.total_msgs) : 0;
+          const badge = { agendado:'info', em_andamento:'warn', concluido:'ok', cancelado:'err', pausado:'info' }[c.status] || 'info';
+          const conta = c.conta_id === 'meta_1316884364850837' ? 'VLC' : c.conta_id === 'meta_1195683866964715' ? 'Sede' : c.conta_id;
+          return `<tr>
+            <td><code style="font-size:11px;">${c.codigo}</code></td>
+            <td>${c.nome || '-'}</td>
+            <td>${conta}</td>
+            <td><span class="badge ${badge}">${c.status}</span></td>
+            <td>${c.enviadas || 0}/${c.total_msgs} (${pct}%)</td>
+            <td style="font-size:12px;color:var(--text-dim)">${new Date(c.criado_em).toLocaleString('pt-BR')}</td>
+          </tr>`;
+        }).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" class="error">${err.message}</td></tr>`;
+      }
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

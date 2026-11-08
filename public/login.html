@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login — ChatBackend</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-card" onsubmit="doLogin(event)">
+      <h1>ChatBackend</h1>
+      <p class="sub">Painel de administração</p>
+
+      <label for="user">Usuário</label>
+      <input id="user" type="text" required autocomplete="username" autofocus />
+
+      <label for="pass">Senha</label>
+      <input id="pass" type="password" required autocomplete="current-password" />
+
+      <button class="btn" type="submit">Entrar</button>
+      <div id="msg"></div>
+    </form>
+  </div>
+
+  <script>
+    async function doLogin(e) {
+      e.preventDefault();
+      const user = document.getElementById('user').value.trim();
+      const pass = document.getElementById('pass').value;
+      const msg = document.getElementById('msg');
+      msg.textContent = '';
+      try {
+        const r = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ usuario: user, senha: pass }),
+        });
+        const data = await r.json();
+        if (!data.ok) {
+          msg.className = 'error';
+          msg.textContent = data.erro || 'Login inválido';
+          return;
+        }
+        localStorage.setItem('chat_backend_user', JSON.stringify(data.user || { usuario: user }));
+        localStorage.setItem('chat_backend_token', data.token || 'mock');
+        location.href = '/';
+      } catch (err) {
+        msg.className = 'error';
+        msg.textContent = 'Erro de conexão: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>

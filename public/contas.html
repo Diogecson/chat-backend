@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Contas — ChatBackend</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="page">
+    <h1>Contas WhatsApp</h1>
+    <div class="card">
+      <h3>Contas cadastradas</h3>
+      <table id="tabela">
+        <thead><tr><th>Código</th><th>Nome</th><th>Tipo</th><th>Status</th></tr></thead>
+        <tbody><tr><td colspan="4">Carregando…</td></tr></tbody>
+      </table>
+      <p style="margin-top:12px;color:var(--text-dim);font-size:12px;">
+        Fonte: tabela <code>chat_contas</code> no Postgres (compartilhada com o n8n).
+      </p>
+    </div>
+  </div>
+  <script src="/layout.js"></script>
+  <script>
+    (async function() {
+      const tbody = document.querySelector('#tabela tbody');
+      try {
+        const data = await apiFetch('/api/contas');
+        const lista = data.contas || [];
+        if (!lista.length) { tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-dim)">Nenhuma conta ainda.</td></tr>'; return; }
+        tbody.innerHTML = lista.map(c => `
+          <tr>
+            <td><code style="font-size:11px;">${c.codigo}</code></td>
+            <td>${c.nome}</td>
+            <td><span class="badge info">${c.tipo}</span></td>
+            <td><span class="badge ${c.status === 'ativo' ? 'ok' : 'warn'}">${c.status || '-'}</span></td>
+          </tr>`).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="error">${err.message}</td></tr>`;
+      }
+    })();
+  </script>
+</body>
+</html>

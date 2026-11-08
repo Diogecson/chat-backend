@@ -1,10 +1,18 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { config, hasDb } from './config.js';
 import { closePool } from './services/db.js';
 import { stopBoss } from './services/queue.js';
 import healthRoutes from './routes/health.js';
 import disparosRoutes from './routes/disparos.js';
+import authRoutes from './routes/auth.js';
+import contasRoutes from './routes/contas.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const publicDir = join(__dirname, '..', 'public');
 
 const fastify = Fastify({
   logger: {
@@ -15,23 +23,35 @@ const fastify = Fastify({
 
 await fastify.register(cors, { origin: true });
 
-// Rotas
+// Rotas API primeiro (prioridade)
 await fastify.register(healthRoutes);
 await fastify.register(disparosRoutes, { prefix: '/api' });
+await fastify.register(authRoutes, { prefix: '/api' });
+await fastify.register(contasRoutes, { prefix: '/api' });
 
-// Root — ajuda rápida
-fastify.get('/', async () => ({
+// JSON do root — exposto em /api/info pra deixar o / servir o index.html
+fastify.get('/api/info', async () => ({
   service: 'chat-backend',
   version: '0.1.0',
   dry_run: config.dryRun,
   has_db: hasDb(),
   endpoints: [
+    'POST /api/auth/login',
     'GET  /health',
     'GET  /health/db',
     'POST /api/disparos/criar',
     'GET  /api/disparos/list',
+    'GET  /api/contas',
   ],
 }));
+
+// Mantém backcompat: o / antigo retornava JSON. Agora o root serve index.html via @fastify/static.
+// Mas se cliente pedir JSON explicitamente, redireciona.
+await fastify.register(fastifyStatic, {
+  root: publicDir,
+  prefix: '/',
+  index: ['index.html'],
+});
 
 // Graceful shutdown
 async function shutdown(signal) {
