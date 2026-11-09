@@ -316,11 +316,11 @@ export default async function acoesRoutes(fastify) {
       const dest = destinos[i % destinos.length];
       i++;
       await query(
-        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por)
-         VALUES ($1,$2,$3,NOW(),$4)
+        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por, finalizada, motivo_fechamento)
+         VALUES ($1,$2,$3,NOW(),$4,false,'')
          ON CONFLICT (conta_id, telefone) DO UPDATE
            SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4,
-               finalizada=false, finalizada_em=NULL, motivo_fechamento=NULL`,
+               finalizada=false, finalizada_em=NULL, motivo_fechamento=''`,
         [conta_id, telefone, dest, 'dist:' + quem]
       );
       resumoMap.set(dest, (resumoMap.get(dest) || 0) + 1);
