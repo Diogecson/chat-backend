@@ -30,6 +30,15 @@ const fastify = Fastify({
   },
 });
 
+// Parser pra text/plain: o login.html (e várias páginas antigas) mandam
+// body JSON com Content-Type: text/plain pra fugir de CORS preflight.
+// Sem esse parser, req.body fica string crua e p()/req.body[x] vira undefined.
+fastify.addContentTypeParser('text/plain', { parseAs: 'string' }, (req, body, done) => {
+  if (!body) return done(null, {});
+  try { done(null, JSON.parse(body)); }
+  catch (_) { done(null, { _raw: body }); }
+});
+
 await fastify.register(cors, { origin: true });
 
 // Rotas API primeiro (prioridade)
