@@ -49,10 +49,11 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-contas-list ===
   // Se CONTA_FIXA setada, retorna só essa conta (modo dedicado)
+  // Retorna codigo E id (alias) porque o front usa c.id
   const contasList = async (req, reply) => withDb(reply, async () => {
     const sql = config.contaFixa
-      ? `SELECT codigo, nome, tipo, status, config FROM chat_contas WHERE codigo=$1`
-      : `SELECT codigo, nome, tipo, status, config FROM chat_contas ORDER BY nome`;
+      ? `SELECT codigo, codigo AS id, nome, tipo, status, config FROM chat_contas WHERE codigo=$1`
+      : `SELECT codigo, codigo AS id, nome, tipo, status, config FROM chat_contas ORDER BY nome`;
     const r = await query(sql, config.contaFixa ? [config.contaFixa] : []);
     return { ok: true, contas: r.rows };
   });
