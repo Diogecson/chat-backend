@@ -39,6 +39,7 @@ base AS (
     u.timestamp AS ultima_hora,
     CASE WHEN u.direcao='out' AND LOWER(COALESCE(u.atendente,'')) IN ('triagem_ia','ia_followup') THEN 'in' ELSE u.direcao END AS ultima_direcao,
     j.ultima_in,
+    (j.ultima_in + INTERVAL '24 hours') AS janela_expira,
     COALESCE(cd.atendente, '') AS dono,
     COALESCE(cd.finalizada, false) AS finalizada,
     cd.finalizada_em,
@@ -259,6 +260,13 @@ export default async function conversasRoutes(fastify) {
         INNER JOIN mudou md ON md.conta_id=m.conta_id AND md.telefone=m.telefone
         ORDER BY m.conta_id, m.telefone, m.timestamp DESC
       ),
+      janelas AS (
+        SELECT m.conta_id, m.telefone, MAX(m.timestamp) AS ultima_in
+        FROM chat_mensagens m
+        INNER JOIN mudou md ON md.conta_id=m.conta_id AND md.telefone=m.telefone
+        WHERE m.direcao='in'
+        GROUP BY m.conta_id, m.telefone
+      ),
       etiquetas_agg AS (
         SELECT e.conta_id, e.telefone, array_agg(DISTINCT e.etiqueta) AS etiquetas
         FROM chat_conversa_etiquetas e
@@ -277,6 +285,8 @@ export default async function conversasRoutes(fastify) {
         COALESCE(NULLIF(u.texto,''), u.tipo, '') AS ultima_msg,
         u.timestamp AS ultima_hora,
         CASE WHEN u.direcao='out' AND LOWER(COALESCE(u.atendente,'')) IN ('triagem_ia','ia_followup') THEN 'in' ELSE u.direcao END AS ultima_direcao,
+        j.ultima_in,
+        (j.ultima_in + INTERVAL '24 hours') AS janela_expira,
         COALESCE(cd.atendente, '') AS dono,
         COALESCE(cd.finalizada, false) AS finalizada,
         cd.motivo_fechamento,
@@ -285,6 +295,7 @@ export default async function conversasRoutes(fastify) {
         (ta.conta_id IS NOT NULL) AS em_triagem,
         COALESCE(ias.ativa, false) AS ia_ativa
       FROM ultimas u
+      LEFT JOIN janelas j ON j.conta_id=u.conta_id AND j.telefone=u.telefone
       LEFT JOIN chat_contatos_custom cc ON cc.conta_id=u.conta_id AND cc.telefone=u.telefone
       LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
       LEFT JOIN chat_motivos_fechamento mf ON mf.codigo = cd.motivo_fechamento
