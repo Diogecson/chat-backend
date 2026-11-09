@@ -220,9 +220,24 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-tarefas-get', tarefasGet);
 
   // === chat-mensagens ===
+  // Aceita conta_id+telefone OU conversa_id no formato "<conta_id>_<telefone>"
+  // (chat.html manda ?conversa_id=meta_123_5511999... — precisa splitar)
+  function splitConversaId(req) {
+    const convId = p(req, 'conversa_id');
+    if (!convId) return { conta_id: null, telefone: null };
+    const idx = convId.lastIndexOf('_');
+    if (idx < 0) return { conta_id: null, telefone: null };
+    return { conta_id: convId.substring(0, idx), telefone: convId.substring(idx + 1) };
+  }
   const mensagens = async (req, reply) => withDb(reply, async () => {
-    const conta_id = forceConta(p(req, 'conta_id'));
-    const telefone = p(req, 'telefone');
+    let conta_id = p(req, 'conta_id');
+    let telefone = p(req, 'telefone');
+    if (!conta_id || !telefone) {
+      const parsed = splitConversaId(req);
+      conta_id = parsed.conta_id;
+      telefone = parsed.telefone;
+    }
+    conta_id = forceConta(conta_id);
     const limit = parseInt(p(req, 'limit', '200')) || 200;
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
     const r = await query(
@@ -241,10 +256,17 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-mensagens', mensagens);
 
   // === chat-mensagens-delta ===
+  // Aceita conta_id+telefone OU conversa_id "<conta_id>_<telefone>", e desde_ts OU since
   const mensagensDelta = async (req, reply) => withDb(reply, async () => {
-    const conta_id = forceConta(p(req, 'conta_id'));
-    const telefone = p(req, 'telefone');
-    const since = p(req, 'since');
+    let conta_id = p(req, 'conta_id');
+    let telefone = p(req, 'telefone');
+    if (!conta_id || !telefone) {
+      const parsed = splitConversaId(req);
+      conta_id = parsed.conta_id;
+      telefone = parsed.telefone;
+    }
+    conta_id = forceConta(conta_id);
+    const since = p(req, 'since') || p(req, 'desde_ts');
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
     const sinceDate = since ? new Date(since) : new Date(Date.now() - 60000);
     const r = await query(

@@ -92,7 +92,9 @@ filtrada AS (
 SELECT
   (SELECT COUNT(*) FROM filtrada) AS total_filtrado,
   COALESCE(
-    (SELECT json_agg(row_to_json(x)) FROM (SELECT * FROM filtrada ORDER BY ultima_hora DESC LIMIT $9::int OFFSET $10::int) x),
+    (SELECT json_agg(row_to_json(x)) FROM (
+      SELECT (conta_id || '_' || telefone) AS id, * FROM filtrada ORDER BY ultima_hora DESC LIMIT $9::int OFFSET $10::int
+    ) x),
     '[]'::json
   ) AS conversas,
   $9::int AS limit_usado, $10::int AS offset_usado
@@ -268,6 +270,7 @@ export default async function conversasRoutes(fastify) {
         WHERE t.status='ativa'
       )
       SELECT
+        (u.conta_id || '_' || u.telefone) AS id,
         u.conta_id, u.telefone,
         COALESCE(cc.nome, u.nome_contato, '') AS nome_contato,
         COALESCE(NULLIF(u.texto,''), u.tipo, '') AS ultima_msg,
