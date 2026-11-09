@@ -277,12 +277,18 @@ export default async function aliasRoutes(fastify) {
     if (u.ativo === false) return { ok: false, erro: 'Usuário desativado' };
     // Modo instância dedicada: força contas_permitidas pra conta fixa
     const contasPermitidas = config.contaFixa ? [config.contaFixa] : u.contas_permitidas;
+    // Normaliza papel pro vocabulário do front: USER/ADM/SUPER
+    const papelRaw = String(u.papel || 'USER').toUpperCase();
+    const papel = (papelRaw === 'CONSULTOR' || papelRaw === 'CONSULTANT' || papelRaw === 'AGENT')
+      ? 'USER'
+      : (papelRaw === 'ADMIN' ? 'ADM' : papelRaw);
     return {
       ok: true,
       token: `session-${u.usuario}-${Date.now()}`,
       usuario: u.usuario,
       nome: u.nome,
-      papel: u.papel,
+      papel,
+      role: papel,  // alias pro front que usa a.role
       contas_permitidas: contasPermitidas,
       foto_url: u.foto_url,
     };

@@ -151,6 +151,21 @@ function p(req, name, def = '__all__') {
   return String(v);
 }
 
+// usuario: aceita 'usuario' OU 'actor' (chat.html usa actor)
+function pUsuario(req) {
+  const v = (req.body?.usuario ?? req.query?.usuario ?? req.body?.actor ?? req.query?.actor);
+  return v ? String(v).toLowerCase() : '';
+}
+
+// role: normaliza CONSULTOR → USER, ADMIN → ADM; aceita qualquer caso
+function pRole(req) {
+  const v = (req.body?.role ?? req.query?.role ?? req.body?.papel ?? req.query?.papel) || 'USER';
+  const r = String(v).toUpperCase();
+  if (r === 'CONSULTOR' || r === 'CONSULTANT' || r === 'AGENT') return 'USER';
+  if (r === 'ADMIN') return 'ADM';
+  return r; // USER, ADM, SUPER
+}
+
 // Força conta_id se CONTA_FIXA setada (modo instância dedicada)
 function forceConta(contaIdReq) {
   return config.contaFixa || contaIdReq || '__all__';
@@ -168,8 +183,8 @@ export default async function conversasRoutes(fastify) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const params = [
       forceConta(p(req, 'conta_id')),            // $1
-      p(req, 'role', 'USER').toUpperCase(),      // $2
-      p(req, 'usuario', ''),                     // $3
+      pRole(req),                                // $2
+      pUsuario(req),                             // $3
       p(req, 'visao', '__all__'),                // $4
       p(req, 'desde', '__all__'),                // $5
       p(req, 'ate', '__all__'),                  // $6
@@ -192,9 +207,9 @@ export default async function conversasRoutes(fastify) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const params = [
       forceConta(p(req, 'conta_id')),
-      p(req, 'usuario', ''),
+      pUsuario(req),
       p(req, 'filtro_dono', ''),
-      p(req, 'role', 'USER'),
+      pRole(req),
       forceContasPermitidas(p(req, 'contas_permitidas', '__all__')),
       p(req, 'desde', ''),
       p(req, 'ate', ''),
@@ -219,8 +234,8 @@ export default async function conversasRoutes(fastify) {
   async function handleConversasDelta(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     const conta_id = forceConta(p(req, 'conta_id', '__all__'));
-    const role = p(req, 'role', 'USER').toUpperCase();
-    const usuario = p(req, 'usuario', '');
+    const role = pRole(req);
+    const usuario = pUsuario(req);
     const since = p(req, 'since', new Date(Date.now() - 300000).toISOString());
     const contas_permitidas = forceContasPermitidas(p(req, 'contas_permitidas', '__all__'));
     const sql = `
