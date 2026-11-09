@@ -242,4 +242,33 @@ export default async function acoesRoutes(fastify) {
     return { ok: true };
   });
   fastify.post('/webhook/chat-atendentes-save', atendentesSave);
+
+  // === chat-fila-toggle ===
+  // Liga/desliga a chavinha "na_fila" de um atendente (fila.html e chat.html)
+  const filaToggle = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    const usuario = String(b.usuario || '').toLowerCase().trim();
+    if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
+    const na_fila = b.na_fila === true || b.na_fila === 'true' || b.na_fila === 1;
+    const r = await query(
+      `UPDATE chat_atendentes SET na_fila=$2 WHERE LOWER(usuario)=LOWER($1) RETURNING usuario, na_fila`,
+      [usuario, na_fila]
+    );
+    if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'usuario não encontrado' });
+    return { ok: true, usuario: r.rows[0].usuario, na_fila: r.rows[0].na_fila };
+  });
+  fastify.post('/webhook/chat-fila-toggle', filaToggle);
+
+  // === chat-atendente-delete ===
+  // Remove um atendente (respostas rapidas e historico ficam, via FK ou nao)
+  const atendenteDelete = async (req, reply) => withDb(reply, async () => {
+    const usuario = String((req.body || {}).usuario || '').toLowerCase().trim();
+    if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
+    if (usuario === 'admin') return reply.code(400).send({ ok: false, erro: 'nao pode deletar admin' });
+    const r = await query(`DELETE FROM chat_atendentes WHERE LOWER(usuario)=LOWER($1) RETURNING usuario`, [usuario]);
+    if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'nao encontrado' });
+    return { ok: true, usuario: r.rows[0].usuario };
+  });
+  fastify.post('/webhook/chat-atendente-delete', atendenteDelete);
+  fastify.post('/webhook/chat-atendentes-delete', atendenteDelete);
 }
