@@ -144,12 +144,19 @@ export default async function enviarRoutes(fastify) {
     // Monta texto final (pra gravar em chat_mensagens)
     let textoFinal = texto;
     if (tipo === 'template') {
-      textoFinal = template_body_text || '';
-      // Substitui {{1}}, {{2}} pelo valor das vars
-      template_body_vars.forEach((v, i) => {
-        textoFinal = textoFinal.replace(new RegExp('\\{\\{\\s*' + (i + 1) + '\\s*\\}\\}', 'g'), String(v || ''));
-      });
-      if (!textoFinal) textoFinal = `[template: ${template_name}]`;
+      // Prioridade: template_body_text (cru com placeholders) → substitui vars
+      //             → senão usa 'texto' (front já mandou o preview montado)
+      //             → último recurso: '[template: nome]'
+      if (template_body_text) {
+        textoFinal = template_body_text;
+        template_body_vars.forEach((v, i) => {
+          textoFinal = textoFinal.replace(new RegExp('\\{\\{\\s*' + (i + 1) + '\\s*\\}\\}', 'g'), String(v || ''));
+        });
+      } else if (texto) {
+        textoFinal = texto;  // front mandou preview pronto
+      } else {
+        textoFinal = `[template: ${template_name}]`;
+      }
     }
 
     // DRY_RUN: não chama Meta, só grava com wamid fake
