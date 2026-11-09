@@ -28,6 +28,8 @@ const fastify = Fastify({
     level: config.logLevel,
     transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss' } },
   },
+  // 25 MB: cobre mídia WhatsApp até 16MB em base64 (~21MB) + headers
+  bodyLimit: 25 * 1024 * 1024,
 });
 
 // Parser pra text/plain: o login.html (e várias páginas antigas) mandam
