@@ -306,27 +306,38 @@ export default async function acoesRoutes(fastify) {
       }
     }
 
-    // Round-robin
+    // Round-robin — usa UPDATE-primeiro-INSERT-se-nao-pegou pra nao depender
+    // de UNIQUE (conta_id, telefone) estar certa no schema
     const resumoMap = new Map();
     let i = 0;
+    let atualizados = 0, criados = 0;
     for (const c of conversas) {
       const conta_id = String(c.conta_id || '');
       const telefone = String(c.telefone || '');
       if (!conta_id || !telefone) continue;
       const dest = destinos[i % destinos.length];
       i++;
-      await query(
-        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por, finalizada, motivo_fechamento)
-         VALUES ($1,$2,$3,NOW(),$4,false,'')
-         ON CONFLICT (conta_id, telefone) DO UPDATE
-           SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4,
-               finalizada=false, finalizada_em=NULL, motivo_fechamento=''`,
+      const upd = await query(
+        `UPDATE chat_conversa_dono
+         SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4,
+             finalizada=false, finalizada_em=NULL, motivo_fechamento=''
+         WHERE conta_id=$1 AND telefone=$2`,
         [conta_id, telefone, dest, 'dist:' + quem]
       );
+      if ((upd.rowCount || 0) === 0) {
+        await query(
+          `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por, finalizada, motivo_fechamento)
+           VALUES ($1,$2,$3,NOW(),$4,false,'')`,
+          [conta_id, telefone, dest, 'dist:' + quem]
+        );
+        criados++;
+      } else {
+        atualizados += (upd.rowCount || 0);
+      }
       resumoMap.set(dest, (resumoMap.get(dest) || 0) + 1);
     }
     const resumo = Array.from(resumoMap.entries()).map(([atendente, qtd]) => ({ atendente, qtd }));
-    return { ok: true, total: i, resumo };
+    return { ok: true, total: i, atualizados, criados, resumo };
   });
   fastify.post('/webhook/chat-conversas-distribuir', conversasDistribuir);
   fastify.post('/api/chat/conversas-distribuir', conversasDistribuir);
