@@ -218,7 +218,8 @@ export default async function conversasRoutes(fastify) {
     ];
     try {
       const res = await query(SQL_CONTADORES, params);
-      return res.rows[0]?.contadores || {};
+      const contadores = res.rows[0]?.contadores || {};
+      return { ok: true, contadores };
     } catch (err) {
       reply.code(500);
       return { ok: false, error: err.message };
