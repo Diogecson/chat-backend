@@ -341,4 +341,13 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-conversas-distribuir', conversasDistribuir);
   fastify.post('/api/chat/conversas-distribuir', conversasDistribuir);
+
+  // === hubspot-search-deals (stub) ===
+  // O chat chama isso pra decorar o header "has-hubspot". Enquanto a
+  // integracao HubSpot nao estiver migrada, retorna vazio pra parar
+  // os 500 no console. Se precisar da integracao real, implementar
+  // aqui com HUBSPOT_API_KEY do env.
+  fastify.post('/webhook/hubspot-search-deals', async () => ({
+    ok: true, contatos: [], deals: [], stub: true,
+  }));
 }
