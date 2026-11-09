@@ -257,6 +257,7 @@ export default async function aliasRoutes(fastify) {
     };
   });
   fastify.post('/webhook/chat-login', chatLogin);
+  fastify.post('/webhook/chat-auth', chatLogin);  // login.html chama 'chat-auth', não 'chat-login'
 
   // === chat-conversas-finalizadas (lista de finalizadas paginada) ===
   const conversasFinalizadas = async (req, reply) => withDb(reply, async () => {
