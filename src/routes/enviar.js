@@ -179,9 +179,9 @@ export default async function enviarRoutes(fastify) {
       const insRes = await query(
         `INSERT INTO chat_mensagens
           (codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
-           midia_url, midia_mimetype, timestamp, status, external_id, atendente,
+           midia_url, timestamp, status, external_id, atendente,
            reply_to_id, reply_to_texto)
-         VALUES ($1,$2,$3,'','out',$4,$5,'','',NOW(),'enviado',$6,$7,$8,$9)
+         VALUES ($1,$2,$3,'','out',$4,$5,'',NOW(),'enviado',$6,$7,$8,$9)
          RETURNING id, conta_id, telefone, texto, timestamp, external_id, atendente`,
         [codigo, conta_id, telefone, tipo, textoFinal, external_id, usuario, reply_to_id, reply_to_texto]
       );

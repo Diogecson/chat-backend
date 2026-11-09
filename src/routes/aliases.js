@@ -246,7 +246,7 @@ export default async function aliasRoutes(fastify) {
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
     const r = await query(
       `SELECT id, codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
-              midia_url, midia_mimetype, timestamp, status, external_id, atendente,
+              midia_url, NULL::text AS midia_mimetype, timestamp, status, external_id, atendente,
               reply_to_id, reply_to_texto
        FROM chat_mensagens
        WHERE conta_id=$1 AND telefone=$2
@@ -277,7 +277,7 @@ export default async function aliasRoutes(fastify) {
     if (isNaN(sinceDate.getTime())) sinceDate = new Date(Date.now() - 60000);
     const r = await query(
       `SELECT id, codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
-              midia_url, midia_mimetype, timestamp, status, external_id, atendente,
+              midia_url, NULL::text AS midia_mimetype, timestamp, status, external_id, atendente,
               reply_to_id, reply_to_texto
        FROM chat_mensagens
        WHERE conta_id=$1 AND telefone=$2 AND timestamp > $3
