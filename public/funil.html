@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funil de Conversas · UniFECAF</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#081430; --bg-2:#0b1a3e; --panel:#0e2050; --panel-2:#132862;
+  --line:#1e357a; --text:#e6ecff; --muted:#8aa0d6;
+  --accent:#2F66D6; --accent-2:#4a86f0;
+  --verde:#22c55e; --vermelho:#ef4444; --amarelo:#f5b740;
+  --col-q:#ff6b4a; --col-m:#f5b740; --col-f:#6ea8ff;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+
+.topbar{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg) 0%,rgba(8,20,48,.92) 100%);
+  border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar h1{font-size:1.05rem;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
+.topbar h1 i{color:var(--accent-2)}
+.topbar .sub{color:var(--muted);font-size:.78rem}
+.topbar .spacer{flex:1}
+.topbar .btn-voltar{background:transparent;border:1px solid var(--line);color:var(--text);
+  padding:6px 12px;border-radius:8px;font-size:.82rem;cursor:pointer;transition:.2s}
+.topbar .btn-voltar:hover{background:var(--panel-2);border-color:var(--accent)}
+.topbar .btn-reload{background:var(--accent);border:none;color:#fff;padding:6px 12px;border-radius:8px;
+  font-size:.82rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.topbar .btn-reload:hover{background:var(--accent-2)}
+.topbar input[type=search]{background:var(--panel);border:1px solid var(--line);color:var(--text);
+  padding:7px 12px;border-radius:8px;font-size:.85rem;min-width:220px;outline:none}
+.topbar input[type=search]:focus{border-color:var(--accent)}
+.topbar label.chk{display:inline-flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);cursor:pointer;user-select:none}
+.topbar label.chk input{accent-color:var(--accent-2)}
+
+.wrap{padding:18px 20px 40px}
+.section-title{display:flex;align-items:baseline;gap:10px;margin:4px 0 10px}
+.section-title h2{font-size:1rem;font-weight:700;margin:0}
+.section-title p{margin:0;color:var(--muted);font-size:.8rem}
+
+.kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media (max-width:900px){.kanban{grid-template-columns:1fr}}
+
+.col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;min-height:260px;max-height:calc(100vh - 160px)}
+.col-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+.col-head .title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem}
+.col-head .title .dot{width:10px;height:10px;border-radius:50%}
+.col-head .count{background:var(--panel-2);color:var(--text);padding:2px 10px;border-radius:12px;font-size:.78rem;font-weight:700;min-width:28px;text-align:center}
+.col.quente .dot{background:var(--col-q);box-shadow:0 0 10px var(--col-q)}
+.col.morna .dot{background:var(--col-m);box-shadow:0 0 10px var(--col-m)}
+.col.fria .dot{background:var(--col-f);box-shadow:0 0 10px var(--col-f)}
+
+.cards{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}
+.cards::-webkit-scrollbar{width:8px}
+.cards::-webkit-scrollbar-track{background:transparent}
+.cards::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+.cards::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+
+.card{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;transition:.15s;position:relative}
+.card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 4px 12px rgba(47,102,214,.25)}
+.card .row1{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.card .bolinha{width:11px;height:11px;border-radius:50%;flex-shrink:0;position:relative}
+.card .bolinha.verde{background:var(--verde);box-shadow:0 0 6px var(--verde)}
+.card .bolinha.vermelho{background:var(--vermelho);box-shadow:0 0 6px var(--vermelho);animation:pulse 2s infinite}
+.card .bolinha.amarelo{background:var(--amarelo);box-shadow:0 0 6px var(--amarelo);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.card .nome{font-weight:700;font-size:.9rem;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .msg{color:var(--muted);font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px}
+.card .meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.72rem;color:var(--muted)}
+.card .dono{background:var(--panel-2);padding:1px 8px;border-radius:10px;color:var(--text);font-weight:600;max-width:60%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .dono.sem{color:var(--amarelo);background:rgba(245,183,64,.15)}
+.card .tempo{font-weight:600}
+
+.empty{color:var(--muted);text-align:center;padding:24px 10px;font-size:.82rem;font-style:italic}
+
+.loading{text-align:center;padding:40px;color:var(--muted)}
+.erro{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.4);color:#ffb0b0;padding:10px 14px;border-radius:10px;margin:10px 20px}
+
+.legend{display:flex;flex-wrap:wrap;gap:16px;padding:10px 20px 0;color:var(--muted);font-size:.78rem}
+.legend .item{display:inline-flex;align-items:center;gap:6px}
+.legend .item .dot{width:9px;height:9px;border-radius:50%}
+.legend .dot.verde{background:var(--verde)}
+.legend .dot.vermelho{background:var(--vermelho)}
+.legend .dot.amarelo{background:var(--amarelo)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1><i class="bi bi-funnel-fill"></i> Funil de Conversas</h1>
+  <span class="sub" id="subLabel">Carregando...</span>
+  <span class="spacer"></span>
+  <input type="search" id="busca" placeholder="Buscar por nome ou telefone...">
+  <label class="chk"><input type="checkbox" id="chkMinhas"> Só os meus</label>
+  <button class="btn-reload" onclick="carregar()"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+  <button class="btn-voltar" onclick="location.href='/chat.html?token='+encodeURIComponent(localStorage.getItem('chat_token')||'')"><i class="bi bi-arrow-left"></i> Voltar ao chat</button>
+</div>
+
+<div class="legend">
+  <span class="item"><span class="dot verde"></span> Verde: você respondeu, aguardando cliente</span>
+  <span class="item"><span class="dot vermelho"></span> Vermelho: cliente respondeu, consultor devendo</span>
+  <span class="item"><span class="dot amarelo"></span> Amarelo: cliente aguardando, sem atendente</span>
+</div>
+
+<div id="erroBox"></div>
+
+<div class="wrap">
+  <div class="section-title">
+    <h2>Temperatura das conversas</h2>
+    <p>Quente &lt; 6h &middot; Morna 6–24h &middot; Fria &gt; 24h (desde a última mensagem)</p>
+  </div>
+  <div class="kanban" id="kanban">
+    <div class="col quente">
+      <div class="col-head">
+        <div class="title"><span class="dot"></span> Quentes</div>
+        <div class="count" id="cntQuente">—</div>
+      </div>
+      <div class="cards" id="colQuente"><div class="loading">Carregando...</div></div>
+    </div>
+    <div class="col morna">
+      <div class="col-head">
+        <div class="title"><span class="dot"></span> Mornas</div>
+        <div class="count" id="cntMorna">—</div>
+      </div>
+      <div class="cards" id="colMorna"><div class="loading">Carregando...</div></div>
+    </div>
+    <div class="col fria">
+      <div class="col-head">
+        <div class="title"><span class="dot"></span> Frias</div>
+        <div class="count" id="cntFria">—</div>
+      </div>
+      <div class="cards" id="colFria"><div class="loading">Carregando...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = "/webhook";
+const token    = localStorage.getItem("chat_token") || new URLSearchParams(location.search).get("token") || "";
+const usuario  = localStorage.getItem("chat_usuario") || "";
+const nome     = localStorage.getItem("chat_nome") || usuario;
+const papel    = (localStorage.getItem("chat_papel") || "USER").toUpperCase();
+const contasPermitidas = localStorage.getItem("chat_contas_permitidas") || "*";
+
+if (!usuario) {
+  location.href = "/login.html";
+}
+
+document.getElementById('subLabel').textContent = `${nome} · ${papel === 'SUPER' ? 'Super Admin' : (papel === 'ADM' ? 'Admin' : 'Consultor')}`;
+
+let cacheConversas = { quente: [], morna: [], fria: [] };
+
+async function carregar() {
+  const minhas = document.getElementById('chkMinhas').checked;
+  ['colQuente','colMorna','colFria'].forEach(id => document.getElementById(id).innerHTML = '<div class="loading">Carregando...</div>');
+  document.getElementById('erroBox').innerHTML = '';
+  try {
+    const body = {
+      usuario, actor: usuario,
+      role: papel, papel,
+      contas_permitidas: contasPermitidas,
+      visao: minhas ? 'minhas' : '__all__',
+    };
+    const r = await fetch(BASE + '/chat-funil', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || d.erro || 'erro desconhecido');
+    cacheConversas = { quente: d.quente || [], morna: d.morna || [], fria: d.fria || [] };
+    renderizar();
+  } catch (err) {
+    document.getElementById('erroBox').innerHTML = `<div class="erro"><i class="bi bi-exclamation-triangle-fill"></i> Erro ao carregar: ${err.message}</div>`;
+    ['colQuente','colMorna','colFria'].forEach(id => document.getElementById(id).innerHTML = '');
+    ['cntQuente','cntMorna','cntFria'].forEach(id => document.getElementById(id).textContent = '0');
+  }
+}
+
+function fmtTempo(horas) {
+  if (horas == null) return '—';
+  const h = Number(horas);
+  if (h < 1) return Math.round(h * 60) + 'min';
+  if (h < 24) return h.toFixed(1).replace('.0','') + 'h';
+  return Math.floor(h / 24) + 'd';
+}
+
+function fmtTelefone(t) {
+  const d = String(t || '').replace(/\D/g, '');
+  if (d.length === 13) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,9)}-${d.slice(9)}`;
+  if (d.length === 12) return `+${d.slice(0,2)} (${d.slice(2,4)}) ${d.slice(4,8)}-${d.slice(8)}`;
+  return t;
+}
+
+function renderCard(c) {
+  const bolinha = c.bolinha || 'verde';
+  const donoHtml = c.dono
+    ? `<span class="dono" title="${c.dono}">${c.dono}</span>`
+    : `<span class="dono sem">sem atendente</span>`;
+  return `
+    <div class="card" data-conta="${c.conta_id}" data-tel="${c.telefone}" onclick="abrirConversa('${c.conta_id}','${c.telefone}')">
+      <div class="row1">
+        <div class="bolinha ${bolinha}" title="${
+          bolinha === 'verde' ? 'Aguardando resposta do cliente' :
+          bolinha === 'vermelho' ? 'Cliente respondeu — consultor devendo' :
+          'Cliente aguarda e não há atendente'
+        }"></div>
+        <div class="nome">${c.nome_contato || fmtTelefone(c.telefone)}</div>
+      </div>
+      <div class="msg">${c.ultima_msg || ''}</div>
+      <div class="meta">
+        ${donoHtml}
+        <span class="tempo"><i class="bi bi-clock"></i> ${fmtTempo(c.horas_desde_ultima)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function abrirConversa(conta_id, telefone) {
+  const url = `/chat.html?token=${encodeURIComponent(token)}&abrir=${encodeURIComponent(conta_id + '_' + telefone)}`;
+  location.href = url;
+}
+
+function aplicarBusca(list, q) {
+  if (!q) return list;
+  const qn = q.toLowerCase().trim();
+  return list.filter(c =>
+    (c.nome_contato || '').toLowerCase().includes(qn) ||
+    (c.telefone || '').includes(qn.replace(/\D/g,''))
+  );
+}
+
+function renderizar() {
+  const q = document.getElementById('busca').value;
+  const mapa = [
+    { key: 'quente', colId: 'colQuente', cntId: 'cntQuente', empty: 'Nenhuma conversa quente' },
+    { key: 'morna',  colId: 'colMorna',  cntId: 'cntMorna',  empty: 'Nenhuma conversa morna' },
+    { key: 'fria',   colId: 'colFria',   cntId: 'cntFria',   empty: 'Nenhuma conversa fria' },
+  ];
+  for (const m of mapa) {
+    const lista = aplicarBusca(cacheConversas[m.key] || [], q);
+    document.getElementById(m.cntId).textContent = lista.length;
+    const el = document.getElementById(m.colId);
+    if (!lista.length) {
+      el.innerHTML = `<div class="empty">${m.empty}</div>`;
+    } else {
+      el.innerHTML = lista.map(renderCard).join('');
+    }
+  }
+}
+
+document.getElementById('chkMinhas').addEventListener('change', carregar);
+document.getElementById('busca').addEventListener('input', renderizar);
+
+carregar();
+setInterval(carregar, 60000); // refresh a cada 60s
+</script>
+</body>
+</html>
