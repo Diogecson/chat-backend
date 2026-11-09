@@ -60,9 +60,10 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-contas-list', contasList);
 
   // === chat-atendentes-list ===
+  // Retorna papel E role (alias) porque o front usa a.role mas a coluna é papel
   const atendentesList = async (req, reply) => withDb(reply, async () => {
     const r = await query(
-      `SELECT usuario, nome, papel, ativo, contas_permitidas, foto_url, na_fila, ultimo_ping
+      `SELECT usuario, nome, papel, papel AS role, ativo, contas_permitidas, foto_url, na_fila, ultimo_ping
        FROM chat_atendentes ORDER BY nome, usuario`
     );
     return { ok: true, atendentes: r.rows };

@@ -203,16 +203,35 @@ export default async function acoesRoutes(fastify) {
   fastify.post('/webhook/chat-triagem-desativar-conversa', triagemDesativar);
 
   // === chat-atendentes-save (upsert) ===
+  // Aceita papel/role, senha opcional (só atualiza se enviada),
+  // contas_permitidas como array, CSV "a,b,c", "*" (todas) ou "__none__" (nenhuma)
   const atendentesSave = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
     const usuario = String(b.usuario || '').toLowerCase().trim();
     if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
     const nome = String(b.nome || '').substring(0, 100);
     const senha = String(b.senha || '');
-    const papel = String(b.papel || 'consultor');
+    // Front manda USER/ADM/SUPER — aceita papel OU role
+    const papel = String(b.papel || b.role || 'USER').toUpperCase();
     const ativo = b.ativo !== false;
     const foto_url = String(b.foto_url || '');
-    const contas_permitidas = Array.isArray(b.contas_permitidas) ? b.contas_permitidas : (b.contas_permitidas ? [b.contas_permitidas] : ['*']);
+
+    // Normaliza contas_permitidas:
+    // - array: usa direto
+    // - "__none__": array vazio (sem acesso a nada)
+    // - "*": acesso total
+    // - "a,b,c": CSV — split em vírgula
+    // - "meta_xxx": 1 conta só
+    let contas_permitidas;
+    if (Array.isArray(b.contas_permitidas)) {
+      contas_permitidas = b.contas_permitidas.filter(x => x && String(x).trim());
+    } else if (b.contas_permitidas === '__none__') {
+      contas_permitidas = [];
+    } else if (typeof b.contas_permitidas === 'string' && b.contas_permitidas.trim()) {
+      contas_permitidas = b.contas_permitidas.split(',').map(x => x.trim()).filter(Boolean);
+    } else {
+      contas_permitidas = ['*'];
+    }
 
     const sqlInsert = `INSERT INTO chat_atendentes (usuario, nome, senha, papel, ativo, foto_url, contas_permitidas)
                        VALUES ($1,$2,$3,$4,$5,$6,$7::text[])
