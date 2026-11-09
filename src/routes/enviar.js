@@ -1,0 +1,198 @@
+// chat-enviar: endpoint que recebe POST do chat.html e envia pra Meta API + grava chat_mensagens
+// Migrado do workflow-chat-enviar-CORRIGIDO.json do n8n (foco em template + text).
+// Audio/media/interactive/evolution continuam passando pelo proxy pro n8n antigo até migrar.
+import { query, getPool } from '../services/db.js';
+import { hasDb, config } from '../config.js';
+
+function p(body, name, def = '') {
+  const v = body && body[name];
+  if (v == null || v === '') return def;
+  return v;
+}
+
+function geraCodigo() {
+  return 'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+}
+
+async function enviarMetaTemplate({ accountCfg, telefone, template_name, template_language, template_body_vars }) {
+  const url = `https://graph.facebook.com/${config.metaApiVersion}/${accountCfg.phone_number_id}/messages`;
+  const components = [];
+  if (template_body_vars && template_body_vars.length) {
+    components.push({
+      type: 'body',
+      parameters: template_body_vars.map(v => ({ type: 'text', text: String(v || '') })),
+    });
+  }
+  const body = {
+    messaging_product: 'whatsapp',
+    to: telefone,
+    type: 'template',
+    template: {
+      name: template_name,
+      language: { code: template_language || 'pt_BR' },
+      components,
+    },
+  };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accountCfg.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) {
+    return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
+  }
+  return { ok: true, wamid: data?.messages?.[0]?.id || '', raw: data };
+}
+
+async function enviarMetaText({ accountCfg, telefone, texto, reply_to_id }) {
+  const url = `https://graph.facebook.com/${config.metaApiVersion}/${accountCfg.phone_number_id}/messages`;
+  const body = {
+    messaging_product: 'whatsapp',
+    to: telefone,
+    type: 'text',
+    text: { body: texto, preview_url: false },
+  };
+  if (reply_to_id) body.context = { message_id: reply_to_id };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accountCfg.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) {
+    return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
+  }
+  return { ok: true, wamid: data?.messages?.[0]?.id || '', raw: data };
+}
+
+export default async function enviarRoutes(fastify) {
+  async function handleEnviar(req, reply) {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const conta_id = String(p(b, 'conta_id'));
+    const telefone = String(p(b, 'telefone')).replace(/\D/g, '');
+    const tipo = String(p(b, 'tipo', 'text')).toLowerCase();
+    const usuario = String(p(b, 'usuario', 'sistema'));
+    const texto = String(p(b, 'texto', ''));
+    const reply_to_id = String(p(b, 'reply_to_id', ''));
+    const reply_to_texto = String(p(b, 'reply_to_texto', '')).substring(0, 500);
+
+    // Dados de template
+    const template_name = String(p(b, 'template_name', ''));
+    const template_language = String(p(b, 'template_language', 'pt_BR'));
+    const template_body_vars = Array.isArray(b.template_body_vars) ? b.template_body_vars : [];
+    const template_body_text = String(p(b, 'template_body_text', ''));
+
+    if (!conta_id || !telefone) {
+      return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
+    }
+
+    // Tipos não suportados nativamente ainda → delega pro n8n antigo (proxy)
+    // (audio, image, video, document, sticker, interactive, etc)
+    const tiposSuportados = new Set(['text', 'template']);
+    if (!tiposSuportados.has(tipo)) {
+      try {
+        const upstream = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+        const r = await fetch(`${upstream}/webhook/chat-enviar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(b),
+        });
+        const data = await r.json().catch(() => ({}));
+        return data;
+      } catch (err) {
+        return reply.code(502).send({ ok: false, erro: 'proxy n8n falhou: ' + err.message });
+      }
+    }
+
+    // Busca config da conta
+    const contaRes = await query(
+      `SELECT codigo, nome, tipo, config FROM chat_contas WHERE codigo=$1 LIMIT 1`,
+      [conta_id]
+    );
+    if (!contaRes.rows.length) {
+      return reply.code(404).send({ ok: false, erro: 'conta_nao_encontrada: ' + conta_id });
+    }
+    const conta = contaRes.rows[0];
+    let accountCfg = {};
+    try {
+      accountCfg = typeof conta.config === 'string' ? JSON.parse(conta.config) : (conta.config || {});
+    } catch (_) {}
+
+    if (conta.tipo !== 'meta') {
+      // Evolution — não suportado ainda, delega pro proxy
+      try {
+        const upstream = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+        const r = await fetch(`${upstream}/webhook/chat-enviar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(b),
+        });
+        return await r.json().catch(() => ({ ok: false }));
+      } catch (err) {
+        return reply.code(502).send({ ok: false, erro: 'evolution proxy falhou' });
+      }
+    }
+
+    // Monta texto final (pra gravar em chat_mensagens)
+    let textoFinal = texto;
+    if (tipo === 'template') {
+      textoFinal = template_body_text || '';
+      // Substitui {{1}}, {{2}} pelo valor das vars
+      template_body_vars.forEach((v, i) => {
+        textoFinal = textoFinal.replace(new RegExp('\\{\\{\\s*' + (i + 1) + '\\s*\\}\\}', 'g'), String(v || ''));
+      });
+      if (!textoFinal) textoFinal = `[template: ${template_name}]`;
+    }
+
+    // DRY_RUN: não chama Meta, só grava com wamid fake
+    let res;
+    if (config.dryRun) {
+      console.log(`[DRY_RUN] send ${tipo} "${template_name || texto.substring(0, 40)}" to ${telefone}`);
+      res = { ok: true, wamid: `wamid.DRYRUN_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`, dryRun: true };
+    } else {
+      if (tipo === 'template') {
+        if (!template_name) return reply.code(400).send({ ok: false, erro: 'template_name obrigatório' });
+        res = await enviarMetaTemplate({ accountCfg, telefone, template_name, template_language, template_body_vars });
+      } else {
+        if (!texto) return reply.code(400).send({ ok: false, erro: 'texto obrigatório' });
+        res = await enviarMetaText({ accountCfg, telefone, texto, reply_to_id });
+      }
+    }
+
+    if (!res.ok) {
+      return { ok: false, erro: res.error, api: res.raw };
+    }
+
+    // Grava em chat_mensagens
+    const codigo = geraCodigo();
+    const external_id = res.wamid || '';
+    let row;
+    try {
+      const insRes = await query(
+        `INSERT INTO chat_mensagens
+          (codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
+           midia_url, midia_mimetype, timestamp, status, external_id, atendente,
+           reply_to_id, reply_to_texto)
+         VALUES ($1,$2,$3,'','out',$4,$5,'','',NOW(),'enviado',$6,$7,$8,$9)
+         RETURNING id, conta_id, telefone, texto, timestamp, external_id, atendente`,
+        [codigo, conta_id, telefone, tipo, textoFinal, external_id, usuario, reply_to_id, reply_to_texto]
+      );
+      row = insRes.rows[0];
+    } catch (err) {
+      return { ok: true, erro_gravacao: err.message, mensagem: { external_id } };
+    }
+
+    return { ok: true, mensagem: row, api: res.raw };
+  }
+
+  fastify.post('/webhook/chat-enviar', handleEnviar);
+  fastify.post('/api/chat/enviar', handleEnviar);
+}

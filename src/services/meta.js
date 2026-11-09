@@ -1,7 +1,8 @@
 import { config } from '../config.js';
 
-// Upstream do n8n (pra reutilizar o chat-enviar que já grava em chat_mensagens)
-const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+// Endpoint local do backend (chat-enviar migrado) — grava texto completo em chat_mensagens
+// Fallback pro n8n só se SELF_HOST_URL não estiver setada
+const SELF_HOST = process.env.SELF_HOST_URL || `http://localhost:${process.env.PORT || 3100}`;
 
 /**
  * Envia template HSM. Por padrão delega ao endpoint /webhook/chat-enviar do n8n
@@ -42,7 +43,8 @@ export async function enviarTemplate({ accountCfg, telefone, templateName, templ
   };
 
   try {
-    const r = await fetch(`${N8N_UPSTREAM}/webhook/chat-enviar`, {
+    // Chama o próprio endpoint /webhook/chat-enviar local (que agora grava texto completo)
+    const r = await fetch(`${SELF_HOST}/webhook/chat-enviar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(bodyChatEnviar),
@@ -52,7 +54,7 @@ export async function enviarTemplate({ accountCfg, telefone, templateName, templ
       return { ok: false, error: data.erro || `HTTP ${r.status}`, raw: data };
     }
     const wamid = (data.mensagem && data.mensagem.external_id) || '';
-    return { ok: true, wamid, raw: data };
+    return { ok: true, wamid, raw: data, dryRun: data.dryRun };
   } catch (err) {
     return { ok: false, error: err.message || 'fetch_error' };
   }
