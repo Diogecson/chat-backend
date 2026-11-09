@@ -72,6 +72,60 @@ async function enviarMetaText({ accountCfg, telefone, texto, reply_to_id }) {
   return { ok: true, wamid: data?.messages?.[0]?.id || '', raw: data };
 }
 
+// Upload de midia pro Meta: recebe base64, envia multipart, retorna media_id
+async function uploadMetaMedia({ accountCfg, base64, mimetype, filename }) {
+  const url = `https://graph.facebook.com/${config.metaApiVersion}/${accountCfg.phone_number_id}/media`;
+  const buffer = Buffer.from(base64, 'base64');
+  const blob = new Blob([buffer], { type: mimetype });
+  const fd = new FormData();
+  fd.append('messaging_product', 'whatsapp');
+  fd.append('type', mimetype);
+  fd.append('file', blob, filename || 'upload.bin');
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${accountCfg.access_token}` },
+    body: fd,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) {
+    return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
+  }
+  return { ok: true, media_id: data.id };
+}
+
+// Envia mensagem de mídia (image/video/audio/document) usando media_id
+async function enviarMetaMedia({ accountCfg, telefone, tipo, media_id, caption, filename, reply_to_id }) {
+  const url = `https://graph.facebook.com/${config.metaApiVersion}/${accountCfg.phone_number_id}/messages`;
+  const payload = {
+    messaging_product: 'whatsapp',
+    to: telefone,
+    type: tipo,
+  };
+  const mediaObj = { id: media_id };
+  if (tipo === 'image' || tipo === 'video') {
+    if (caption) mediaObj.caption = caption;
+  } else if (tipo === 'document') {
+    if (caption) mediaObj.caption = caption;
+    if (filename) mediaObj.filename = filename;
+  }
+  // audio nao aceita caption nem filename
+  payload[tipo] = mediaObj;
+  if (reply_to_id) payload.context = { message_id: reply_to_id };
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accountCfg.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok || data.error) {
+    return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
+  }
+  return { ok: true, wamid: data?.messages?.[0]?.id || '', raw: data };
+}
+
 export default async function enviarRoutes(fastify) {
   async function handleEnviar(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
@@ -90,13 +144,18 @@ export default async function enviarRoutes(fastify) {
     const template_body_vars = Array.isArray(b.template_body_vars) ? b.template_body_vars : [];
     const template_body_text = String(p(b, 'template_body_text', ''));
 
+    // Dados de midia
+    const midia_base64 = String(p(b, 'midia_base64', ''));
+    const mimetype = String(p(b, 'mimetype', ''));
+    const filename = String(p(b, 'filename', ''));
+
     if (!conta_id || !telefone) {
       return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
     }
 
-    // Tipos não suportados nativamente ainda → delega pro n8n antigo (proxy)
-    // (audio, image, video, document, sticker, interactive, etc)
-    const tiposSuportados = new Set(['text', 'template']);
+    // Tipos suportados nativamente: text, template, image, video, audio, document
+    // Os demais (sticker, interactive, location...) continuam no proxy pro n8n
+    const tiposSuportados = new Set(['text', 'template', 'image', 'video', 'audio', 'document']);
     if (!tiposSuportados.has(tipo)) {
       try {
         const upstream = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -157,6 +216,12 @@ export default async function enviarRoutes(fastify) {
       } else {
         textoFinal = `[template: ${template_name}]`;
       }
+    } else if (tipo === 'image' || tipo === 'video' || tipo === 'audio' || tipo === 'document') {
+      // Pra midia: caption (texto) ou label do tipo
+      if (!textoFinal) {
+        if (tipo === 'document' && filename) textoFinal = `[${tipo}: ${filename}]`;
+        else textoFinal = `[${tipo}]`;
+      }
     }
 
     // DRY_RUN: não chama Meta, só grava com wamid fake
@@ -168,6 +233,18 @@ export default async function enviarRoutes(fastify) {
       if (tipo === 'template') {
         if (!template_name) return reply.code(400).send({ ok: false, erro: 'template_name obrigatório' });
         res = await enviarMetaTemplate({ accountCfg, telefone, template_name, template_language, template_body_vars });
+      } else if (tipo === 'image' || tipo === 'video' || tipo === 'audio' || tipo === 'document') {
+        if (!midia_base64) return reply.code(400).send({ ok: false, erro: 'midia_base64 obrigatório pra midia' });
+        // 1) Upload pro Meta → media_id
+        const up = await uploadMetaMedia({ accountCfg, base64: midia_base64, mimetype, filename });
+        if (!up.ok) {
+          return { ok: false, erro: 'upload falhou: ' + up.error, api: up.raw };
+        }
+        // 2) Envia mensagem com media_id
+        res = await enviarMetaMedia({
+          accountCfg, telefone, tipo, media_id: up.media_id,
+          caption: texto, filename, reply_to_id
+        });
       } else {
         if (!texto) return reply.code(400).send({ ok: false, erro: 'texto obrigatório' });
         res = await enviarMetaText({ accountCfg, telefone, texto, reply_to_id });
