@@ -49,17 +49,27 @@ export default async function acoesRoutes(fastify) {
   const conversaTransferir = async (req, reply) => withDb(reply, async () => {
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
-    const novo_atendente = p(req, 'novo_atendente').toLowerCase();
+    // front manda 'novo_dono', alias legado 'novo_atendente'
+    const novo_atendente = String(
+      (req.body && (req.body.novo_dono ?? req.body.novo_atendente)) || ''
+    ).toLowerCase().trim();
     const usuario = p(req, 'usuario', 'sistema');
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
-    await query(
-      `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por)
-       VALUES ($1,$2,$3,NOW(),$4)
-       ON CONFLICT (conta_id, telefone) DO UPDATE
-         SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4`,
+    // UPDATE primeiro; se nao achou (conversa nunca teve dono), INSERT
+    const upd = await query(
+      `UPDATE chat_conversa_dono
+       SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4
+       WHERE conta_id=$1 AND telefone=$2`,
       [conta_id, telefone, novo_atendente, 'transfer:' + usuario]
     );
-    return { ok: true };
+    if ((upd.rowCount || 0) === 0) {
+      await query(
+        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por, finalizada, motivo_fechamento)
+         VALUES ($1,$2,$3,NOW(),$4,false,'')`,
+        [conta_id, telefone, novo_atendente, 'transfer:' + usuario]
+      );
+    }
+    return { ok: true, atendente: novo_atendente };
   });
   fastify.post('/webhook/chat-conversa-transferir', conversaTransferir);
 
