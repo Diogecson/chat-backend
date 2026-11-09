@@ -58,7 +58,6 @@ base AS (
         AND (
           $2 = 'ADM'
           OR (cd.atendente <> '' AND LOWER(cd.atendente) = LOWER($3))
-          OR (cd.atendente IS NULL OR cd.atendente = '')
         )
       )
     )
