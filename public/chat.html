@@ -5815,8 +5815,16 @@ window.onload=async ()=>{
   // Abertura direta vinda do funil/retornos: ?abrir=conta_id_telefone
   const _abrirId = p.get('abrir');
   if (_abrirId) {
-    setTimeout(() => { try { abrirConversa(_abrirId); } catch(_) {} }, 400);
     history.replaceState(null, '', location.pathname);
+    let _tentativas = 0;
+    const _tentarAbrir = () => {
+      _tentativas++;
+      const _conv = conversas.find(x => x.id === _abrirId);
+      if (_conv) { try { abrirConversa(_abrirId); } catch(_) {} return; }
+      if (_tentativas < 15) return setTimeout(_tentarAbrir, 500); // 7.5s no total
+      try { toast && toast('Conversa não está na sua lista atual', 'warn'); } catch(_){}
+    };
+    setTimeout(_tentarAbrir, 300);
   }
   carregarRetornos();
   agendarComJitter(carregarRetornos, 30000);
