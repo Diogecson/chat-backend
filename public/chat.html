@@ -5816,15 +5816,35 @@ window.onload=async ()=>{
   const _abrirId = p.get('abrir');
   if (_abrirId) {
     history.replaceState(null, '', location.pathname);
-    let _tentativas = 0;
-    const _tentarAbrir = () => {
-      _tentativas++;
-      const _conv = conversas.find(x => x.id === _abrirId);
-      if (_conv) { try { abrirConversa(_abrirId); } catch(_) {} return; }
-      if (_tentativas < 15) return setTimeout(_tentarAbrir, 500); // 7.5s no total
-      try { toast && toast('Conversa não está na sua lista atual', 'warn'); } catch(_){}
+    // Força a visão mais abrangente possível: tenta 'todas' (admin/super),
+    // depois 'sem_dono' (admin), senão fica em 'minhas'.
+    const _trocarVisao = async (v) => {
+      const _btn = document.querySelector('.sb-filtro[data-visao="'+v+'"]');
+      if (_btn && _btn.offsetParent !== null && VISAO !== v) {
+        try { await setVisao(v); return true; } catch(_){}
+      }
+      return false;
     };
-    setTimeout(_tentarAbrir, 300);
+    let _tentativas = 0;
+    const _visoesTentar = ['todas', 'sem_dono'];
+    let _vIdx = -1;
+    (async () => {
+      // 1ª tentativa: troca pra 'todas' se puder
+      await _trocarVisao('todas');
+      const _tentarAbrir = async () => {
+        _tentativas++;
+        const _conv = conversas.find(x => x.id === _abrirId);
+        if (_conv) { try { abrirConversa(_abrirId); } catch(_) {} return; }
+        // A cada 5 tentativas, tenta próxima visão
+        if (_tentativas % 5 === 0 && _vIdx < _visoesTentar.length - 1) {
+          _vIdx++;
+          await _trocarVisao(_visoesTentar[_vIdx]);
+        }
+        if (_tentativas < 20) return setTimeout(_tentarAbrir, 500);
+        try { toast && toast('Conversa não está na sua lista', 'warn'); } catch(_){}
+      };
+      setTimeout(_tentarAbrir, 400);
+    })();
   }
   carregarRetornos();
   agendarComJitter(carregarRetornos, 30000);
