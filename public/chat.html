@@ -1771,7 +1771,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 </div>
 
 <script>
-const BASE = "https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook";
+const BASE = "/webhook";
 const URL_CONTAS      = BASE + "/chat-contas-list";
 const URL_CONVERSAS   = BASE + "/chat-conversas";
 const URL_CONVERSAS_DELTA = BASE + "/chat-conversas-delta";
@@ -7069,7 +7069,7 @@ let respDropFiltered = [];
 
 async function carregarRespostasRapidas(){
   try{
-    const r = await api(URL_RESP_LIST);
+    const r = await api(URL_RESP_LIST + '?usuario=' + encodeURIComponent(USUARIO||''));
     if(r && r.ok) respostasRapidasCache = r.respostas || [];
   }catch(e){ }
 }

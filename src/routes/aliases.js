@@ -91,8 +91,37 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-etiquetas-list', etiquetasList);
 
   // === chat-respostas-list ===
+  // Filtra: usuário SUPER (contas_permitidas=['*']) vê tudo;
+  // demais veem só as próprias + de quem compartilha conta (interseção de contas_permitidas).
   const respostasList = async (req, reply) => withDb(reply, async () => {
-    const r = await query(`SELECT * FROM chat_respostas_rapidas ORDER BY atalho`).catch(() => ({ rows: [] }));
+    const usuario = p(req, 'usuario').toLowerCase();
+    if (!usuario) {
+      const r = await query(`SELECT * FROM chat_respostas_rapidas WHERE ativo=true ORDER BY atalho`).catch(() => ({ rows: [] }));
+      return { ok: true, respostas: r.rows };
+    }
+    const meRes = await query(
+      `SELECT papel, contas_permitidas FROM chat_atendentes WHERE LOWER(usuario)=LOWER($1) LIMIT 1`,
+      [usuario]
+    );
+    const me = meRes.rows[0];
+    const minhasContas = Array.isArray(me?.contas_permitidas) ? me.contas_permitidas : [];
+    const isSuper = minhasContas.includes('*');
+    if (isSuper) {
+      const r = await query(`SELECT * FROM chat_respostas_rapidas WHERE ativo=true ORDER BY atalho`);
+      return { ok: true, respostas: r.rows };
+    }
+    const r = await query(
+      `SELECT r.* FROM chat_respostas_rapidas r
+       LEFT JOIN chat_atendentes a ON LOWER(a.usuario)=LOWER(r.atendente)
+       WHERE r.ativo=true
+         AND (
+           LOWER(r.atendente)=LOWER($1)
+           OR '*' = ANY(COALESCE(a.contas_permitidas, ARRAY[]::text[]))
+           OR a.contas_permitidas && $2::text[]
+         )
+       ORDER BY r.atalho`,
+      [usuario, minhasContas]
+    );
     return { ok: true, respostas: r.rows };
   });
   fastify.get('/webhook/chat-respostas-list', respostasList);

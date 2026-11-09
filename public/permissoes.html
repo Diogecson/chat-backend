@@ -135,7 +135,7 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 <div class="toast" id="toast"></div>
 
 <script>
-const BASE = location.pathname.includes('/webhook/') ? location.origin + '/webhook' : 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook';
+const BASE = '/webhook';
 const LOGIN_URL = location.pathname.includes('/webhook/') ? '/webhook/chat-login' : '/';
 let TOKEN='', USUARIO='', PAPEL='';
 let atendentes = [];

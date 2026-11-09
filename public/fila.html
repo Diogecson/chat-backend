@@ -185,7 +185,7 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 <div class="chat-toasts-stack" id="toasts"></div>
 
 <script>
-const URL_BASE = 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_BASE = '';
 const URL_STATUS = URL_BASE + '/webhook/chat-fila-status';
 const URL_CONFIG = URL_BASE + '/webhook/chat-fila-config';
 const URL_TOGGLE = URL_BASE + '/webhook/chat-fila-toggle';
@@ -231,7 +231,7 @@ async function _carregarMinhasContas(){
   const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
   if(papel === 'SUPER'){ _MINHAS_CONTAS = '__all__'; return; }
   try {
-    const r = await fetch('https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook/chat-atendentes-list');
+    const r = await fetch('/webhook/chat-atendentes-list');
     const j = await r.json();
     const me = (j.atendentes||[]).find(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
     if(me){
@@ -273,7 +273,7 @@ function _filtrarPorContaSelecionada(lista){
 let _ESTADO_RAW = null;
 async function _popularSeletorContas(){
   try {
-    const r = await fetch('https://plano-acao-high-performace-n8n.szlqqi.easypanel.host/webhook/chat-contas-list?token=' + encodeURIComponent(TOKEN||''));
+    const r = await fetch('/webhook/chat-contas-list?token=' + encodeURIComponent(TOKEN||''));
     const j = await r.json();
     const contas = (j.contas || []).filter(c => c.status === 'ativo' || !c.status);
     // Se tem contas_permitidas restritas, filtra o dropdown

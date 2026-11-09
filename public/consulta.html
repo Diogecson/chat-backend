@@ -141,7 +141,7 @@ Pode colar CSV também, ex:
 
 <script>
 const params = new URLSearchParams(location.search);
-const URL_BASE = params.get('base') || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+const URL_BASE = params.get('base') || '';
 const URL_CONSULTA = URL_BASE + '/webhook/chat-consulta-contatos';
 const URL_CONTAS = URL_BASE + '/webhook/chat-contas-list';
 const TOKEN = sessionStorage.getItem('chat_token') || localStorage.getItem('chat_token') || '';
