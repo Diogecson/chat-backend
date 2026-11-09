@@ -15,6 +15,17 @@ function forceConta(contaIdReq) {
   return config.contaFixa || contaIdReq || '';
 }
 
+// Splita conversa_id no formato "<conta_id>_<telefone>".
+// conta_id pode conter underscores (meta_123456), telefone é só dígitos no final.
+// Então quebra no ULTIMO underscore.
+function splitConversaId(req) {
+  const convId = p(req, 'conversa_id');
+  if (!convId) return { conta_id: null, telefone: null };
+  const idx = convId.lastIndexOf('_');
+  if (idx < 0) return { conta_id: null, telefone: null };
+  return { conta_id: convId.substring(0, idx), telefone: convId.substring(idx + 1) };
+}
+
 async function withDb(reply, fn) {
   if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
   try { return await fn(); }
@@ -221,14 +232,7 @@ export default async function aliasRoutes(fastify) {
 
   // === chat-mensagens ===
   // Aceita conta_id+telefone OU conversa_id no formato "<conta_id>_<telefone>"
-  // (chat.html manda ?conversa_id=meta_123_5511999... — precisa splitar)
-  function splitConversaId(req) {
-    const convId = p(req, 'conversa_id');
-    if (!convId) return { conta_id: null, telefone: null };
-    const idx = convId.lastIndexOf('_');
-    if (idx < 0) return { conta_id: null, telefone: null };
-    return { conta_id: convId.substring(0, idx), telefone: convId.substring(idx + 1) };
-  }
+  // (chat.html manda ?conversa_id=meta_123_5511999... — splitConversaId no topo)
   const mensagens = async (req, reply) => withDb(reply, async () => {
     let conta_id = p(req, 'conta_id');
     let telefone = p(req, 'telefone');
@@ -268,7 +272,9 @@ export default async function aliasRoutes(fastify) {
     conta_id = forceConta(conta_id);
     const since = p(req, 'since') || p(req, 'desde_ts');
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
-    const sinceDate = since ? new Date(since) : new Date(Date.now() - 60000);
+    // Date inválida → fallback pra 60s atrás (evita erro de cast no PG)
+    let sinceDate = since ? new Date(since) : new Date(Date.now() - 60000);
+    if (isNaN(sinceDate.getTime())) sinceDate = new Date(Date.now() - 60000);
     const r = await query(
       `SELECT id, codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
               midia_url, midia_mimetype, timestamp, status, external_id, atendente,
