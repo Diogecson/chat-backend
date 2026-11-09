@@ -271,4 +271,63 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-atendente-delete', atendenteDelete);
   fastify.post('/webhook/chat-atendentes-delete', atendenteDelete);
+
+  // === chat-conversas-distribuir ===
+  // Payload: { conversas: [{conta_id, telefone}, ...], modo: 'equipe'|'atendente', atendente?, quem }
+  // modo='atendente': atribui todas ao usuario escolhido
+  // modo='equipe': distribui round-robin entre atendentes com na_fila=true
+  const conversasDistribuir = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    const conversas = Array.isArray(b.conversas) ? b.conversas : [];
+    const modo = String(b.modo || 'equipe').toLowerCase();
+    const atendenteAlvo = String(b.atendente || '').toLowerCase().trim();
+    const quem = String(b.quem || b.usuario || 'sistema').toLowerCase();
+
+    if (!conversas.length) return reply.code(400).send({ ok: false, erro: 'sem conversas' });
+    if (modo === 'atendente' && !atendenteAlvo) {
+      return reply.code(400).send({ ok: false, erro: 'atendente obrigatorio no modo atendente' });
+    }
+
+    // Lista de destinos
+    let destinos = [];
+    if (modo === 'atendente') {
+      destinos = [atendenteAlvo];
+    } else {
+      // modo equipe: pega atendentes ATIVOS e NA_FILA
+      const r = await query(
+        `SELECT LOWER(usuario) AS usuario FROM chat_atendentes
+         WHERE COALESCE(ativo,true)=true AND COALESCE(na_fila,false)=true
+           AND LOWER(COALESCE(papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+         ORDER BY usuario`
+      );
+      destinos = r.rows.map(x => x.usuario).filter(Boolean);
+      if (!destinos.length) {
+        return reply.code(400).send({ ok: false, erro: 'nenhum atendente na fila (ative no painel Fila)' });
+      }
+    }
+
+    // Round-robin
+    const resumoMap = new Map();
+    let i = 0;
+    for (const c of conversas) {
+      const conta_id = String(c.conta_id || '');
+      const telefone = String(c.telefone || '');
+      if (!conta_id || !telefone) continue;
+      const dest = destinos[i % destinos.length];
+      i++;
+      await query(
+        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por)
+         VALUES ($1,$2,$3,NOW(),$4)
+         ON CONFLICT (conta_id, telefone) DO UPDATE
+           SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4,
+               finalizada=false, finalizada_em=NULL, motivo_fechamento=NULL`,
+        [conta_id, telefone, dest, 'dist:' + quem]
+      );
+      resumoMap.set(dest, (resumoMap.get(dest) || 0) + 1);
+    }
+    const resumo = Array.from(resumoMap.entries()).map(([atendente, qtd]) => ({ atendente, qtd }));
+    return { ok: true, total: i, resumo };
+  });
+  fastify.post('/webhook/chat-conversas-distribuir', conversasDistribuir);
+  fastify.post('/api/chat/conversas-distribuir', conversasDistribuir);
 }
