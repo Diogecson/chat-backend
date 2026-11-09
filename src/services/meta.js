@@ -10,7 +10,7 @@ const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-perfor
  *
  * accountCfg = { phone_number_id, access_token, waba_id, ... } (vem do chat_contas.config)
  */
-export async function enviarTemplate({ accountCfg, telefone, templateName, templateLanguage, bodyVars = [], campanha_id }) {
+export async function enviarTemplate({ accountCfg, telefone, templateName, templateLanguage, bodyVars = [], campanha_id, templateBodyText = '' }) {
   if (config.dryRun) {
     console.log(`[DRY_RUN] send template "${templateName}" to ${telefone}`, bodyVars);
     return {
@@ -19,6 +19,13 @@ export async function enviarTemplate({ accountCfg, telefone, templateName, templ
       dryRun: true,
     };
   }
+
+  // Monta o texto pronto do template (substitui {{1}}, {{2}}... com as bodyVars)
+  // pra gravar no chat_mensagens.texto — assim o chat mostra a msg completa, não só "Olá"
+  let tplText = String(templateBodyText || '');
+  bodyVars.forEach((v, i) => {
+    tplText = tplText.replace(new RegExp('\\{\\{\\s*' + (i + 1) + '\\s*\\}\\}', 'g'), String(v || ''));
+  });
 
   // Delega pro chat-enviar do n8n (que já faz Meta + grava chat_mensagens)
   const bodyChatEnviar = {
@@ -30,8 +37,8 @@ export async function enviarTemplate({ accountCfg, telefone, templateName, templ
     template_name: templateName,
     template_language: templateLanguage || 'pt_BR',
     template_body_vars: bodyVars,
-    template_body_text: '',
-    texto: '',
+    template_body_text: tplText,
+    texto: tplText,
   };
 
   try {

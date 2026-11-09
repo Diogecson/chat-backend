@@ -86,6 +86,7 @@ export async function processarJobDisparos(jobOrArray) {
       templateLanguage: row.template_language,
       bodyVars,
       campanha_id: row.campanha_id,
+      templateBodyText: row.template_body_text,  // texto do template (vem da campanha) com {{1}}, {{2}} pendentes
     });
 
     if (res.ok) {
