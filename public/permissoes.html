@@ -142,18 +142,38 @@ let atendentes = [];
 let dados = { permissoes:{}, global:{}, override:null }; // últimos dados carregados
 
 // Catálogo de features (mesmo do chat.html)
+// =============================================================================
+// REGRA — QUANDO ADICIONAR UMA FEATURE/MENU NOVO:
+// 1. Põe a feature aqui no array abaixo com key única (pt-br, snake_case)
+// 2. No elemento da rail/botão em chat.html põe `data-feat="mesma_key"`
+// 3. Se for página inteira (XXX.html), o data-feat no link `<a href="XXX.html">`
+//    já basta — o JS do chat.html esconde elementos com data-feat desligado
+// 4. O default é ON (padrão global). Admin sempre vê tudo (ignora override).
+// 5. Testa: entra como USER consultor, abre permissoes.html, desliga o toggle,
+//    recarrega o chat.html — a feature tem que sumir.
+// =============================================================================
 const FEATURES = [
-  { key:'manual',     label:'Manual do Consultor', desc:'Script guiado por perfil no composer',   icon:'bi-book-fill' },
-  { key:'ajuda_ia',   label:'Ajuda da IA',         desc:'Sugere resposta baseada na conversa',    icon:'bi-stars' },
-  { key:'hubspot',    label:'HubSpot',             desc:'Criar/buscar/editar negócios do contato', icon:'bi-bullseye' },
-  { key:'tarefas',    label:'Tarefas do Consultor',desc:'Checklist da venda (9 etapas)',          icon:'bi-check2-square' },
-  { key:'templates',  label:'Templates HSM',       desc:'Enviar templates Meta aprovados',        icon:'bi-tag-fill' },
-  { key:'followup',   label:'Follow-up IA',        desc:'Reengajamento automático de leads',      icon:'bi-robot' },
-  { key:'retorno',    label:'Agendar Retorno',     desc:'Lembrete pra voltar em uma conversa',    icon:'bi-calendar-check' },
-  { key:'disparos',   label:'Disparos em Massa',   desc:'Envio Meta template pra várias pessoas', icon:'bi-megaphone-fill' },
-  { key:'triagem',    label:'Triagem IA',          desc:'Ativar/desativar triagem automática numa conversa', icon:'bi-funnel-fill' },
-  { key:'respostas',  label:'Respostas Rápidas',   desc:'Atalhos com "/" no chat (ex: /preco)',   icon:'bi-lightning-charge-fill' },
-  { key:'contas',     label:'Gestão de Contas',    desc:'Configurar Meta/Evolution',              icon:'bi-gear-fill' },
+  // --- COMPOSER / CONVERSA ---
+  { key:'manual',       label:'Manual do Consultor', desc:'Script guiado por perfil no composer',   icon:'bi-book-fill' },
+  { key:'ajuda_ia',     label:'Ajuda da IA',         desc:'Sugere resposta baseada na conversa',    icon:'bi-stars' },
+  { key:'hubspot',      label:'HubSpot',             desc:'Criar/buscar/editar negócios do contato', icon:'bi-bullseye' },
+  { key:'tarefas',      label:'Tarefas do Consultor',desc:'Checklist da venda (9 etapas)',          icon:'bi-check2-square' },
+  { key:'templates',    label:'Templates HSM',       desc:'Enviar templates Meta aprovados',        icon:'bi-tag-fill' },
+  { key:'followup',     label:'Follow-up IA',        desc:'Reengajamento automático de leads',      icon:'bi-robot' },
+  { key:'retorno',      label:'Agendar Retorno',     desc:'Lembrete pra voltar em uma conversa',    icon:'bi-calendar-check' },
+  { key:'triagem',      label:'Triagem IA',          desc:'Ativar/desativar triagem automática numa conversa', icon:'bi-funnel-fill' },
+  { key:'respostas',    label:'Respostas Rápidas',   desc:'Atalhos com "/" no chat (ex: /preco)',   icon:'bi-lightning-charge-fill' },
+  // --- PÁGINAS / PAINÉIS ---
+  { key:'disparos',     label:'Disparos em Massa',   desc:'Envio Meta template pra várias pessoas', icon:'bi-megaphone-fill' },
+  { key:'funil',        label:'Funil de Conversas',  desc:'Kanban quente/morna/fria + ranking por consultor', icon:'bi-columns-gap' },
+  { key:'matriculas',   label:'Base de Matrículas',  desc:'Subir base de alunos e cruzar com conversas (vira matrícula)', icon:'bi-mortarboard-fill' },
+  { key:'consulta',     label:'Consultar Contato',   desc:'Ver se um telefone já tem chat aberto',  icon:'bi-search' },
+  // --- SIDEBAR DE CONVERSAS (botões no header) ---
+  { key:'novo_contato', label:'Novo Contato',        desc:'Criar contato novo e mandar primeiro template', icon:'bi-person-plus-fill' },
+  { key:'mass_dist',    label:'Distribuição em Massa',desc:'Selecionar várias conversas e distribuir/enviar/finalizar', icon:'bi-diagram-3' },
+  { key:'status_fila',  label:'Status ONLINE/OFFLINE',desc:'Botão rápido no header pra entrar/sair da fila',  icon:'bi-circle-fill' },
+  // --- GESTÃO / ADMIN ---
+  { key:'contas',       label:'Gestão de Contas',    desc:'Configurar Meta/Evolution',              icon:'bi-gear-fill' },
 ];
 
 function qs(s){return document.querySelector(s)}

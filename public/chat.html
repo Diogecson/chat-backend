@@ -993,8 +993,8 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <a href="consulta.html" id="railConsulta" title="Consultar contatos (quais já têm chat)" data-feat="consulta"><i class="bi bi-search"></i></a>
       <a href="triagem.html" id="railTriagem" title="Configurar triagem IA" data-feat="triagem"><i class="bi bi-funnel-fill"></i></a>
       <a href="respostas.html" id="railRespostas" title="Respostas rápidas (digite / no chat)" data-feat="respostas"><i class="bi bi-lightning-charge-fill"></i></a>
-      <a href="funil.html" id="railFunil" title="Funil de conversas (quente/morna/fria)"><i class="bi bi-columns-gap"></i></a>
-      <a href="matriculas.html" id="railMatriculas" title="Base de alunos matriculados"><i class="bi bi-mortarboard-fill"></i></a>
+      <a href="funil.html" id="railFunil" title="Funil de conversas (quente/morna/fria)" data-feat="funil"><i class="bi bi-columns-gap"></i></a>
+      <a href="matriculas.html" id="railMatriculas" title="Base de alunos matriculados" data-feat="matriculas"><i class="bi bi-mortarboard-fill"></i></a>
       <a href="gestao.html" id="railGestao" title="Painel de gestão (só SUPER)" data-super><i class="bi bi-graph-up-arrow"></i></a>
       <a href="#" id="railFollowup" onclick="event.preventDefault();abrirFollowup()" title="Follow-up IA — reengajamento automático" data-feat="followup"><i class="bi bi-robot"></i></a>
       <a href="#" onclick="event.preventDefault();abrirTemas()" title="Tema visual"><i class="bi bi-palette-fill"></i></a>
@@ -1015,9 +1015,9 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <h1 class="sb-titulo" id="sbTitulo">Todas as conversas</h1>
         <div style="display:flex;gap:6px;align-items:center">
-          <button class="sb-toggle-dist" id="btnStatusFila" onclick="toggleMinhaFila()" title="Entrar/sair da fila (round-robin)" style="width:auto;padding:0 10px;gap:5px"><span id="statusFilaDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;flex-shrink:0"></span><span id="statusFilaLbl" style="font-size:.7rem;font-weight:700;letter-spacing:.3px">—</span></button>
-          <button class="sb-toggle-dist" id="btnNovoContato" onclick="abrirNovoContatoModal()" title="Criar novo contato e enviar primeira mensagem" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-color:#15803d"><i class="bi bi-person-plus-fill"></i></button>
-          <button class="sb-toggle-dist" id="btnDistToggle" onclick="toggleDistMode()" title="Selecionar conversas em massa (distribuir/enviar)"><i class="bi bi-diagram-3"></i></button>
+          <button class="sb-toggle-dist" id="btnStatusFila" data-feat="status_fila" onclick="toggleMinhaFila()" title="Entrar/sair da fila (round-robin)" style="width:auto;padding:0 10px;gap:5px"><span id="statusFilaDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;flex-shrink:0"></span><span id="statusFilaLbl" style="font-size:.7rem;font-weight:700;letter-spacing:.3px">—</span></button>
+          <button class="sb-toggle-dist" id="btnNovoContato" data-feat="novo_contato" onclick="abrirNovoContatoModal()" title="Criar novo contato e enviar primeira mensagem" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-color:#15803d"><i class="bi bi-person-plus-fill"></i></button>
+          <button class="sb-toggle-dist" id="btnDistToggle" data-feat="mass_dist" onclick="toggleDistMode()" title="Selecionar conversas em massa (distribuir/enviar)"><i class="bi bi-diagram-3"></i></button>
           <button class="sb-toggle-filtros" onclick="toggleFiltrosMobile()" title="Mostrar/ocultar filtros" aria-label="Filtros"><i class="bi bi-sliders"></i></button>
         </div>
       </div>
