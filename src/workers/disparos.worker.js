@@ -103,6 +103,33 @@ export async function processarJobDisparos(jobOrArray) {
       console.error(`[worker] msg_id=${msg_id} ERRO ${res.error}`);
     }
 
+    // Atualiza contadores da campanha + marca 'concluido' quando tudo acabou.
+    // Em tempo real — nao depende do cron separado estar rodando no EasyPanel.
+    try {
+      await client.query(
+        `WITH stats AS (
+           SELECT
+             COUNT(*) FILTER (WHERE status='enviado') AS e,
+             COUNT(*) FILTER (WHERE status IN ('erro','cancelado')) AS f
+           FROM chat_disparos_msgs
+           WHERE campanha_id = $1
+         )
+         UPDATE chat_disparos c
+         SET enviadas = s.e,
+             falharam = s.f,
+             atualizado_em = NOW(),
+             status = CASE
+               WHEN s.e + s.f >= c.total_msgs THEN 'concluido'
+               ELSE 'em_andamento'
+             END
+         FROM stats s
+         WHERE c.codigo = $1 AND c.status IN ('agendado','em_andamento')`,
+        [row.campanha_id]
+      );
+    } catch (err) {
+      console.error(`[worker] falha ao atualizar campanha ${row.campanha_id}:`, err.message);
+    }
+
     return { ok: res.ok, wamid: res.wamid };
   } catch (err) {
     console.error(`[worker] msg_id=${msg_id} EXCEPTION`, err.message);

@@ -130,6 +130,41 @@ try {
     fastify.log.warn('⚠️  DRY_RUN=true — envios Meta serão simulados, não reais.');
   }
 
+  // Cron embutido: recupera msgs presas em 'em_envio' + recalcula contadores
+  // Roda a cada 2 min. Nao depende de servico separado no EasyPanel.
+  if (hasDb()) {
+    const rodarCron = async () => {
+      try {
+        await fastify.inject({ method: 'POST', url: '/health' }).catch(() => {}); // keepalive
+        const { query } = await import('./services/db.js');
+        await query(`
+          UPDATE chat_disparos_msgs
+          SET status = 'pendente'
+          WHERE status = 'em_envio' AND enviado_em < NOW() - INTERVAL '10 minutes'
+        `);
+        await query(`
+          WITH stats AS (
+            SELECT campanha_id,
+                   COUNT(*) FILTER (WHERE status='enviado') AS e,
+                   COUNT(*) FILTER (WHERE status IN ('erro','cancelado')) AS f
+            FROM chat_disparos_msgs
+            WHERE campanha_id IN (SELECT codigo FROM chat_disparos WHERE status IN ('em_andamento','agendado'))
+            GROUP BY campanha_id
+          )
+          UPDATE chat_disparos c
+          SET enviadas = s.e, falharam = s.f, atualizado_em = NOW(),
+              status = CASE WHEN s.e + s.f >= c.total_msgs THEN 'concluido' ELSE 'em_andamento' END
+          FROM stats s
+          WHERE c.codigo = s.campanha_id AND c.status IN ('em_andamento','agendado')
+        `);
+      } catch (err) {
+        fastify.log.error('[cron-contadores] ' + err.message);
+      }
+    };
+    setInterval(rodarCron, 2 * 60 * 1000);
+    setTimeout(rodarCron, 15 * 1000); // Roda 15s depois do boot pra pegar o atraso atual
+  }
+
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
   // Habilita setando WORKER_ENABLED=true
   if (String(process.env.WORKER_ENABLED || 'false').toLowerCase() === 'true' && hasDb()) {
