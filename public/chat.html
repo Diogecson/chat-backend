@@ -1008,6 +1008,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <h1 class="sb-titulo" id="sbTitulo">Todas as conversas</h1>
         <div style="display:flex;gap:6px;align-items:center">
+          <button class="sb-toggle-dist" id="btnNovoContato" onclick="abrirNovoContatoModal()" title="Criar novo contato e enviar primeira mensagem" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-color:#15803d"><i class="bi bi-person-plus-fill"></i></button>
           <button class="sb-toggle-dist" id="btnDistToggle" onclick="toggleDistMode()" title="Selecionar conversas em massa (distribuir/enviar)"><i class="bi bi-diagram-3"></i></button>
           <button class="sb-toggle-filtros" onclick="toggleFiltrosMobile()" title="Mostrar/ocultar filtros" aria-label="Filtros"><i class="bi bi-sliders"></i></button>
         </div>
@@ -1308,6 +1309,54 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
     <div class="dm-foot">
       <button class="dm-btn-cancel" onclick="fecharDistEnviarModal()">Cancelar</button>
       <button class="dm-btn-go" id="deBtnGo" onclick="executarEnvioMassa()" style="background:linear-gradient(135deg,#f59e0b,#f97316)"><i class="bi bi-send-fill"></i> Enviar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOVO CONTATO + ENVIAR -->
+<div class="dm-back" id="ncBack" onclick="if(event.target===this)fecharNovoContatoModal()">
+  <div class="dm-modal" style="max-width:600px">
+    <div class="dm-head" style="background:linear-gradient(120deg,#16a34a,#15803d)">
+      <h3><i class="bi bi-person-plus-fill"></i> Novo contato + primeira mensagem</h3>
+      <button class="dm-close" onclick="fecharNovoContatoModal()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="dm-body">
+      <div style="background:#ecfdf5;color:#065f46;padding:10px 12px;border-radius:8px;font-size:.78rem;margin-bottom:14px">
+        <i class="bi bi-info-circle"></i> Como o contato ainda não mandou nenhuma mensagem, a <b>janela 24h está fechada</b> — o envio tem que ser um <b>template HSM aprovado</b>.
+      </div>
+      <div style="display:grid;gap:10px">
+        <div>
+          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Conta (número WhatsApp)</label>
+          <select class="dm-select" id="ncConta" onchange="ncTrocarConta()"></select>
+        </div>
+        <div style="display:grid;grid-template-columns:90px 1fr;gap:8px">
+          <div>
+            <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">DDI</label>
+            <input class="dm-select" id="ncDDI" value="55" maxlength="4" style="text-align:center">
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Telefone (DDD + número)</label>
+            <input class="dm-select" id="ncTelefone" placeholder="Ex: 11987654321" inputmode="numeric">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Nome do contato</label>
+          <input class="dm-select" id="ncNome" placeholder="Ex: Maria Silva">
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Atribuir a qual consultor</label>
+          <select class="dm-select" id="ncAtendente"><option value="">— Deixar sem dono —</option></select>
+        </div>
+        <div>
+          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Template aprovado</label>
+          <select class="dm-select" id="ncTemplateSel" onchange="ncPreviewTemplate()"><option value="">Escolha a conta primeiro...</option></select>
+          <div id="ncTplPreview" style="display:none;margin-top:8px;padding:10px 12px;background:#e6f4ff;border-left:3px solid #1877f2;border-radius:6px;font-size:.82rem;color:#0f1b2d;white-space:pre-wrap;line-height:1.4"></div>
+        </div>
+      </div>
+    </div>
+    <div class="dm-foot">
+      <button class="dm-btn-cancel" onclick="fecharNovoContatoModal()">Cancelar</button>
+      <button class="dm-btn-go" id="ncBtnGo" onclick="executarNovoContato()" style="background:linear-gradient(135deg,#16a34a,#15803d)"><i class="bi bi-send-fill"></i> Criar contato e enviar</button>
     </div>
   </div>
 </div>
@@ -3239,6 +3288,162 @@ async function executarEnvioMassa(){
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-send-fill"></i> Enviar';
+  }
+}
+
+/* ===== NOVO CONTATO + ENVIAR ===== */
+async function abrirNovoContatoModal(){
+  // Popula select de contas (só Meta — Evolution não tem template HSM)
+  const selConta = document.getElementById('ncConta');
+  const metas = (contas||[]).filter(c => c.tipo === 'meta');
+  if(!metas.length){
+    toast('Sem conta Meta configurada (Evolution não aceita templates)', 'err');
+    return;
+  }
+  selConta.innerHTML = metas.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.nome||c.id)}</option>`).join('');
+  // Se tem conta ativa e é meta, pré-seleciona
+  if(contaAtiva && contaAtiva.tipo === 'meta' && metas.find(c => c.id === contaAtiva.id)){
+    selConta.value = contaAtiva.id;
+  }
+  // Popula atendentes (mesma lógica do dist modal)
+  const selAt = document.getElementById('ncAtendente');
+  const atd = (ATENDENTES_CACHE||[]).filter(a => (a.ativo !== false) && (a.papel !== 'ADM' && a.papel !== 'admin'));
+  atd.sort((a,b) => (a.nome||a.usuario||'').localeCompare(b.nome||b.usuario||''));
+  const online = window.__ONLINE_USERS || new Set();
+  selAt.innerHTML = '<option value="">— Deixar sem dono —</option>' +
+    atd.map(a => {
+      const uid = (a.usuario||'').toLowerCase();
+      const on = online.has(uid);
+      return `<option value="${escapeHtml(uid)}">${on?'🟢':'⚫'} ${escapeHtml(a.nome||a.usuario)}</option>`;
+    }).join('');
+  // Pré-seleciona o próprio usuário se for USER (não ADM/SUPER)
+  if(USUARIO && (PAPEL === 'USER' || !PAPEL)){
+    const me = atd.find(a => String(a.usuario||'').toLowerCase() === String(USUARIO).toLowerCase());
+    if(me) selAt.value = String(me.usuario).toLowerCase();
+  }
+  // Reset campos
+  document.getElementById('ncDDI').value = '55';
+  document.getElementById('ncTelefone').value = '';
+  document.getElementById('ncNome').value = '';
+  document.getElementById('ncTplPreview').style.display = 'none';
+  // Carrega templates da conta selecionada
+  await ncCarregarTemplates();
+  document.getElementById('ncBack').classList.add('on');
+}
+
+function fecharNovoContatoModal(){
+  document.getElementById('ncBack').classList.remove('on');
+}
+
+async function ncTrocarConta(){
+  await ncCarregarTemplates();
+}
+
+async function ncCarregarTemplates(){
+  const sel = document.getElementById('ncTemplateSel');
+  const contaId = document.getElementById('ncConta').value;
+  if(!contaId){ sel.innerHTML = '<option value="">Escolha a conta primeiro...</option>'; return; }
+  sel.innerHTML = '<option value="">Carregando templates...</option>';
+  try {
+    const r = await api(BASE + '/chat-templates?conta_id=' + encodeURIComponent(contaId));
+    if(!r || !r.ok){
+      sel.innerHTML = '<option value="">Erro: ' + escapeHtml((r&&r.erro)||'sem retorno') + '</option>';
+      return;
+    }
+    const tpls = (r.templates||[]).filter(t => (t.status||'').toUpperCase() === 'APPROVED');
+    if(!tpls.length){
+      sel.innerHTML = '<option value="">Nenhum template APROVADO nessa conta</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">Escolha um template...</option>' +
+      tpls.map(t => {
+        const body = (t.components||[]).find(c => c.type === 'BODY');
+        const bodyText = body ? body.text : '';
+        return `<option value="${escapeHtml(t.name)}" data-lang="${escapeHtml(t.language||'pt_BR')}" data-body="${escapeHtml(bodyText.slice(0,500))}">${escapeHtml(t.name)} (${escapeHtml(t.language||'pt_BR')})</option>`;
+      }).join('');
+  } catch(e){
+    sel.innerHTML = '<option value="">Erro: ' + escapeHtml(e.message) + '</option>';
+  }
+}
+
+function ncPreviewTemplate(){
+  const sel = document.getElementById('ncTemplateSel');
+  const pv = document.getElementById('ncTplPreview');
+  const opt = sel.options[sel.selectedIndex];
+  const body = opt ? (opt.dataset.body || '') : '';
+  const name = sel.value || '';
+  if(!name || !body){ pv.style.display = 'none'; return; }
+  pv.style.display = 'block';
+  pv.innerHTML = '<b style="color:#1877f2;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px"><i class="bi bi-eye"></i> Preview: ' + escapeHtml(name) + '</b>' + escapeHtml(body);
+}
+
+async function executarNovoContato(){
+  const contaId = document.getElementById('ncConta').value;
+  const ddi = String(document.getElementById('ncDDI').value||'').replace(/\D/g,'') || '55';
+  const telRaw = String(document.getElementById('ncTelefone').value||'').replace(/\D/g,'');
+  const nome = String(document.getElementById('ncNome').value||'').trim();
+  const atendente = document.getElementById('ncAtendente').value || '';
+  const tplSel = document.getElementById('ncTemplateSel');
+  const tplName = tplSel.value;
+
+  if(!contaId){ toast('Escolha a conta', 'err'); return; }
+  if(!telRaw || telRaw.length < 10){ toast('Telefone inválido (mínimo 10 dígitos DDD+número)', 'err'); return; }
+  if(!tplName){ toast('Escolha um template', 'err'); return; }
+
+  // Monta telefone completo. Se já começa com DDI, não duplica
+  let telefone = telRaw;
+  if(!telefone.startsWith(ddi)) telefone = ddi + telefone;
+
+  const opt = tplSel.options[tplSel.selectedIndex];
+  const tplLang = opt.dataset.lang || 'pt_BR';
+  const bodyText = opt.dataset.body || '';
+  const nomeSanit = (nome || telefone).replace(/,/g,' ').trim();
+
+  const btn = document.getElementById('ncBtnGo');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="loader" style="width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;display:inline-block;animation:sp-rot .7s linear infinite"></span> Enviando...';
+
+  try {
+    // 1) Grava nome em chat_contatos_custom (se tiver)
+    if(nome){
+      await api(BASE + '/chat-contato-save', { method:'POST', bodyObj:{
+        conta_id: contaId, telefone, nome, usuario: USUARIO,
+      }});
+    }
+    // 2) Atribui consultor (se escolhido)
+    if(atendente){
+      await api(BASE + '/chat-conversa-transferir', { method:'POST', bodyObj:{
+        conta_id: contaId, telefone, novo_dono: atendente, usuario: USUARIO,
+      }});
+    }
+    // 3) Dispara template (1 destinatário via chat-disparos-criar)
+    const r = await safeFetchJson(BASE + '/chat-disparos-criar', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({
+        usuario: USUARIO,
+        conta_id: contaId,
+        nome: 'Novo contato: ' + nomeSanit + ' (' + new Date().toLocaleString('pt-BR').replace(/,/g,' -') + ')',
+        template_name: tplName,
+        template_language: tplLang,
+        template_body_text: bodyText,
+        destinatarios: [{ telefone, nome: nomeSanit }],
+        pular_existentes: false,
+      }),
+    });
+    if(!r || !r.ok){
+      toast('Contato criado mas falha ao disparar: '+(r&&r.erro||'servidor sem resposta'), 'err');
+    } else {
+      toast('Contato criado! Template na fila (sai em até 1min).', '');
+    }
+    fecharNovoContatoModal();
+    // Recarrega conversas pra a nova aparecer
+    setTimeout(async () => { await carregarConversas(true); }, 1500);
+  } catch(e){
+    toast('Erro: '+e.message, 'err');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-send-fill"></i> Criar contato e enviar';
   }
 }
 
