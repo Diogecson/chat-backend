@@ -478,6 +478,12 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 .dm-radio:has(input:checked){border-color:#7c3aed;background:#faf5ff}
 .dm-select{width:100%;margin-top:10px;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:inherit;font-size:.85rem;background:#fff}
 .dm-select:disabled{opacity:.5;cursor:not-allowed}
+.nc-tpl-item{padding:8px 12px;border-bottom:1px solid #f1f5f9;cursor:pointer;transition:background .08s}
+.nc-tpl-item:last-child{border-bottom:0}
+.nc-tpl-item:hover{background:#eff6ff}
+.nc-tpl-item.sel{background:#dbeafe;border-left:3px solid #1877f2}
+.nc-tpl-nome{font-size:.84rem;font-weight:600;color:#0f1b2d}
+.nc-tpl-preview{font-size:.74rem;color:#64748b;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dm-foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px;background:#fbfcfe}
 .dm-btn-cancel{padding:9px 16px;border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:8px;font-weight:700;font-size:.85rem;cursor:pointer}
 .dm-btn-cancel:hover{color:var(--ink);border-color:#cbd5e1}
@@ -1348,9 +1354,11 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
           <select class="dm-select" id="ncAtendente"><option value="">— Deixar sem dono —</option></select>
         </div>
         <div>
-          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Template aprovado</label>
-          <select class="dm-select" id="ncTemplateSel" onchange="ncPreviewTemplate()"><option value="">Escolha a conta primeiro...</option></select>
-          <div id="ncTplPreview" style="display:none;margin-top:8px;padding:10px 12px;background:#e6f4ff;border-left:3px solid #1877f2;border-radius:6px;font-size:.82rem;color:#0f1b2d;white-space:pre-wrap;line-height:1.4"></div>
+          <label style="font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;display:block;margin-bottom:4px">Template aprovado <span style="font-weight:400;color:#94a3b8;text-transform:none;letter-spacing:0">(hover = preview completo)</span></label>
+          <input class="dm-select" id="ncTplBusca" placeholder="Buscar template..." oninput="ncRenderListaCustom(this.value)" style="margin-bottom:6px">
+          <div id="ncTplLista" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff"></div>
+          <select class="dm-select" id="ncTemplateSel" onchange="ncPreviewTemplate()" style="display:none"><option value="">Escolha a conta primeiro...</option></select>
+          <div id="ncTplPreview" style="display:none;margin-top:8px;padding:10px 12px;background:#e6f4ff;border-left:3px solid #1877f2;border-radius:6px;font-size:.82rem;color:#0f1b2d;white-space:pre-wrap;line-height:1.4;max-height:240px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
@@ -3328,6 +3336,8 @@ async function abrirNovoContatoModal(){
   document.getElementById('ncTelefone').value = '';
   document.getElementById('ncNome').value = '';
   document.getElementById('ncTplPreview').style.display = 'none';
+  const busca = document.getElementById('ncTplBusca');
+  if(busca) busca.value = '';
   // Carrega templates da conta selecionada
   await ncCarregarTemplates();
   document.getElementById('ncBack').classList.add('on');
@@ -3357,15 +3367,57 @@ async function ncCarregarTemplates(){
       sel.innerHTML = '<option value="">Nenhum template APROVADO nessa conta</option>';
       return;
     }
+    window.__NC_TPLS = tpls.map(t => {
+      const body = (t.components||[]).find(c => c.type === 'BODY');
+      return {
+        name: t.name,
+        language: t.language || 'pt_BR',
+        body: body ? body.text : '',
+      };
+    });
     sel.innerHTML = '<option value="">Escolha um template...</option>' +
-      tpls.map(t => {
-        const body = (t.components||[]).find(c => c.type === 'BODY');
-        const bodyText = body ? body.text : '';
-        return `<option value="${escapeHtml(t.name)}" data-lang="${escapeHtml(t.language||'pt_BR')}" data-body="${escapeHtml(bodyText.slice(0,500))}">${escapeHtml(t.name)} (${escapeHtml(t.language||'pt_BR')})</option>`;
-      }).join('');
+      window.__NC_TPLS.map(t => `<option value="${escapeHtml(t.name)}" data-lang="${escapeHtml(t.language)}" data-body="${escapeHtml(t.body.slice(0,1500))}">${escapeHtml(t.name)} (${escapeHtml(t.language)})</option>`).join('');
+    ncRenderListaCustom('');
   } catch(e){
     sel.innerHTML = '<option value="">Erro: ' + escapeHtml(e.message) + '</option>';
   }
+}
+
+function ncRenderListaCustom(filtro){
+  const cont = document.getElementById('ncTplLista');
+  if(!cont) return;
+  const q = String(filtro||'').toLowerCase().trim();
+  const tpls = window.__NC_TPLS || [];
+  const filtrados = q ? tpls.filter(t => t.name.toLowerCase().includes(q) || (t.body||'').toLowerCase().includes(q)) : tpls;
+  if(!filtrados.length){
+    cont.innerHTML = '<div style="padding:16px;text-align:center;color:#94a3b8;font-size:.82rem">Nenhum template combina com "'+escapeHtml(q)+'"</div>';
+    return;
+  }
+  const atual = document.getElementById('ncTemplateSel').value;
+  cont.innerHTML = filtrados.map(t => {
+    const sel = t.name === atual;
+    const preview = (t.body||'').slice(0, 90).replace(/\n/g,' ') + ((t.body||'').length > 90 ? '…' : '');
+    return `<div class="nc-tpl-item${sel?' sel':''}" onmouseenter="ncHoverItem('${escapeHtml(t.name).replace(/'/g,"\\'")}')" onclick="ncEscolherTpl('${escapeHtml(t.name).replace(/'/g,"\\'")}')">
+      <div class="nc-tpl-nome">${escapeHtml(t.name)} <span style="color:#94a3b8;font-weight:400;font-size:.72rem">(${escapeHtml(t.language)})</span></div>
+      <div class="nc-tpl-preview">${escapeHtml(preview)}</div>
+    </div>`;
+  }).join('');
+}
+
+function ncHoverItem(nome){
+  // Mostra preview completo do template sendo hover
+  const t = (window.__NC_TPLS||[]).find(x => x.name === nome);
+  if(!t) return;
+  const pv = document.getElementById('ncTplPreview');
+  pv.style.display = 'block';
+  pv.innerHTML = '<b style="color:#1877f2;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px"><i class="bi bi-eye"></i> Preview: ' + escapeHtml(t.name) + '</b>' + escapeHtml(t.body||'(template sem BODY)');
+}
+
+function ncEscolherTpl(nome){
+  const sel = document.getElementById('ncTemplateSel');
+  sel.value = nome;
+  ncRenderListaCustom(document.getElementById('ncTplBusca')?.value || '');
+  ncPreviewTemplate();
 }
 
 function ncPreviewTemplate(){
