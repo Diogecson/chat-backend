@@ -702,6 +702,35 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 .rt-item.venceu .rt-item-quando{color:var(--err);font-weight:600}
 .rt-item-obs{font-size:.78rem;color:#4b5563;margin-top:4px;font-style:italic}
 .rt-item-actions{display:flex;gap:6px;flex-shrink:0}
+.rt-resumo-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;text-align:center}
+.rt-resumo-card .n{font-size:1.5rem;font-weight:800;line-height:1}
+.rt-resumo-card .l{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;font-weight:600}
+.rt-resumo-card.venceu{background:#fef2f2;border-color:#fecaca}
+.rt-resumo-card.venceu .n{color:#dc2626}
+.rt-resumo-card.hoje{background:#fffbeb;border-color:#fde68a}
+.rt-resumo-card.hoje .n{color:#d97706}
+.rt-resumo-card.semana{background:#eff6ff;border-color:#bfdbfe}
+.rt-resumo-card.semana .n{color:#2563eb}
+.rt-resumo-card.total .n{color:#0f1b2d}
+.rt-nav-btn{background:#f1f5f9;border:1px solid #e2e8f0;color:#334155;padding:5px 11px;border-radius:7px;cursor:pointer;font-size:.9rem;transition:.15s}
+.rt-nav-btn:hover{background:#e2e8f0}
+.rt-cal-head{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px}
+.rt-cal-head div{text-align:center;font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;font-weight:700;padding:3px 0}
+.rt-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.rt-cal-dia{aspect-ratio:1;background:#f8fafc;border:1px solid #e2e8f0;border-radius:7px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;cursor:pointer;transition:.12s;position:relative;min-height:46px}
+.rt-cal-dia:hover{background:#eff6ff;border-color:#2563eb}
+.rt-cal-dia.vazio{background:transparent;border-color:transparent;cursor:default}
+.rt-cal-dia.vazio:hover{background:transparent}
+.rt-cal-dia.hoje{background:#fffbeb;border-color:#f59e0b;font-weight:700}
+.rt-cal-dia.sel{background:#2563eb !important;border-color:#1d4ed8 !important;color:#fff}
+.rt-cal-dia .num{font-size:.8rem;color:#334155;font-weight:600}
+.rt-cal-dia.hoje .num{color:#d97706}
+.rt-cal-dia.sel .num{color:#fff}
+.rt-cal-dia .badge{margin-top:2px;background:#2563eb;color:#fff;font-size:.65rem;font-weight:800;padding:1px 6px;border-radius:9px;min-width:16px;text-align:center}
+.rt-cal-dia.tem-vencido .badge{background:#ef4444}
+.rt-cal-dia.hoje .badge{background:#d97706}
+.rt-cal-dia.sel .badge{background:#fff;color:#2563eb}
+.rt-cal-leg{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
 .rt-empty{padding:40px 20px;text-align:center;color:var(--muted)}
 .rt-empty i{font-size:2.4rem;display:block;margin-bottom:8px;opacity:.4}
 
@@ -1716,12 +1745,28 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 
 <!-- MODAL Dashboard Retornos -->
 <div class="rt-back" id="rtDashBack">
-  <div class="rt-card">
+  <div class="rt-card" style="max-width:900px;width:100%">
     <div class="rt-head">
       <h3><i class="bi bi-calendar-check"></i> Meus retornos agendados</h3>
       <button class="rt-close" onclick="fecharRetornosDashboard()">&times;</button>
     </div>
-    <div class="rt-list" id="rtDashList">
+    <div style="padding:14px 20px;border-bottom:1px solid #f0f3f8;display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px" id="rtResumo"></div>
+    <div style="padding:14px 20px;border-bottom:1px solid #f0f3f8">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <button class="rt-nav-btn" onclick="rtNavMes(-1)"><i class="bi bi-chevron-left"></i></button>
+        <div style="font-weight:700;font-size:1rem;color:#0f1b2d" id="rtMesLbl"></div>
+        <button class="rt-nav-btn" onclick="rtNavMes(1)"><i class="bi bi-chevron-right"></i></button>
+      </div>
+      <div class="rt-cal-head">
+        <div>DOM</div><div>SEG</div><div>TER</div><div>QUA</div><div>QUI</div><div>SEX</div><div>SÁB</div>
+      </div>
+      <div class="rt-cal" id="rtCal"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:.78rem;color:#64748b">
+        <div><span class="rt-cal-leg" style="background:#ef4444"></span> Vencidos <span class="rt-cal-leg" style="background:#f59e0b;margin-left:10px"></span> Hoje <span class="rt-cal-leg" style="background:#2563eb;margin-left:10px"></span> Futuros</div>
+        <button class="rt-nav-btn" onclick="rtLimparDia()" id="rtBtnLimparDia" style="display:none;font-size:.75rem;padding:4px 10px"><i class="bi bi-x"></i> Mostrar todos</button>
+      </div>
+    </div>
+    <div class="rt-list" id="rtDashList" style="max-height:340px;overflow-y:auto">
       <div class="rt-empty"><i class="bi bi-inbox"></i>Nenhum retorno pendente.</div>
     </div>
   </div>
@@ -7397,19 +7442,121 @@ function alertaRtAdiar(){
   toast('Adiado por 10 minutos','');
 }
 
+let rtMesAtual = new Date(); // 1º dia do mês visível no calendário
+rtMesAtual.setDate(1); rtMesAtual.setHours(0,0,0,0);
+let rtDiaSelecionado = null; // 'YYYY-MM-DD' ou null = mostrar tudo
+
 function abrirRetornosDashboard(){
   qs('#rtDashBack').classList.add('on');
+  // Começa sempre no mês atual
+  const hoje = new Date(); rtMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  rtDiaSelecionado = null;
   renderDashboard();
 }
 function fecharRetornosDashboard(){ qs('#rtDashBack').classList.remove('on'); }
 
+function rtNavMes(delta){
+  rtMesAtual = new Date(rtMesAtual.getFullYear(), rtMesAtual.getMonth() + delta, 1);
+  renderDashboard();
+}
+function rtSelecionarDia(ymd){
+  rtDiaSelecionado = rtDiaSelecionado === ymd ? null : ymd;
+  renderDashboard();
+}
+function rtLimparDia(){ rtDiaSelecionado = null; renderDashboard(); }
+
+function rtYMD(d){
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
 function renderDashboard(){
+  renderRtResumo();
+  renderRtCalendario();
+  renderRtLista();
+}
+
+function renderRtResumo(){
+  const el = qs('#rtResumo');
+  if(!el) return;
+  const agora = new Date();
+  const hojeYMD = rtYMD(agora);
+  const em7 = new Date(agora); em7.setDate(em7.getDate() + 7);
+  let venceu = 0, hoje = 0, semana = 0;
+  for(const r of retornosCache){
+    const dt = new Date(r.quando);
+    if(r.venceu || dt < agora) venceu++;
+    else if(rtYMD(dt) === hojeYMD) hoje++;
+    else if(dt <= em7) semana++;
+  }
+  el.innerHTML = `
+    <div class="rt-resumo-card venceu"><div class="n">${venceu}</div><div class="l">Vencidos</div></div>
+    <div class="rt-resumo-card hoje"><div class="n">${hoje}</div><div class="l">Hoje</div></div>
+    <div class="rt-resumo-card semana"><div class="n">${semana}</div><div class="l">Próximos 7 dias</div></div>
+    <div class="rt-resumo-card total"><div class="n">${retornosCache.length}</div><div class="l">Total agendado</div></div>
+  `;
+}
+
+function renderRtCalendario(){
+  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  qs('#rtMesLbl').textContent = meses[rtMesAtual.getMonth()] + ' ' + rtMesAtual.getFullYear();
+  // Agrupa retornos por YMD
+  const porDia = {};
+  const hojeYMD = rtYMD(new Date());
+  const agora = new Date();
+  for(const r of retornosCache){
+    const dt = new Date(r.quando);
+    const ymd = rtYMD(dt);
+    if(!porDia[ymd]) porDia[ymd] = { total: 0, vencidos: 0 };
+    porDia[ymd].total++;
+    if(r.venceu || dt < agora) porDia[ymd].vencidos++;
+  }
+  // Monta grid: começa no primeiro dia da semana do 1º dia do mês
+  const primeiro = new Date(rtMesAtual);
+  const inicio = new Date(primeiro); inicio.setDate(inicio.getDate() - inicio.getDay()); // volta pra domingo
+  const cel = [];
+  for(let i = 0; i < 42; i++){
+    const dia = new Date(inicio); dia.setDate(inicio.getDate() + i);
+    const foraMes = dia.getMonth() !== rtMesAtual.getMonth();
+    if(foraMes && i >= 35) break; // 6a linha só se precisar
+    cel.push(dia);
+  }
+  const html = cel.map(d => {
+    const ymd = rtYMD(d);
+    const info = porDia[ymd];
+    const foraMes = d.getMonth() !== rtMesAtual.getMonth();
+    if(foraMes && !info) return `<div class="rt-cal-dia vazio"></div>`;
+    const ehHoje = ymd === hojeYMD;
+    const sel = ymd === rtDiaSelecionado;
+    const temVencido = info && info.vencidos > 0;
+    const classes = ['rt-cal-dia'];
+    if(ehHoje) classes.push('hoje');
+    if(sel) classes.push('sel');
+    if(temVencido) classes.push('tem-vencido');
+    if(foraMes) classes.push('vazio');
+    return `<div class="${classes.join(' ')}" onclick="rtSelecionarDia('${ymd}')">
+      <div class="num">${d.getDate()}</div>
+      ${info?`<div class="badge">${info.total}</div>`:''}
+    </div>`;
+  }).join('');
+  qs('#rtCal').innerHTML = html;
+}
+
+function renderRtLista(){
   const list = qs('#rtDashList');
-  if(!retornosCache.length){
-    list.innerHTML = '<div class="rt-empty"><i class="bi bi-inbox"></i>Nenhum retorno pendente.</div>';
+  const btnLimpar = qs('#rtBtnLimparDia');
+  let filtrados = retornosCache;
+  if(rtDiaSelecionado){
+    filtrados = retornosCache.filter(r => rtYMD(new Date(r.quando)) === rtDiaSelecionado);
+    btnLimpar.style.display = 'inline-flex';
+  } else {
+    btnLimpar.style.display = 'none';
+  }
+  if(!filtrados.length){
+    list.innerHTML = `<div class="rt-empty"><i class="bi bi-inbox"></i>${rtDiaSelecionado?'Nenhum retorno nesse dia.':'Nenhum retorno pendente.'}</div>`;
     return;
   }
-  const sorted = [...retornosCache].sort((a,b) => new Date(a.quando)-new Date(b.quando));
+  const sorted = [...filtrados].sort((a,b) => new Date(a.quando)-new Date(b.quando));
   list.innerHTML = sorted.map(r => {
     const dt = new Date(r.quando);
     const quando = dt.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
