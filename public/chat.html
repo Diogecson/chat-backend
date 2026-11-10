@@ -3009,7 +3009,16 @@ function toggleDistSel(conta_id, telefone, chkEl){
 }
 
 function distSelecionarTodasVisiveis(){
-  const visiveis = (conversas||[]).filter(c => conversaMatchVisao(c));
+  let visiveis = (conversas||[]).filter(c => conversaMatchVisao(c));
+  // Respeita filtro "Só pendentes" (igual ao renderConversas)
+  if(FILTRO_SO_PENDENTES) visiveis = visiveis.filter(c => c.ultima_direcao === 'in');
+  // Respeita filtro de etiqueta 2 (client-side)
+  if(FILTRO_ETIQUETA2){
+    visiveis = visiveis.filter(c => {
+      const etiqs = Array.isArray(c.etiquetas) ? c.etiquetas : String(c.etiquetas||'').split(',').map(s=>s.trim()).filter(Boolean);
+      return etiqs.includes(FILTRO_ETIQUETA2);
+    });
+  }
   const filtro = qs('#busca').value.toLowerCase().trim();
   const filtradas = filtro ? visiveis.filter(c => {
     const nome = (c.nome||c.telefone||'').toLowerCase();
