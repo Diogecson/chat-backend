@@ -141,12 +141,39 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-respostas-list', respostasList);
 
   // === chat-retorno-list ===
+  // Retorna com nomes que o front espera: codigo, quando, observacao, venceu
   const retornoList = async (req, reply) => withDb(reply, async () => {
     const usuario = p(req, 'usuario');
     const sql = usuario
-      ? `SELECT * FROM chat_retornos_agendados WHERE LOWER(atendente)=LOWER($1) AND status='pendente' ORDER BY agendado_para`
-      : `SELECT * FROM chat_retornos_agendados WHERE status='pendente' ORDER BY agendado_para`;
-    const r = await query(sql, usuario ? [usuario] : []).catch(() => ({ rows: [] }));
+      ? `SELECT
+           COALESCE(codigo, id::text) AS codigo,
+           conta_id, telefone, atendente,
+           agendado_para AS quando,
+           nota AS observacao,
+           (agendado_para < NOW()) AS venceu,
+           status
+         FROM chat_retornos_agendados
+         WHERE LOWER(atendente)=LOWER($1) AND status='pendente'
+         ORDER BY agendado_para`
+      : `SELECT
+           COALESCE(codigo, id::text) AS codigo,
+           conta_id, telefone, atendente,
+           agendado_para AS quando,
+           nota AS observacao,
+           (agendado_para < NOW()) AS venceu,
+           status
+         FROM chat_retornos_agendados
+         WHERE status='pendente'
+         ORDER BY agendado_para`;
+    const r = await query(sql, usuario ? [usuario] : []).catch(err => {
+      // Se der erro por falta de coluna 'codigo' (schema antigo), tenta sem ela
+      return query(
+        usuario
+          ? `SELECT id::text AS codigo, conta_id, telefone, atendente, agendado_para AS quando, nota AS observacao, (agendado_para < NOW()) AS venceu, status FROM chat_retornos_agendados WHERE LOWER(atendente)=LOWER($1) AND status='pendente' ORDER BY agendado_para`
+          : `SELECT id::text AS codigo, conta_id, telefone, atendente, agendado_para AS quando, nota AS observacao, (agendado_para < NOW()) AS venceu, status FROM chat_retornos_agendados WHERE status='pendente' ORDER BY agendado_para`,
+        usuario ? [usuario] : []
+      ).catch(() => ({ rows: [] }));
+    });
     return { ok: true, retornos: r.rows };
   });
   fastify.get('/webhook/chat-retorno-list', retornoList);

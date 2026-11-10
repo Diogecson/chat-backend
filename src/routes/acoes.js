@@ -160,12 +160,18 @@ export default async function acoesRoutes(fastify) {
 
   // === chat-retorno-criar ===
   const retornoCriar = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
-    const atendente = p(req, 'atendente', '').toLowerCase();
-    const agendado_para = p(req, 'agendado_para');
-    const nota = p(req, 'nota').substring(0, 500);
-    if (!conta_id || !telefone || !agendado_para) return reply.code(400).send({ ok: false, erro: 'conta_id, telefone, agendado_para obrigatórios' });
+    // atendente vem do body OU do usuario logado se nao mandar
+    const atendente = String(b.atendente || b.usuario || '').toLowerCase();
+    // Aceita 'quando' (nome que o front usa) OU 'agendado_para' (nome legacy)
+    const agendado_para = String(b.quando || b.agendado_para || '').trim();
+    // Aceita 'observacao' (front) OU 'nota' (legacy)
+    const nota = String(b.observacao || b.nota || '').substring(0, 500);
+    if (!conta_id || !telefone || !agendado_para) {
+      return reply.code(400).send({ ok: false, erro: 'conta_id, telefone e quando (data) obrigatórios' });
+    }
     await query(
       `INSERT INTO chat_retornos_agendados (conta_id, telefone, atendente, agendado_para, nota, status)
        VALUES ($1,$2,$3,$4::timestamptz,$5,'pendente')`,
@@ -177,10 +183,23 @@ export default async function acoesRoutes(fastify) {
 
   // === chat-retorno-concluir ===
   const retornoConcluir = async (req, reply) => withDb(reply, async () => {
-    const id = parseInt(p(req, 'id')) || 0;
-    if (!id) return reply.code(400).send({ ok: false, erro: 'id obrigatório' });
-    await query(`UPDATE chat_retornos_agendados SET status='concluido', concluido_em=NOW() WHERE id=$1`, [id]);
-    return { ok: true };
+    const b = req.body || {};
+    // Front manda 'codigo' (varchar) e 'status'; legacy manda 'id' (int)
+    const codigo = String(b.codigo || '').trim();
+    const id = parseInt(b.id) || 0;
+    const novoStatus = String(b.status || 'concluido').substring(0, 30);
+    if (!codigo && !id) return reply.code(400).send({ ok: false, erro: 'codigo ou id obrigatório' });
+    const whereSql = id ? `id = $2` : `codigo = $2`;
+    const whereVal = id || codigo;
+    const r = await query(
+      `UPDATE chat_retornos_agendados
+       SET status=$1, concluido_em=CASE WHEN $1='concluido' THEN NOW() ELSE concluido_em END
+       WHERE ${whereSql}
+       RETURNING codigo, status`,
+      [novoStatus, whereVal]
+    );
+    if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'retorno não encontrado' });
+    return { ok: true, status: r.rows[0].status, codigo: r.rows[0].codigo };
   });
   fastify.post('/webhook/chat-retorno-concluir', retornoConcluir);
 
