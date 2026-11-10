@@ -368,4 +368,43 @@ export default async function aliasRoutes(fastify) {
   // === chat-disparos-criar (criar campanha pelo painel de disparos.html) ===
   // Vai pro backend novo em vez do n8n → zero duplicação via pg-boss worker
   fastify.post('/webhook/chat-disparos-criar', handleDisparoCriar);
+
+  // === chat-disparos-list (lista campanhas) ===
+  // Recalcula status/contadores antes de retornar — garante dados frescos.
+  const disparosList = async (req, reply) => {
+    try {
+      // Recalcula primeiro (nao-bloqueante — se falhar segue a vida)
+      try {
+        await query(`
+          WITH stats AS (
+            SELECT campanha_id,
+                   COUNT(*) FILTER (WHERE status='enviado') AS e,
+                   COUNT(*) FILTER (WHERE status IN ('erro','cancelado')) AS f
+            FROM chat_disparos_msgs
+            WHERE campanha_id IN (SELECT codigo FROM chat_disparos WHERE status IN ('em_andamento','agendado'))
+            GROUP BY campanha_id
+          )
+          UPDATE chat_disparos c
+          SET enviadas = s.e, falharam = s.f, atualizado_em = NOW(),
+              status = CASE WHEN s.e + s.f >= c.total_msgs THEN 'concluido' ELSE 'em_andamento' END
+          FROM stats s
+          WHERE c.codigo = s.campanha_id AND c.status IN ('em_andamento','agendado')
+        `);
+      } catch (_) {}
+
+      const conta_id = req.query?.conta_id || req.body?.conta_id;
+      const sql = conta_id
+        ? `SELECT codigo, nome, conta_id, total_msgs, enviadas, falharam, status, criado_em, atendente, dono, template_name, template_language
+           FROM chat_disparos WHERE conta_id = $1 ORDER BY criado_em DESC LIMIT 100`
+        : `SELECT codigo, nome, conta_id, total_msgs, enviadas, falharam, status, criado_em, atendente, dono, template_name, template_language
+           FROM chat_disparos ORDER BY criado_em DESC LIMIT 100`;
+      const res = await query(sql, conta_id ? [conta_id] : []);
+      return { ok: true, campanhas: res.rows };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, error: err.message };
+    }
+  };
+  fastify.get('/webhook/chat-disparos-list', disparosList);
+  fastify.post('/webhook/chat-disparos-list', disparosList);
 }

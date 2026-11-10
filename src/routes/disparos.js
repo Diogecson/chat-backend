@@ -148,8 +148,49 @@ export default async function disparosRoutes(fastify) {
   // POST /api/disparos/criar
   fastify.post('/disparos/criar', handleDisparoCriar);
 
+  // Recalcula enviadas/falharam/status das campanhas em andamento.
+  // Chamado automaticamente pela UI ao abrir a lista de disparos.
+  async function recalcularContadores() {
+    try {
+      const r = await query(`
+        WITH stats AS (
+          SELECT campanha_id,
+                 COUNT(*) FILTER (WHERE status='enviado') AS e,
+                 COUNT(*) FILTER (WHERE status IN ('erro','cancelado')) AS f
+          FROM chat_disparos_msgs
+          WHERE campanha_id IN (SELECT codigo FROM chat_disparos WHERE status IN ('em_andamento','agendado'))
+          GROUP BY campanha_id
+        )
+        UPDATE chat_disparos c
+        SET enviadas = s.e, falharam = s.f, atualizado_em = NOW(),
+            status = CASE WHEN s.e + s.f >= c.total_msgs THEN 'concluido' ELSE 'em_andamento' END
+        FROM stats s
+        WHERE c.codigo = s.campanha_id AND c.status IN ('em_andamento','agendado')
+        RETURNING c.codigo, c.status
+      `);
+      return r.rowCount || 0;
+    } catch (err) {
+      return -1;
+    }
+  }
+
+  // POST /api/disparos/recalcular — força recálculo imediato (UI chama ao abrir a tela)
+  fastify.post('/disparos/recalcular', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+    const atualizadas = await recalcularContadores();
+    return { ok: true, campanhas_atualizadas: atualizadas };
+  });
+  // Alias webhook pra chat.html que vive em /webhook
+  fastify.post('/webhook/chat-disparos-recalcular', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+    const atualizadas = await recalcularContadores();
+    return { ok: true, campanhas_atualizadas: atualizadas };
+  });
+
   // GET /api/disparos/list — lista campanhas
   fastify.get('/disparos/list', async (req, reply) => {
+    // Recalcula ANTES de listar — garante que a resposta esteja fresca
+    await recalcularContadores().catch(() => {});
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const conta_id = req.query?.conta_id;
     const sql = conta_id
