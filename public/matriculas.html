@@ -82,8 +82,13 @@ input[type=file]{display:none}
 
 <div class="wrap">
   <div class="card-box">
-    <h2><i class="bi bi-bar-chart-fill"></i> Base atual</h2>
-    <p class="desc">Base de alunos matriculados que você já subiu. O chat cruza por telefone pra contar matrículas por consultor.</p>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div>
+        <h2><i class="bi bi-bar-chart-fill"></i> Base atual</h2>
+        <p class="desc">Base de alunos matriculados que você já subiu. O chat cruza por telefone pra contar matrículas por consultor.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="reprocessarBase()" title="Marca as conversas da base atual como matrícula (útil se você subiu antes dessa feature)"><i class="bi bi-arrow-clockwise"></i> Reprocessar marcação</button>
+    </div>
     <div class="stats">
       <div class="stat"><div class="n" id="statTotal">—</div><div class="l">Alunos na base</div></div>
       <div class="stat"><div class="n" id="statMatch" style="color:var(--amarelo)">—</div><div class="l">Com conversa</div></div>
@@ -123,6 +128,9 @@ input[type=file]{display:none}
       <div class="step"><span class="num">3</span> Preview das 10 primeiras linhas (linhas em vermelho = telefone inválido, serão ignoradas):</div>
       <div class="prev"><table id="prevTable"></table></div>
 
+      <div class="actions" style="justify-content:flex-start">
+        <label class="toggle"><input type="checkbox" id="marcarMatricula" checked> <i class="bi bi-magic" style="color:var(--amarelo)"></i> Marcar como matrícula automaticamente <span style="color:var(--muted)">(sai das visões de atendimento, vai pro funil de matrículas)</span></label>
+      </div>
       <div class="actions">
         <label class="toggle"><input type="checkbox" id="modoSubstituir"> Substituir a base inteira <span style="color:var(--muted)">(senão só mescla / atualiza)</span></label>
         <span class="spacer" style="flex:1"></span>
@@ -313,6 +321,7 @@ async function enviarAlunos(){
   const iCurso = +document.getElementById('colCurso').value;
   const iPolo = +document.getElementById('colPolo').value;
   const modoSubstituir = document.getElementById('modoSubstituir').checked;
+  const marcarMatricula = document.getElementById('marcarMatricula').checked;
 
   if(iTel < 0){ msg('Escolha qual coluna é o telefone', 'err'); return; }
   if(modoSubstituir && !confirm('Tem certeza? Isso APAGA toda a base atual antes de inserir a nova. Essa ação não pode ser desfeita.')) return;
@@ -335,21 +344,35 @@ async function enviarAlunos(){
     // Envia em chunks de 2000 pra não estourar body limit
     const CHUNK = 2000;
     let processados = 0;
+    let marcadas = 0;
     let modoAtual = modoSubstituir ? 'substituir' : 'merge';
+    const totalChunks = Math.ceil(alunos.length / CHUNK);
     for(let i = 0; i < alunos.length; i += CHUNK){
       const slice = alunos.slice(i, i + CHUNK);
       btn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${processados}/${alunos.length}`;
+      const chunkAtual = Math.floor(i / CHUNK);
+      const ehUltimo = chunkAtual === totalChunks - 1;
       const r = await fetch(BASE + '/chat-matriculas-upload', {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify({ modo: modoAtual, alunos: slice }),
+        body: JSON.stringify({
+          modo: modoAtual,
+          alunos: slice,
+          // Só marca no último chunk (evita rodar o UPDATE N vezes)
+          marcar_como_matricula: marcarMatricula && ehUltimo,
+        }),
       });
       const d = await r.json();
       if(!d.ok){ throw new Error(d.erro || 'erro'); }
       processados += d.processados || slice.length;
+      marcadas = d.conversas_marcadas_matricula || marcadas;
       modoAtual = 'merge'; // Após 1º chunk sempre merge (senão apagaria os anteriores)
     }
-    msg(`✓ ${processados} alunos processados. A base é agora mostrada acima.`, 'ok');
+    let okMsg = `✓ ${processados} alunos processados.`;
+    if(marcarMatricula){
+      okMsg += ` ${marcadas} conversa${marcadas===1?'':'s'} marcada${marcadas===1?'':'s'} como matrícula (saíram das visões de atendimento).`;
+    }
+    msg(okMsg, 'ok');
     btn.innerHTML = txtOrig;
     btn.disabled = false;
     await carregarStats();
@@ -365,6 +388,17 @@ function msg(t, tipo){
   const el = document.getElementById('msgBox');
   el.className = 'msg on ' + tipo;
   el.textContent = t;
+}
+
+async function reprocessarBase(){
+  if(!confirm('Vai marcar todas as conversas cujo telefone está na base como "Matrícula" (finalizadas com motivo de ganho). Elas vão sair das visões de atendimento ativo. Continuar?')) return;
+  try {
+    const r = await fetch(BASE + '/chat-matriculas-reprocessar', { method: 'POST' });
+    const d = await r.json();
+    if(!d.ok){ alert('Erro: ' + (d.erro || 'desconhecido')); return; }
+    alert(`✓ ${d.conversas_marcadas_matricula} conversas marcadas como matrícula.`);
+    carregarStats();
+  } catch(e){ alert('Erro: ' + e.message); }
 }
 
 carregarStats();

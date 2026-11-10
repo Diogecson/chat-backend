@@ -17,7 +17,42 @@ async function garantirTabela() {
       atualizado_em  TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  // Garante o motivo 'matricula_base' pra marcar as conversas como ganho
+  await query(`
+    INSERT INTO chat_motivos_fechamento (codigo, nome, tipo, cor, ordem)
+    VALUES ('matricula_base', 'Matrícula (base de alunos)', 'ganho', '#16a34a', 1)
+    ON CONFLICT (codigo) DO NOTHING
+  `).catch(() => {});
   tabelaGarantida = true;
+}
+
+// Finaliza automaticamente as conversas cujos telefones estao na base de alunos,
+// marcando com motivo tipo 'ganho' pra elas cairem no card "Matrículas" e sumirem
+// do card "Finalizadas" e dos atendimentos ativos.
+async function marcarConversasComoMatricula() {
+  try {
+    const r = await query(`
+      WITH tels AS (
+        SELECT DISTINCT cm.conta_id, cm.telefone
+        FROM chat_mensagens cm
+        INNER JOIN chat_alunos_matriculados am ON am.telefone = cm.telefone
+      )
+      INSERT INTO chat_conversa_dono
+        (conta_id, telefone, atendente, finalizada, finalizada_em, finalizada_por, motivo_fechamento, atribuido_em, atribuido_por)
+      SELECT t.conta_id, t.telefone, '', true, NOW(), 'base_alunos', 'matricula_base', NOW(), 'base_alunos'
+      FROM tels t
+      ON CONFLICT (conta_id, telefone) DO UPDATE
+        SET finalizada = true,
+            finalizada_em = COALESCE(chat_conversa_dono.finalizada_em, NOW()),
+            finalizada_por = COALESCE(NULLIF(chat_conversa_dono.finalizada_por,''), 'base_alunos'),
+            motivo_fechamento = 'matricula_base'
+      RETURNING conta_id
+    `);
+    return r.rowCount || 0;
+  } catch (err) {
+    console.error('[matriculas] marcarConversasComoMatricula falhou', err.message);
+    return -1;
+  }
 }
 
 function normTel(t) {
@@ -84,17 +119,35 @@ export default async function matriculasRoutes(fastify) {
     }
 
     const totalRes = await query(`SELECT COUNT(*)::int AS t FROM chat_alunos_matriculados`);
+
+    // Marca as conversas desses telefones como "matrícula" (ganho) pra cair
+    // no funil de matrículas e sair das visões normais. Default: true.
+    const marcar = b.marcar_como_matricula !== false;
+    const conversasMarcadas = marcar ? await marcarConversasComoMatricula() : 0;
+
     return {
       ok: true,
       enviados: alunos.length,
       validos: rows.length,
       processados: inseridos,
       total_na_base: totalRes.rows[0].t,
+      conversas_marcadas_matricula: conversasMarcadas,
       modo,
     };
   };
   fastify.post('/webhook/chat-matriculas-upload', upload);
   fastify.post('/api/chat/matriculas-upload', upload);
+
+  // POST /webhook/chat-matriculas-reprocessar — roda só o marcar sem subir base nova
+  // Útil se o usuário já subiu a base antes do deploy dessa feature.
+  const reprocessar = async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    await garantirTabela();
+    const marcadas = await marcarConversasComoMatricula();
+    return { ok: true, conversas_marcadas_matricula: marcadas };
+  };
+  fastify.post('/webhook/chat-matriculas-reprocessar', reprocessar);
+  fastify.get('/webhook/chat-matriculas-reprocessar', reprocessar);
 
   // GET /webhook/chat-matriculas-stats — numero de matriculas por consultor
   // Match: telefone em chat_alunos_matriculados + dono em chat_conversa_dono
