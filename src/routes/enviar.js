@@ -258,6 +258,17 @@ export default async function enviarRoutes(fastify) {
     // Grava em chat_mensagens
     const codigo = geraCodigo();
     const external_id = res.wamid || '';
+    // Para midia OUT, grava data:URL pra o player conseguir tocar/exibir no chat.html
+    let midiaUrlOut = '';
+    if ((tipo === 'audio' || tipo === 'image' || tipo === 'video' || tipo === 'document') && midia_base64) {
+      // base64 pode vir cru ou já como data URL; normaliza pra data: completo
+      if (midia_base64.startsWith('data:')) {
+        midiaUrlOut = midia_base64;
+      } else {
+        const mime = mimetype || (tipo === 'audio' ? 'audio/ogg' : tipo === 'image' ? 'image/jpeg' : 'application/octet-stream');
+        midiaUrlOut = `data:${mime};base64,${midia_base64}`;
+      }
+    }
     let row;
     try {
       const insRes = await query(
@@ -265,9 +276,9 @@ export default async function enviarRoutes(fastify) {
           (codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
            midia_url, timestamp, status, external_id, atendente,
            reply_to_id, reply_to_texto)
-         VALUES ($1,$2,$3,'','out',$4,$5,'',NOW(),'enviado',$6,$7,$8,$9)
+         VALUES ($1,$2,$3,'','out',$4,$5,$10,NOW(),'enviado',$6,$7,$8,$9)
          RETURNING id, conta_id, telefone, texto, timestamp, external_id, atendente`,
-        [codigo, conta_id, telefone, tipo, textoFinal, external_id, usuario, reply_to_id, reply_to_texto]
+        [codigo, conta_id, telefone, tipo, textoFinal, external_id, usuario, reply_to_id, reply_to_texto, midiaUrlOut]
       );
       row = insRes.rows[0];
     } catch (err) {
