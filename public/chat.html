@@ -1015,6 +1015,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <h1 class="sb-titulo" id="sbTitulo">Todas as conversas</h1>
         <div style="display:flex;gap:6px;align-items:center">
+          <button class="sb-toggle-dist" id="btnStatusFila" onclick="toggleMinhaFila()" title="Entrar/sair da fila (round-robin)" style="width:auto;padding:0 10px;gap:5px"><span id="statusFilaDot" style="width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;flex-shrink:0"></span><span id="statusFilaLbl" style="font-size:.7rem;font-weight:700;letter-spacing:.3px">—</span></button>
           <button class="sb-toggle-dist" id="btnNovoContato" onclick="abrirNovoContatoModal()" title="Criar novo contato e enviar primeira mensagem" style="background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border-color:#15803d"><i class="bi bi-person-plus-fill"></i></button>
           <button class="sb-toggle-dist" id="btnDistToggle" onclick="toggleDistMode()" title="Selecionar conversas em massa (distribuir/enviar)"><i class="bi bi-diagram-3"></i></button>
           <button class="sb-toggle-filtros" onclick="toggleFiltrosMobile()" title="Mostrar/ocultar filtros" aria-label="Filtros"><i class="bi bi-sliders"></i></button>
@@ -3029,7 +3030,62 @@ async function carregarAtendentes(){
     if(String(USUARIO_PAPEL||'').toUpperCase() === 'SUPER') CONTAS_PERMITIDAS = '__all__';
   } catch(_){ CONTAS_PERMITIDAS = '__all__'; }
   if(typeof popularFiltroConsultor === 'function') popularFiltroConsultor();
+  // Atualiza o botão ONLINE/OFFLINE com o estado atual de na_fila
+  atualizarBotaoStatusFila();
 }
+
+function atualizarBotaoStatusFila(){
+  const btn = document.getElementById('btnStatusFila');
+  const dot = document.getElementById('statusFilaDot');
+  const lbl = document.getElementById('statusFilaLbl');
+  if(!btn || !dot || !lbl) return;
+  const me = (ATENDENTES_CACHE||[]).find(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
+  // Se SUPER/ADM sem registro, esconde o botão (não faz sentido ter fila de admin)
+  if(!me){ btn.style.display = 'none'; return; }
+  btn.style.display = '';
+  const naFila = !!me.na_fila;
+  if(naFila){
+    dot.style.background = '#22c55e';
+    dot.style.boxShadow = '0 0 6px #22c55e';
+    lbl.textContent = 'ONLINE';
+    lbl.style.color = '#15803d';
+    btn.style.background = '#dcfce7';
+    btn.style.borderColor = '#86efac';
+    btn.title = 'Você está NA FILA — clique pra sair (parar de receber conversas distribuídas)';
+  } else {
+    dot.style.background = '#94a3b8';
+    dot.style.boxShadow = '';
+    lbl.textContent = 'OFFLINE';
+    lbl.style.color = '#64748b';
+    btn.style.background = '#f1f5f9';
+    btn.style.borderColor = '#cbd5e1';
+    btn.title = 'Você está FORA da fila — clique pra entrar (receber conversas distribuídas)';
+  }
+}
+
+async function toggleMinhaFila(){
+  const me = (ATENDENTES_CACHE||[]).find(a => String(a.usuario||'').toLowerCase() === String(USUARIO||'').toLowerCase());
+  if(!me){ toast('Seu usuário não está cadastrado como atendente', 'err'); return; }
+  const novoValor = !me.na_fila;
+  const btn = document.getElementById('btnStatusFila');
+  btn.disabled = true;
+  try {
+    const r = await api(BASE + '/chat-fila-toggle', { method:'POST', bodyObj:{
+      usuario: USUARIO,
+      na_fila: novoValor,
+    }});
+    if(!r || !r.ok){ toast('Erro: '+((r&&r.erro)||'servidor'), 'err'); return; }
+    // Atualiza cache local sem precisar recarregar tudo
+    me.na_fila = r.na_fila;
+    atualizarBotaoStatusFila();
+    toast(r.na_fila ? '✓ Você entrou na fila (ONLINE)' : '✓ Você saiu da fila (OFFLINE)', '');
+  } catch(e){
+    toast('Erro: '+e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 function atendenteInfo(usuario){
   if(!usuario) return null;
   const u = String(usuario).toLowerCase();
