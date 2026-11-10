@@ -3316,8 +3316,10 @@ async function abrirNovoContatoModal(){
       const on = online.has(uid);
       return `<option value="${escapeHtml(uid)}">${on?'🟢':'⚫'} ${escapeHtml(a.nome||a.usuario)}</option>`;
     }).join('');
-  // Pré-seleciona o próprio usuário se for USER (não ADM/SUPER)
-  if(USUARIO && (PAPEL === 'USER' || !PAPEL)){
+  // Pré-seleciona o próprio usuário se for consultor (não ADM/SUPER)
+  const papelUp = String(USUARIO_PAPEL||'').toUpperCase();
+  const ehConsultor = !['ADM','ADMIN','SUPER'].includes(papelUp);
+  if(USUARIO && ehConsultor){
     const me = atd.find(a => String(a.usuario||'').toLowerCase() === String(USUARIO).toLowerCase());
     if(me) selAt.value = String(me.usuario).toLowerCase();
   }
