@@ -742,6 +742,17 @@ async function deletar(usuario){
   }
   qs('#app').style.display = 'block';
   await carregar();
+
+  // Auto-refresh a cada 15s pra pegar mudancas de outros admins/consultores
+  // (ex: alguem clicou no botao ONLINE/OFFLINE do header do chat)
+  let _polling = setInterval(() => {
+    if(document.visibilityState === 'visible') carregar();
+  }, 15000);
+
+  // Refresca na hora quando a aba volta a ficar visivel
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') carregar();
+  });
 })();
 </script>
 </body>
