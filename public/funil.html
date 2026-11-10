@@ -46,6 +46,31 @@ a{color:inherit;text-decoration:none}
 .kanban{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media (max-width:900px){.kanban{grid-template-columns:1fr}}
 
+/* Ranking de consultores — cards horizontais clicáveis */
+.ranking-wrap{margin-bottom:18px}
+.ranking-head{display:flex;align-items:baseline;justify-content:space-between;margin:0 0 8px;gap:12px;flex-wrap:wrap}
+.ranking-head h2{font-size:1rem;font-weight:700;margin:0}
+.ranking-head p{margin:0;color:var(--muted);font-size:.78rem}
+.ranking-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.rank-card{background:linear-gradient(135deg,var(--panel) 0%,var(--panel-2) 100%);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;transition:.18s;position:relative;overflow:hidden}
+.rank-card:hover{border-color:var(--col-q);transform:translateY(-1px)}
+.rank-card.sel{border-color:var(--col-q);box-shadow:0 0 0 2px rgba(255,107,74,.35) inset}
+.rank-card .rc-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.rank-card .rc-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem;color:#fff;flex-shrink:0;text-transform:uppercase}
+.rank-card .rc-nome{font-weight:700;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rank-card .rc-nums{display:flex;align-items:baseline;gap:8px;margin-top:2px}
+.rank-card .rc-big{font-size:1.65rem;font-weight:800;color:var(--col-q);line-height:1}
+.rank-card .rc-label{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.4px}
+.rank-card .rc-sub{display:flex;gap:10px;margin-top:6px;font-size:.72rem;color:var(--muted)}
+.rank-card .rc-sub span b{color:var(--text);font-weight:700}
+.rank-card .rc-sub .mq{color:var(--col-m)}
+.rank-card .rc-sub .fr{color:var(--col-f)}
+.rank-card.sem .rc-avatar{background:#64748b}
+.rank-card.sem .rc-big{color:var(--amarelo)}
+.rank-empty{color:var(--muted);font-size:.82rem;padding:10px}
+.btn-limpar-filtro{background:transparent;border:1px solid var(--line);color:var(--muted);padding:3px 10px;border-radius:14px;font-size:.72rem;cursor:pointer;margin-left:8px}
+.btn-limpar-filtro:hover{color:var(--text);border-color:var(--col-q)}
+
 .col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;min-height:260px;max-height:calc(100vh - 160px)}
 .col-head{display:flex;align-items:center;justify-content:space-between;padding:4px 6px 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
 .col-head .title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem}
@@ -110,6 +135,18 @@ a{color:inherit;text-decoration:none}
 <div id="erroBox"></div>
 
 <div class="wrap">
+  <!-- Ranking por consultor (conversas quentes) -->
+  <div class="ranking-wrap" id="rankingWrap">
+    <div class="ranking-head">
+      <div>
+        <h2><i class="bi bi-fire" style="color:var(--col-q)"></i> Conversas quentes por consultor</h2>
+        <p id="rankingHint">Clique num card pra filtrar as colunas por esse consultor.</p>
+      </div>
+      <button class="btn-limpar-filtro" id="btnLimparFiltro" style="display:none" onclick="limparFiltroConsultor()"><i class="bi bi-x"></i> Limpar filtro</button>
+    </div>
+    <div class="ranking-grid" id="rankingGrid"><div class="rank-empty">Carregando...</div></div>
+  </div>
+
   <div class="section-title">
     <h2>Temperatura das conversas</h2>
     <p>Quente &lt; 6h &middot; Morna 6–24h &middot; Fria &gt; 24h (desde a última mensagem)</p>
@@ -154,6 +191,7 @@ if (!usuario) {
 document.getElementById('subLabel').textContent = `${nome} · ${papel === 'SUPER' ? 'Super Admin' : (papel === 'ADM' ? 'Admin' : 'Consultor')}`;
 
 let cacheConversas = { quente: [], morna: [], fria: [] };
+let FILTRO_CONSULTOR = ''; // '' = todos; 'nome' = só esse dono; '__sem__' = só sem dono
 
 async function carregar() {
   const minhas = document.getElementById('chkMinhas').checked;
@@ -235,7 +273,94 @@ function aplicarBusca(list, q) {
   );
 }
 
-function renderizar() {
+function aplicarFiltroConsultor(list){
+  if(!FILTRO_CONSULTOR) return list;
+  if(FILTRO_CONSULTOR === '__sem__') return list.filter(c => !c.dono);
+  const alvo = FILTRO_CONSULTOR.toLowerCase();
+  return list.filter(c => String(c.dono||'').toLowerCase() === alvo);
+}
+
+function agregarPorConsultor(){
+  // {chaveNorm: {label, quente, morna, fria, sem_dono:bool}}
+  const mapa = new Map();
+  const add = (key, label, kind, sem) => {
+    if(!mapa.has(key)) mapa.set(key, {label, quente:0, morna:0, fria:0, sem_dono: !!sem});
+    mapa.get(key)[kind]++;
+  };
+  for(const kind of ['quente','morna','fria']){
+    for(const c of (cacheConversas[kind]||[])){
+      const dono = String(c.dono||'').trim();
+      if(dono){
+        add(dono.toLowerCase(), dono, kind, false);
+      } else {
+        add('__sem__', 'Sem atendente', kind, true);
+      }
+    }
+  }
+  const arr = Array.from(mapa.values());
+  // Ordena: quentes desc; sem_dono vai pro final se zero quentes
+  arr.sort((a,b) => (b.quente - a.quente) || (b.morna - a.morna) || a.label.localeCompare(b.label));
+  return arr;
+}
+
+function iniciais(nome){
+  const p = String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(!p.length) return '?';
+  if(p.length === 1) return p[0].substring(0,2);
+  return (p[0][0] + p[p.length-1][0]);
+}
+
+function renderRankingConsultores(){
+  const el = document.getElementById('rankingGrid');
+  const arr = agregarPorConsultor();
+  if(!arr.length){
+    el.innerHTML = '<div class="rank-empty">Nenhuma conversa aberta no momento.</div>';
+    return;
+  }
+  const atualNorm = FILTRO_CONSULTOR === '__sem__' ? '__sem__' : FILTRO_CONSULTOR.toLowerCase();
+  el.innerHTML = arr.map(r => {
+    const chave = r.sem_dono ? '__sem__' : r.label.toLowerCase();
+    const sel = chave === atualNorm ? ' sel' : '';
+    const semCls = r.sem_dono ? ' sem' : '';
+    const totalOutras = r.morna + r.fria;
+    return `<div class="rank-card${sel}${semCls}" onclick="filtrarPorConsultor('${chave.replace(/'/g,"\\'")}')">
+      <div class="rc-top">
+        <div class="rc-avatar">${r.sem_dono ? '?' : iniciais(r.label)}</div>
+        <div class="rc-nome" title="${r.label}">${r.label}</div>
+      </div>
+      <div class="rc-nums">
+        <div class="rc-big">${r.quente}</div>
+        <div class="rc-label">quente${r.quente===1?'':'s'}</div>
+      </div>
+      <div class="rc-sub">
+        <span class="mq"><b>${r.morna}</b> morna${r.morna===1?'':'s'}</span>
+        <span class="fr"><b>${r.fria}</b> fria${r.fria===1?'':'s'}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filtrarPorConsultor(chave){
+  // Toggle: clicar de novo no mesmo = limpa
+  const atual = FILTRO_CONSULTOR === '__sem__' ? '__sem__' : FILTRO_CONSULTOR.toLowerCase();
+  if(atual === chave){
+    FILTRO_CONSULTOR = '';
+  } else {
+    FILTRO_CONSULTOR = chave;
+  }
+  document.getElementById('btnLimparFiltro').style.display = FILTRO_CONSULTOR ? 'inline-flex' : 'none';
+  renderRankingConsultores();
+  renderizarColunas();
+}
+
+function limparFiltroConsultor(){
+  FILTRO_CONSULTOR = '';
+  document.getElementById('btnLimparFiltro').style.display = 'none';
+  renderRankingConsultores();
+  renderizarColunas();
+}
+
+function renderizarColunas() {
   const q = document.getElementById('busca').value;
   const mapa = [
     { key: 'quente', colId: 'colQuente', cntId: 'cntQuente', empty: 'Nenhuma conversa quente' },
@@ -243,7 +368,9 @@ function renderizar() {
     { key: 'fria',   colId: 'colFria',   cntId: 'cntFria',   empty: 'Nenhuma conversa fria' },
   ];
   for (const m of mapa) {
-    const lista = aplicarBusca(cacheConversas[m.key] || [], q);
+    let lista = cacheConversas[m.key] || [];
+    lista = aplicarFiltroConsultor(lista);
+    lista = aplicarBusca(lista, q);
     document.getElementById(m.cntId).textContent = lista.length;
     const el = document.getElementById(m.colId);
     if (!lista.length) {
@@ -254,8 +381,18 @@ function renderizar() {
   }
 }
 
-document.getElementById('chkMinhas').addEventListener('change', carregar);
-document.getElementById('busca').addEventListener('input', renderizar);
+function renderizar() {
+  renderRankingConsultores();
+  renderizarColunas();
+}
+
+document.getElementById('chkMinhas').addEventListener('change', () => {
+  // Trocar de visão invalida o filtro de consultor (pode não existir na nova visão)
+  FILTRO_CONSULTOR = '';
+  document.getElementById('btnLimparFiltro').style.display = 'none';
+  carregar();
+});
+document.getElementById('busca').addEventListener('input', renderizarColunas);
 
 carregar();
 setInterval(carregar, 60000); // refresh a cada 60s
