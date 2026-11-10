@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Matrículas · UniFECAF</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2316a34a'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#081430; --bg-2:#0b1a3e; --panel:#0e2050; --panel-2:#132862;
+  --line:#1e357a; --text:#e6ecff; --muted:#8aa0d6;
+  --accent:#2F66D6; --accent-2:#4a86f0;
+  --verde:#16a34a; --verde-2:#22c55e; --vermelho:#ef4444; --amarelo:#f5b740;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.topbar{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--bg) 0%,rgba(8,20,48,.92) 100%);
+  border-bottom:1px solid var(--line);padding:12px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.topbar h1{font-size:1.05rem;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
+.topbar h1 i{color:var(--verde-2)}
+.topbar .sub{color:var(--muted);font-size:.78rem}
+.topbar .spacer{flex:1}
+.topbar .btn-voltar{background:transparent;border:1px solid var(--line);color:var(--text);padding:6px 12px;border-radius:8px;font-size:.82rem;cursor:pointer;transition:.2s}
+.topbar .btn-voltar:hover{background:var(--panel-2);border-color:var(--accent)}
+.wrap{padding:24px 20px 60px;max-width:1100px;margin:0 auto}
+.card-box{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+.card-box h2{margin:0 0 4px;font-size:1.05rem;font-weight:700}
+.card-box .desc{color:var(--muted);font-size:.85rem;margin-bottom:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:6px}
+.stat{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:14px}
+.stat .n{font-size:1.9rem;font-weight:800;line-height:1;color:var(--verde-2)}
+.stat .l{color:var(--muted);text-transform:uppercase;font-size:.72rem;letter-spacing:.5px;margin-top:4px}
+.stat.consultor .n{color:var(--accent-2)}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:30px;text-align:center;cursor:pointer;transition:.2s;background:var(--panel-2)}
+.drop.dragover,.drop:hover{border-color:var(--verde-2);background:var(--panel)}
+.drop i{font-size:2.4rem;color:var(--verde-2);margin-bottom:6px;display:block}
+.drop p{margin:6px 0 0;color:var(--muted)}
+.drop b{color:var(--text)}
+.step{margin-top:16px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.85rem}
+.step .num{background:var(--accent);color:#fff;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem}
+.mapeamento{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:14px 0}
+.mapeamento label{display:block;font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:4px}
+.mapeamento select{width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--line);padding:8px 10px;border-radius:8px;font-family:inherit;font-size:.9rem}
+.prev{overflow:auto;max-height:260px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+.prev table{width:100%;border-collapse:collapse;font-size:.8rem}
+.prev th{background:var(--panel-2);padding:8px 10px;text-align:left;font-size:.72rem;text-transform:uppercase;color:var(--muted);position:sticky;top:0}
+.prev td{padding:7px 10px;border-top:1px solid var(--line)}
+.prev tr.invalid td{background:rgba(239,68,68,.08);color:#fca5a5}
+.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;align-items:center;flex-wrap:wrap}
+.toggle{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:.82rem;cursor:pointer}
+.toggle input{accent-color:var(--verde-2)}
+.btn{border:none;padding:9px 16px;border-radius:8px;font-weight:700;font-size:.88rem;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.18s}
+.btn-primary{background:var(--verde);color:#fff}
+.btn-primary:hover{background:var(--verde-2)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-secondary{background:var(--panel-2);color:var(--text);border:1px solid var(--line)}
+.msg{padding:10px 14px;border-radius:8px;font-size:.85rem;margin-top:12px;display:none}
+.msg.on{display:block}
+.msg.ok{background:rgba(22,163,74,.12);color:var(--verde-2);border:1px solid rgba(22,163,74,.3)}
+.msg.err{background:rgba(239,68,68,.12);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.ranking{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:8px}
+.rk{background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.rk .nm{font-weight:700;font-size:.9rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk .n{font-size:1.5rem;font-weight:800;color:var(--verde-2);margin-top:2px;line-height:1}
+.rk .l{color:var(--muted);text-transform:uppercase;font-size:.7rem;letter-spacing:.4px}
+.hdr-link{color:var(--accent-2);text-decoration:underline}
+input[type=file]{display:none}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1><i class="bi bi-mortarboard-fill"></i> Matrículas</h1>
+  <span class="sub" id="subLabel"></span>
+  <span class="spacer"></span>
+  <a class="btn-voltar" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar ao chat</a>
+  <a class="btn-voltar" href="funil.html"><i class="bi bi-columns-gap"></i> Funil</a>
+</div>
+
+<div class="wrap">
+  <div class="card-box">
+    <h2><i class="bi bi-bar-chart-fill"></i> Base atual</h2>
+    <p class="desc">Base de alunos matriculados que você já subiu. O chat cruza por telefone pra contar matrículas por consultor.</p>
+    <div class="stats">
+      <div class="stat"><div class="n" id="statTotal">—</div><div class="l">Alunos na base</div></div>
+      <div class="stat"><div class="n" id="statMatch" style="color:var(--amarelo)">—</div><div class="l">Com conversa</div></div>
+      <div class="stat consultor"><div class="n" id="statConsultores">—</div><div class="l">Consultores c/ matrícula</div></div>
+      <div class="stat"><div class="n" id="statUltimo" style="font-size:.95rem;color:var(--muted);font-weight:600">—</div><div class="l">Última atualização</div></div>
+    </div>
+  </div>
+
+  <div class="card-box">
+    <h2><i class="bi bi-trophy-fill" style="color:var(--amarelo)"></i> Matrículas por consultor</h2>
+    <p class="desc">Soma de telefones da base de alunos que têm conversa atribuída pra cada consultor.</p>
+    <div class="ranking" id="rankingConsultores"><div style="color:var(--muted);font-size:.85rem">Carregando...</div></div>
+  </div>
+
+  <div class="card-box">
+    <h2><i class="bi bi-cloud-upload-fill"></i> Subir nova lista</h2>
+    <p class="desc">Aceita CSV, XLS ou XLSX. A gente lê os cabeçalhos e deixa você escolher quais colunas usar.</p>
+
+    <label class="drop" id="drop">
+      <input type="file" id="fileInp" accept=".csv,.xls,.xlsx,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <i class="bi bi-filetype-xlsx"></i>
+      <div><b>Arraste o arquivo aqui</b> ou clique pra selecionar</div>
+      <p>CSV, XLS ou XLSX &middot; até ~50MB</p>
+    </label>
+
+    <div id="afterUpload" style="display:none">
+      <div class="step"><span class="num">1</span> Arquivo: <b id="fileName" style="color:var(--text)"></b> · <span id="fileRows"></span> linhas</div>
+
+      <div class="step"><span class="num">2</span> Escolha quais colunas usar:</div>
+      <div class="mapeamento">
+        <div><label>Telefone *</label><select id="colTelefone"></select></div>
+        <div><label>Nome</label><select id="colNome"></select></div>
+        <div><label>Curso</label><select id="colCurso"></select></div>
+        <div><label>Polo</label><select id="colPolo"></select></div>
+      </div>
+
+      <div class="step"><span class="num">3</span> Preview das 10 primeiras linhas (linhas em vermelho = telefone inválido, serão ignoradas):</div>
+      <div class="prev"><table id="prevTable"></table></div>
+
+      <div class="actions">
+        <label class="toggle"><input type="checkbox" id="modoSubstituir"> Substituir a base inteira <span style="color:var(--muted)">(senão só mescla / atualiza)</span></label>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn btn-secondary" onclick="cancelarUpload()">Cancelar</button>
+        <button class="btn btn-primary" id="btnEnviar" onclick="enviarAlunos()"><i class="bi bi-cloud-upload"></i> Enviar <span id="btnCount"></span></button>
+      </div>
+
+      <div class="msg" id="msgBox"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = '/webhook';
+const token = new URLSearchParams(location.search).get('token') || localStorage.getItem('chat_token') || '';
+if (!localStorage.getItem('chat_token') && token) localStorage.setItem('chat_token', token);
+const usuario  = localStorage.getItem("chat_usuario") || "";
+const nome     = localStorage.getItem("chat_nome") || usuario;
+const papel    = (localStorage.getItem("chat_papel") || "USER").toUpperCase();
+if (!usuario) location.href = '/login.html';
+document.getElementById('subLabel').textContent = `${nome} · ${papel === 'SUPER' ? 'Super Admin' : (papel === 'ADM' ? 'Admin' : 'Consultor')}`;
+
+let linhasBrutas = []; // Array de arrays (primeira linha = header)
+let cabecalhos = [];
+
+async function carregarStats(){
+  try {
+    const r = await fetch(BASE + '/chat-matriculas-stats');
+    const d = await r.json();
+    if(!d.ok) return;
+    document.getElementById('statTotal').textContent = d.total_na_base.toLocaleString('pt-BR');
+    const porCons = d.por_consultor || [];
+    document.getElementById('statConsultores').textContent = porCons.length;
+    const totalMatch = porCons.reduce((a,b) => a + (b.matriculas||0), 0);
+    document.getElementById('statMatch').textContent = totalMatch.toLocaleString('pt-BR');
+    document.getElementById('statUltimo').textContent = d.ultima_atualizacao
+      ? new Date(d.ultima_atualizacao).toLocaleString('pt-BR')
+      : 'Nunca';
+    const rk = document.getElementById('rankingConsultores');
+    if(!porCons.length){
+      rk.innerHTML = '<div style="color:var(--muted);font-size:.85rem">Nenhuma matrícula cruzada. Suba uma lista abaixo.</div>';
+      return;
+    }
+    rk.innerHTML = porCons.map(c => `
+      <div class="rk">
+        <div class="nm">${esc(c.atendente)}</div>
+        <div class="n">${c.matriculas}</div>
+        <div class="l">matrícula${c.matriculas===1?'':'s'}</div>
+      </div>
+    `).join('');
+  } catch(e){
+    console.error(e);
+  }
+}
+
+function esc(s){ return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])); }
+
+const drop = document.getElementById('drop');
+const fileInp = document.getElementById('fileInp');
+fileInp.addEventListener('change', e => handleFile(e.target.files[0]));
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('dragover'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('dragover'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('dragover');
+  if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file){
+  if(!file) return;
+  const nome = file.name;
+  const ext = nome.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      let json;
+      if(ext === 'csv' || file.type === 'text/csv'){
+        // CSV: parse via SheetJS pra respeitar aspas, vírgulas internas etc
+        const wb = XLSX.read(ev.target.result, { type: 'string' });
+        json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      } else {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' });
+      }
+      if(!json || !json.length){ alert('Arquivo vazio'); return; }
+      linhasBrutas = json;
+      cabecalhos = json[0].map(c => String(c||'').trim());
+      preparaUI(nome);
+    } catch(e){
+      alert('Erro ao ler arquivo: ' + e.message);
+    }
+  };
+  if(ext === 'csv' || file.type === 'text/csv') reader.readAsText(file);
+  else reader.readAsArrayBuffer(file);
+}
+
+function preparaUI(nomeArquivo){
+  document.getElementById('afterUpload').style.display = 'block';
+  document.getElementById('fileName').textContent = nomeArquivo;
+  document.getElementById('fileRows').textContent = (linhasBrutas.length - 1);
+
+  // Popula selects com cabeçalhos; tenta adivinhar coluna certa
+  const selTel = document.getElementById('colTelefone');
+  const selNome = document.getElementById('colNome');
+  const selCurso = document.getElementById('colCurso');
+  const selPolo = document.getElementById('colPolo');
+
+  const options = '<option value="-1">— Nenhuma —</option>' + cabecalhos.map((c,i) => `<option value="${i}">${esc(c||'coluna '+(i+1))}</option>`).join('');
+  selTel.innerHTML = options; selNome.innerHTML = options; selCurso.innerHTML = options; selPolo.innerHTML = options;
+
+  // Auto-detect
+  const idxTel = adivinhar(cabecalhos, ['telefone','celular','whatsapp','fone','phone','numero','número']);
+  const idxNome = adivinhar(cabecalhos, ['nome','aluno','cliente','name']);
+  const idxCurso = adivinhar(cabecalhos, ['curso','graduacao','graduação','produto']);
+  const idxPolo = adivinhar(cabecalhos, ['polo','unidade','campus','cidade']);
+  if(idxTel >= 0) selTel.value = idxTel;
+  if(idxNome >= 0) selNome.value = idxNome;
+  if(idxCurso >= 0) selCurso.value = idxCurso;
+  if(idxPolo >= 0) selPolo.value = idxPolo;
+
+  // Listeners pra re-renderizar preview
+  [selTel, selNome, selCurso, selPolo].forEach(s => s.addEventListener('change', renderPreview));
+  renderPreview();
+}
+
+function adivinhar(arr, nomes){
+  for(let i = 0; i < arr.length; i++){
+    const n = String(arr[i]||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+    for(const nome of nomes){
+      if(n.includes(nome.replace(/[^a-z0-9]/g,''))) return i;
+    }
+  }
+  return -1;
+}
+
+function normTel(t){
+  const d = String(t||'').replace(/\D/g,'');
+  if(!d) return '';
+  if(d.length === 10 || d.length === 11) return '55' + d;
+  return d;
+}
+
+function renderPreview(){
+  const iTel = +document.getElementById('colTelefone').value;
+  const iNome = +document.getElementById('colNome').value;
+  const iCurso = +document.getElementById('colCurso').value;
+  const iPolo = +document.getElementById('colPolo').value;
+
+  const dados = linhasBrutas.slice(1);
+  let validos = 0, invalidos = 0;
+  const amostra = dados.slice(0, 10);
+  const linhas = amostra.map(row => {
+    const tel = iTel >= 0 ? row[iTel] : '';
+    const telN = normTel(tel);
+    const ok = telN.length >= 12;
+    if(ok) validos++; else invalidos++;
+    const nm = iNome >= 0 ? row[iNome] : '';
+    const cr = iCurso >= 0 ? row[iCurso] : '';
+    const pl = iPolo >= 0 ? row[iPolo] : '';
+    return `<tr class="${ok?'':'invalid'}">
+      <td>${esc(tel)}${ok?' → <b>'+telN+'</b>':' <i class="bi bi-x-circle"></i>'}</td>
+      <td>${esc(nm)}</td>
+      <td>${esc(cr)}</td>
+      <td>${esc(pl)}</td>
+    </tr>`;
+  }).join('');
+
+  // Conta válidos no arquivo inteiro
+  const totalValidos = dados.filter(r => iTel >= 0 && normTel(r[iTel]).length >= 12).length;
+  document.getElementById('btnCount').textContent = `(${totalValidos.toLocaleString('pt-BR')} válidos)`;
+  document.getElementById('btnEnviar').disabled = iTel < 0 || totalValidos === 0;
+
+  document.getElementById('prevTable').innerHTML = `
+    <thead><tr><th>Telefone (normalizado)</th><th>Nome</th><th>Curso</th><th>Polo</th></tr></thead>
+    <tbody>${linhas}</tbody>
+  `;
+}
+
+function cancelarUpload(){
+  linhasBrutas = [];
+  cabecalhos = [];
+  document.getElementById('afterUpload').style.display = 'none';
+  fileInp.value = '';
+}
+
+async function enviarAlunos(){
+  const iTel = +document.getElementById('colTelefone').value;
+  const iNome = +document.getElementById('colNome').value;
+  const iCurso = +document.getElementById('colCurso').value;
+  const iPolo = +document.getElementById('colPolo').value;
+  const modoSubstituir = document.getElementById('modoSubstituir').checked;
+
+  if(iTel < 0){ msg('Escolha qual coluna é o telefone', 'err'); return; }
+  if(modoSubstituir && !confirm('Tem certeza? Isso APAGA toda a base atual antes de inserir a nova. Essa ação não pode ser desfeita.')) return;
+
+  const alunos = linhasBrutas.slice(1).map(row => ({
+    telefone: row[iTel],
+    nome: iNome >= 0 ? row[iNome] : '',
+    curso: iCurso >= 0 ? row[iCurso] : '',
+    polo: iPolo >= 0 ? row[iPolo] : '',
+  })).filter(a => normTel(a.telefone).length >= 12);
+
+  if(!alunos.length){ msg('Nenhum telefone válido encontrado', 'err'); return; }
+
+  const btn = document.getElementById('btnEnviar');
+  btn.disabled = true;
+  const txtOrig = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enviando ' + alunos.length + '...';
+
+  try {
+    // Envia em chunks de 2000 pra não estourar body limit
+    const CHUNK = 2000;
+    let processados = 0;
+    let modoAtual = modoSubstituir ? 'substituir' : 'merge';
+    for(let i = 0; i < alunos.length; i += CHUNK){
+      const slice = alunos.slice(i, i + CHUNK);
+      btn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${processados}/${alunos.length}`;
+      const r = await fetch(BASE + '/chat-matriculas-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ modo: modoAtual, alunos: slice }),
+      });
+      const d = await r.json();
+      if(!d.ok){ throw new Error(d.erro || 'erro'); }
+      processados += d.processados || slice.length;
+      modoAtual = 'merge'; // Após 1º chunk sempre merge (senão apagaria os anteriores)
+    }
+    msg(`✓ ${processados} alunos processados. A base é agora mostrada acima.`, 'ok');
+    btn.innerHTML = txtOrig;
+    btn.disabled = false;
+    await carregarStats();
+    // Mantém preview visível caso queira conferir
+  } catch(e){
+    msg('Erro: ' + e.message, 'err');
+    btn.innerHTML = txtOrig;
+    btn.disabled = false;
+  }
+}
+
+function msg(t, tipo){
+  const el = document.getElementById('msgBox');
+  el.className = 'msg on ' + tipo;
+  el.textContent = t;
+}
+
+carregarStats();
+setInterval(carregarStats, 30000);
+</script>
+</body>
+</html>
