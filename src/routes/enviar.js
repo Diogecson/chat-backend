@@ -272,15 +272,21 @@ export default async function enviarRoutes(fastify) {
         if (!midia_base64) return reply.code(400).send({ ok: false, erro: 'midia_base64 obrigatório pra midia' });
         let b64Para = midia_base64;
         let mimePara = mimetype;
-        // Meta so aceita audio nos tipos: aac, mp4, mpeg, amr, ogg, opus.
-        // Chrome/Firefox gravam em audio/webm por default. Converte pra audio/ogg via ffmpeg.
+        // Audio: SEMPRE converte pra ogg/opus 16kHz mono (specs oficiais WhatsApp voice).
+        // Mesmo audio/mp4 ou audio/ogg do browser podem vir com sample rate/canais que o
+        // player mobile do WhatsApp nao decodifica bem. So pula se ja estiver com nome de
+        // arquivo que indica que veio convertido de outro lugar (ex: .ptt_meta_voice.ogg).
         if (tipo === 'audio') {
-          const mimeBase = String(mimetype || '').split(';')[0].toLowerCase();
-          const precisaConverter = !['audio/aac','audio/mp4','audio/mpeg','audio/amr','audio/ogg','audio/opus'].includes(mimeBase);
-          if (precisaConverter) {
+          const jaConvertido = String(filename||'').includes('.ptt_meta_voice.');
+          if (!jaConvertido) {
             try {
               const inputBuf = Buffer.from(midia_base64, 'base64');
-              const inputExt = mimeBase.includes('webm') ? 'webm' : (mimeBase.split('/')[1] || 'webm');
+              const mimeBase = String(mimetype || '').split(';')[0].toLowerCase();
+              const inputExt = mimeBase.includes('webm') ? 'webm'
+                : mimeBase.includes('mp4') ? 'mp4'
+                : mimeBase.includes('ogg') ? 'ogg'
+                : mimeBase.includes('mpeg') ? 'mp3'
+                : (mimeBase.split('/')[1] || 'webm');
               const oggBuf = await converterAudioParaOgg(inputBuf, inputExt);
               b64Para = oggBuf.toString('base64');
               mimePara = 'audio/ogg';
