@@ -3,6 +3,38 @@
 // Audio/media/interactive/evolution continuam passando pelo proxy pro n8n antigo até migrar.
 import { query, getPool } from '../services/db.js';
 import { hasDb, config } from '../config.js';
+import ffmpegStatic from 'ffmpeg-static';
+import ffmpeg from 'fluent-ffmpeg';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+if (ffmpegStatic) ffmpeg.setFfmpegPath(ffmpegStatic);
+
+// Converte audio pra audio/ogg (libopus) — Meta nao aceita webm nem outros exoticos
+async function converterAudioParaOgg(buffer, inputExt) {
+  const id = Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  const ext = (inputExt || 'webm').replace(/[^a-z0-9]/gi, '').toLowerCase().substring(0, 6) || 'webm';
+  const inPath = path.join(os.tmpdir(), `aud_in_${id}.${ext}`);
+  const outPath = path.join(os.tmpdir(), `aud_out_${id}.ogg`);
+  await fs.promises.writeFile(inPath, buffer);
+  try {
+    await new Promise((resolve, reject) => {
+      ffmpeg(inPath)
+        .audioCodec('libopus')
+        .audioBitrate('32k')
+        .format('ogg')
+        .on('end', resolve)
+        .on('error', reject)
+        .save(outPath);
+    });
+    const out = await fs.promises.readFile(outPath);
+    return out;
+  } finally {
+    fs.promises.unlink(inPath).catch(() => {});
+    fs.promises.unlink(outPath).catch(() => {});
+  }
+}
 
 function p(body, name, def = '') {
   const v = body && body[name];
@@ -235,11 +267,33 @@ export default async function enviarRoutes(fastify) {
         res = await enviarMetaTemplate({ accountCfg, telefone, template_name, template_language, template_body_vars });
       } else if (tipo === 'image' || tipo === 'video' || tipo === 'audio' || tipo === 'document') {
         if (!midia_base64) return reply.code(400).send({ ok: false, erro: 'midia_base64 obrigatório pra midia' });
+        let b64Para = midia_base64;
+        let mimePara = mimetype;
+        // Meta so aceita audio nos tipos: aac, mp4, mpeg, amr, ogg, opus.
+        // Chrome/Firefox gravam em audio/webm por default. Converte pra audio/ogg via ffmpeg.
+        if (tipo === 'audio') {
+          const mimeBase = String(mimetype || '').split(';')[0].toLowerCase();
+          const precisaConverter = !['audio/aac','audio/mp4','audio/mpeg','audio/amr','audio/ogg','audio/opus'].includes(mimeBase);
+          if (precisaConverter) {
+            try {
+              const inputBuf = Buffer.from(midia_base64, 'base64');
+              const inputExt = mimeBase.includes('webm') ? 'webm' : (mimeBase.split('/')[1] || 'webm');
+              const oggBuf = await converterAudioParaOgg(inputBuf, inputExt);
+              b64Para = oggBuf.toString('base64');
+              mimePara = 'audio/ogg';
+            } catch (err) {
+              return { ok: false, erro: 'conversao de audio falhou: ' + err.message };
+            }
+          }
+        }
         // 1) Upload pro Meta → media_id
-        const up = await uploadMetaMedia({ accountCfg, base64: midia_base64, mimetype, filename });
+        const up = await uploadMetaMedia({ accountCfg, base64: b64Para, mimetype: mimePara, filename });
         if (!up.ok) {
           return { ok: false, erro: 'upload falhou: ' + up.error, api: up.raw };
         }
+        // Guarda pra o INSERT abaixo usar o buffer convertido
+        b.__midia_base64_final = b64Para;
+        b.__mimetype_final = mimePara;
         // 2) Envia mensagem com media_id
         res = await enviarMetaMedia({
           accountCfg, telefone, tipo, media_id: up.media_id,
@@ -261,12 +315,14 @@ export default async function enviarRoutes(fastify) {
     // Para midia OUT, grava data:URL pra o player conseguir tocar/exibir no chat.html
     let midiaUrlOut = '';
     if ((tipo === 'audio' || tipo === 'image' || tipo === 'video' || tipo === 'document') && midia_base64) {
-      // base64 pode vir cru ou já como data URL; normaliza pra data: completo
-      if (midia_base64.startsWith('data:')) {
-        midiaUrlOut = midia_base64;
+      // Usa buffer CONVERTIDO se audio passou por ffmpeg (b.__midia_base64_final)
+      const b64Final = b.__midia_base64_final || midia_base64;
+      const mimeFinal = b.__mimetype_final || mimetype;
+      if (String(b64Final).startsWith('data:')) {
+        midiaUrlOut = b64Final;
       } else {
-        const mime = mimetype || (tipo === 'audio' ? 'audio/ogg' : tipo === 'image' ? 'image/jpeg' : 'application/octet-stream');
-        midiaUrlOut = `data:${mime};base64,${midia_base64}`;
+        const mime = mimeFinal || (tipo === 'audio' ? 'audio/ogg' : tipo === 'image' ? 'image/jpeg' : 'application/octet-stream');
+        midiaUrlOut = `data:${mime};base64,${b64Final}`;
       }
     }
     let row;
