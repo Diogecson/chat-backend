@@ -22,7 +22,10 @@ async function converterAudioParaOgg(buffer, inputExt) {
     await new Promise((resolve, reject) => {
       ffmpeg(inPath)
         .audioCodec('libopus')
-        .audioBitrate('32k')
+        .audioBitrate('24k')
+        .audioFrequency(16000)   // WhatsApp exige 16 kHz
+        .audioChannels(1)        // Mono
+        .addOutputOption('-application', 'voip') // Opus voip = melhor pra voz
         .format('ogg')
         .on('end', resolve)
         .on('error', reject)
