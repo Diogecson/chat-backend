@@ -17,6 +17,7 @@ import acoesRoutes from './routes/acoes.js';
 import enviarRoutes from './routes/enviar.js';
 import funilRoutes from './routes/funil.js';
 import iaRoutes from './routes/ia.js';
+import inboundRoutes from './routes/inbound.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
@@ -59,6 +60,7 @@ await fastify.register(acoesRoutes);
 await fastify.register(enviarRoutes);
 await fastify.register(funilRoutes);
 await fastify.register(iaRoutes);
+await fastify.register(inboundRoutes);
 
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({
