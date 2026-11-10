@@ -116,4 +116,53 @@ export default async function funilRoutes(fastify) {
   fastify.post('/webhook/chat-funil', handle);
   fastify.get('/api/chat/funil', handle);
   fastify.post('/api/chat/funil', handle);
+
+  // ===== Metricas de tempo de resposta por consultor =====
+  // Pra cada par (msg_in cliente -> msg_out consultor seguinte) na mesma conversa,
+  // calcula o delta. Ignora respostas que demoraram >12h (chat morreu e voltou).
+  const SQL_METRICAS = `
+WITH msgs AS (
+  SELECT conta_id, telefone, direcao, LOWER(COALESCE(atendente,'')) AS atendente, timestamp,
+    LAG(direcao) OVER (PARTITION BY conta_id, telefone ORDER BY timestamp) AS prev_dir,
+    LAG(timestamp) OVER (PARTITION BY conta_id, telefone ORDER BY timestamp) AS prev_ts
+  FROM chat_mensagens
+  WHERE timestamp > NOW() - INTERVAL '7 days'
+    AND ($1 = '__all__' OR conta_id = $1)
+),
+respostas AS (
+  SELECT atendente,
+    EXTRACT(EPOCH FROM (timestamp - prev_ts))/60 AS min_ate_resposta
+  FROM msgs
+  WHERE direcao = 'out'
+    AND prev_dir = 'in'
+    AND atendente <> ''
+    AND atendente NOT IN ('triagem_ia','ia_followup','sistema','admin')
+    AND (timestamp - prev_ts) BETWEEN INTERVAL '0 seconds' AND INTERVAL '12 hours'
+)
+SELECT atendente,
+  COUNT(*)::int AS total_respostas,
+  ROUND(AVG(min_ate_resposta)::numeric, 1)::float AS media_min,
+  ROUND((PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY min_ate_resposta))::numeric, 1)::float AS mediana_min
+FROM respostas
+GROUP BY atendente
+ORDER BY media_min ASC NULLS LAST
+`;
+
+  async function metricasHandle(req, reply) {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const conta = forceConta(p(req, 'conta_id'));
+    try {
+      const r = await query(SQL_METRICAS, [conta]);
+      return {
+        ok: true,
+        janela_dias: 7,
+        metricas: r.rows || [],
+      };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, error: err.message };
+    }
+  }
+  fastify.get('/webhook/chat-funil-metricas', metricasHandle);
+  fastify.post('/webhook/chat-funil-metricas', metricasHandle);
 }
