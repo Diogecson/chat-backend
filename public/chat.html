@@ -7303,7 +7303,9 @@ async function salvarRetorno(){
         conta_id: conversaAtiva.conta_id,
         telefone: conversaAtiva.telefone,
         quando: new Date(quando).toISOString(),
-        observacao: obs
+        observacao: obs,
+        usuario: USUARIO,
+        atendente: USUARIO
       }});
       if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
       toast('Retorno agendado.','');

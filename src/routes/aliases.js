@@ -169,7 +169,8 @@ export default async function aliasRoutes(fastify) {
                ${sc.data} AS quando, ${notaExpr} AS observacao,
                (${sc.data} < NOW()) AS venceu, status
          FROM chat_retornos_agendados
-         WHERE LOWER(atendente)=LOWER($1) AND status='pendente'
+         WHERE (LOWER(COALESCE(atendente,''))=LOWER($1) OR COALESCE(atendente,'')='')
+           AND status='pendente'
          ORDER BY ${sc.data}`
       : `SELECT ${codExpr} AS codigo, conta_id, telefone, atendente,
                ${sc.data} AS quando, ${notaExpr} AS observacao,
