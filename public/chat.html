@@ -1396,6 +1396,21 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
             </select>
           </div>
         </label>
+        <label class="dm-radio">
+          <input type="radio" name="dmModo" value="selecionados" onchange="dmSetModo(this.value)">
+          <div class="dm-radio-body">
+            <div class="dm-radio-title"><i class="bi bi-person-check-fill"></i> Dividir entre consultores selecionados</div>
+            <div class="dm-radio-sub">Round-robin apenas entre os consultores marcados abaixo.</div>
+            <div id="dmSelecArea" style="margin-top:10px;display:none">
+              <div style="display:flex;gap:6px;margin-bottom:6px">
+                <button type="button" class="dm-btn-cancel" style="padding:4px 10px;font-size:.75rem" onclick="dmMarcarTodos(true)"><i class="bi bi-check2-square"></i> Todos</button>
+                <button type="button" class="dm-btn-cancel" style="padding:4px 10px;font-size:.75rem" onclick="dmMarcarTodos(false)"><i class="bi bi-square"></i> Nenhum</button>
+                <span style="margin-left:auto;font-size:.75rem;color:#64748b;align-self:center"><b id="dmSelecCount">0</b> marcado(s)</span>
+              </div>
+              <div id="dmSelecLista" style="max-height:220px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:4px"></div>
+            </div>
+          </div>
+        </label>
       </div>
     </div>
     <div class="dm-foot">
@@ -3119,6 +3134,17 @@ function abrirDistModal(){
   const onlineCount = atd.filter(a => online.has((a.usuario||'').toLowerCase())).length;
   const sub = document.getElementById('dmEquipeSub');
   if(sub) sub.innerHTML = `Round-robin entre consultores <b>NA FILA</b> (toggle ativado no painel). Agora: <b style="color:#16a34a">${onlineCount} disponíveis</b> de ${atd.length} cadastrados.`;
+  // Popula lista de checkboxes pra modo "selecionados"
+  const lista = document.getElementById('dmSelecLista');
+  lista.innerHTML = atd.map(a => {
+    const uid = (a.usuario||'').toLowerCase();
+    const on = online.has(uid);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:.84rem" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background=''">
+      <input type="checkbox" class="dm-selec-chk" value="${escapeAttr(uid)}" onchange="dmAtualizarContagemSelec()">
+      <span>${on?'🟢':'⚫'} ${escapeHtml(a.nome||a.usuario)}</span>
+    </label>`;
+  }).join('');
+  dmAtualizarContagemSelec();
   // Reset modo
   document.querySelector('input[name="dmModo"][value="equipe"]').checked = true;
   dmSetModo('equipe');
@@ -3132,6 +3158,23 @@ function fecharDistModal(){
 function dmSetModo(modo){
   const sel = document.getElementById('dmAtendente');
   if(sel) sel.disabled = modo !== 'atendente';
+  const area = document.getElementById('dmSelecArea');
+  if(area) area.style.display = modo === 'selecionados' ? 'block' : 'none';
+}
+
+function dmMarcarTodos(valor){
+  document.querySelectorAll('.dm-selec-chk').forEach(cb => cb.checked = valor);
+  dmAtualizarContagemSelec();
+}
+
+function dmAtualizarContagemSelec(){
+  const n = document.querySelectorAll('.dm-selec-chk:checked').length;
+  const el = document.getElementById('dmSelecCount');
+  if(el) el.textContent = n;
+}
+
+function dmGetSelecionados(){
+  return Array.from(document.querySelectorAll('.dm-selec-chk:checked')).map(cb => cb.value);
 }
 
 /* ===== ENVIO EM MASSA (usa disparos pra template, chat-enviar em loop pra texto) ===== */
@@ -3507,7 +3550,9 @@ async function executarDistribuicao(){
   if(!window.__DIST_SEL.size){ toast('Sem conversas selecionadas', 'err'); return; }
   const modo = document.querySelector('input[name="dmModo"]:checked').value;
   const atendente = modo === 'atendente' ? (document.getElementById('dmAtendente').value || '') : '';
+  const atendentes = modo === 'selecionados' ? dmGetSelecionados() : [];
   if(modo === 'atendente' && !atendente){ toast('Escolha um consultor', 'err'); return; }
+  if(modo === 'selecionados' && !atendentes.length){ toast('Marque pelo menos 1 consultor', 'err'); return; }
   const conversas = Array.from(window.__DIST_SEL).map(k => {
     const [conta_id, telefone] = k.split(':');
     return {conta_id, telefone};
@@ -3519,12 +3564,12 @@ async function executarDistribuicao(){
     const r = await safeFetchJson(BASE + '/chat-conversas-distribuir', {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=UTF-8'},
-      body: JSON.stringify({ conversas, modo, atendente, quem: USUARIO })
+      body: JSON.stringify({ conversas, modo, atendente, atendentes, quem: USUARIO })
     });
     if(!r || !r.ok){ toast('Erro: '+(r&&r.erro||'servidor'), 'err'); return; }
-    const msg = modo === 'equipe'
-      ? `${r.total} conversas distribuídas entre ${r.resumo.length} consultores`
-      : `${r.total} conversas atribuídas a ${atendente}`;
+    const msg = modo === 'atendente'
+      ? `${r.total} conversas atribuídas a ${atendente}`
+      : `${r.total} conversas distribuídas entre ${r.resumo.length} consultores`;
     toast(msg, '');
     fecharDistModal();
     window.__DIST_SEL.clear();

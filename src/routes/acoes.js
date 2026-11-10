@@ -283,25 +283,35 @@ export default async function acoesRoutes(fastify) {
   fastify.post('/webhook/chat-atendentes-delete', atendenteDelete);
 
   // === chat-conversas-distribuir ===
-  // Payload: { conversas: [{conta_id, telefone}, ...], modo: 'equipe'|'atendente', atendente?, quem }
-  // modo='atendente': atribui todas ao usuario escolhido
+  // Payload: { conversas: [{conta_id, telefone}, ...], modo, atendente?, atendentes?, quem }
+  // modo='atendente': atribui todas ao usuario escolhido (unico)
   // modo='equipe': distribui round-robin entre atendentes com na_fila=true
+  // modo='selecionados': round-robin apenas entre a lista 'atendentes' passada
   const conversasDistribuir = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
     const conversas = Array.isArray(b.conversas) ? b.conversas : [];
     const modo = String(b.modo || 'equipe').toLowerCase();
     const atendenteAlvo = String(b.atendente || '').toLowerCase().trim();
+    const atendentesLista = Array.isArray(b.atendentes)
+      ? b.atendentes.map(a => String(a||'').toLowerCase().trim()).filter(Boolean)
+      : [];
     const quem = String(b.quem || b.usuario || 'sistema').toLowerCase();
 
     if (!conversas.length) return reply.code(400).send({ ok: false, erro: 'sem conversas' });
     if (modo === 'atendente' && !atendenteAlvo) {
       return reply.code(400).send({ ok: false, erro: 'atendente obrigatorio no modo atendente' });
     }
+    if (modo === 'selecionados' && !atendentesLista.length) {
+      return reply.code(400).send({ ok: false, erro: 'escolha pelo menos 1 consultor' });
+    }
 
     // Lista de destinos
     let destinos = [];
     if (modo === 'atendente') {
       destinos = [atendenteAlvo];
+    } else if (modo === 'selecionados') {
+      // dedup preservando ordem
+      destinos = Array.from(new Set(atendentesLista));
     } else {
       // modo equipe: pega atendentes ATIVOS e NA_FILA
       const r = await query(
