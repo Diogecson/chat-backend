@@ -109,6 +109,43 @@ export default async function templatesRoutes(fastify) {
   fastify.post('/webhook/chat-template-create', templateCreate);
   fastify.post('/api/chat/template-create', templateCreate);
 
+  // POST /webhook/chat-template-delete — exclui template da Meta
+  // Apaga em TODOS os idiomas (Meta API nao tem delete por idioma com name).
+  const templateDelete = async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const conta_id = String(b.conta_id || '');
+    const name = String(b.name || '');
+    if (!conta_id || !name) {
+      return reply.code(400).send({ ok: false, erro: 'conta_id e name sao obrigatorios' });
+    }
+    const conta = await buscarConta(conta_id);
+    if (!conta) return reply.code(404).send({ ok: false, erro: 'Conta Meta nao encontrada: ' + conta_id });
+    const cfg = conta.cfg;
+    if (!cfg.waba_id || !cfg.access_token) {
+      return reply.code(400).send({ ok: false, erro: 'Conta sem waba_id ou access_token no config' });
+    }
+    const url = `https://graph.facebook.com/${config.metaApiVersion || 'v20.0'}/${cfg.waba_id}/message_templates?name=${encodeURIComponent(name)}`;
+    try {
+      const r = await fetch(url, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + cfg.access_token },
+      });
+      const data = await r.json().catch(() => ({}));
+      if (data.error) {
+        return reply.code(200).send({ ok: false, erro: data.error.message || 'Erro Meta', raw: data });
+      }
+      if (data.success === true) {
+        return { ok: true, name };
+      }
+      return { ok: false, erro: 'Resposta inesperada da Meta', raw: data };
+    } catch (err) {
+      return reply.code(500).send({ ok: false, erro: 'Falha ao chamar Meta: ' + err.message });
+    }
+  };
+  fastify.post('/webhook/chat-template-delete', templateDelete);
+  fastify.post('/api/chat/template-delete', templateDelete);
+
   // GET /webhook/chat-templates — lista templates aprovados da conta
   const templatesList = async (req, reply) => {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });

@@ -59,6 +59,8 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 .tpl-name{font-weight:700;color:var(--blue)}
 .tpl-preview{font-size:.75rem;color:var(--muted);margin-top:2px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pill{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
+.btn-del-tpl{background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:6px;padding:5px 9px;cursor:pointer;font-size:.9rem;transition:all .12s}
+.btn-del-tpl:hover{background:#dc2626;color:#fff;border-color:#dc2626}
 .pill.approved{background:#e6f9ee;color:var(--ok)}
 .pill.pending{background:#fff8e6;color:var(--warn)}
 .pill.rejected{background:#fce8e8;color:var(--err)}
@@ -332,15 +334,37 @@ function renderTemplates(){
     const body = (t.components||[]).find(c=>c.type==='BODY');
     const preview = body ? body.text : '';
     const stCls = (t.status||'').toLowerCase();
+    const nomeEsc = esc(t.name).replace(/'/g,"\\'");
     return `<tr>
       <td><div class="tpl-name">${esc(t.name)}</div><div class="tpl-preview">${esc(preview.substring(0,120))}</div></td>
       <td><span class="pill ${(t.category||'').toLowerCase()}">${esc(t.category||'')}</span></td>
       <td>${esc(t.language||'')}</td>
       <td>${t.variaveis&&t.variaveis.length?t.variaveis.length:0}</td>
       <td><span class="pill ${stCls}">${esc(t.status||'')}</span></td>
+      <td style="text-align:center"><button class="btn-del-tpl" onclick="deletarTemplate('${nomeEsc}')" title="Excluir template"><i class="bi bi-trash"></i></button></td>
     </tr>`;
   }).join('');
-  qs('#tplContainer').innerHTML = `<table class="tbl"><thead><tr><th>Nome</th><th style="width:120px">Categoria</th><th style="width:80px">Idioma</th><th style="width:60px">Vars</th><th style="width:110px">Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+  qs('#tplContainer').innerHTML = `<table class="tbl"><thead><tr><th>Nome</th><th style="width:120px">Categoria</th><th style="width:80px">Idioma</th><th style="width:60px">Vars</th><th style="width:110px">Status</th><th style="width:70px">Ações</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function deletarTemplate(nome){
+  if(!contaAtiva){ alert('Selecione uma conta'); return; }
+  if(!confirm('Excluir o template "' + nome + '" da Meta?\n\nIsso apaga em TODOS os idiomas. Não dá pra reverter.')) return;
+  try{
+    const r = await api('/chat-template-delete', {
+      conta_id: contaAtiva.id,
+      name: nome,
+    });
+    if(!r || !r.ok){
+      alert('Erro ao excluir: ' + ((r && r.erro) || 'servidor sem resposta'));
+      return;
+    }
+    // Remove da lista local e re-renderiza
+    templates = templates.filter(t => t.name !== nome);
+    renderTemplates();
+  }catch(e){
+    alert('Erro: ' + e.message);
+  }
 }
 
 function filtrarTemplates(){ renderTemplates(); }
