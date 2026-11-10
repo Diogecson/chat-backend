@@ -184,6 +184,21 @@ export default async function aliasRoutes(fastify) {
   fastify.get('/webhook/chat-retorno-list', retornoList);
   fastify.post('/webhook/chat-retorno-list', retornoList);
 
+  // DEBUG: últimos 20 retornos (sem filtro) + schema
+  fastify.get('/webhook/chat-retorno-debug', async () => {
+    try {
+      const cols = await query(`
+        SELECT column_name, data_type FROM information_schema.columns
+        WHERE table_name='chat_retornos_agendados' ORDER BY ordinal_position
+      `).catch(() => ({ rows: [] }));
+      const total = await query(`SELECT COUNT(*)::int AS t FROM chat_retornos_agendados`).catch(() => ({ rows: [{t:0}] }));
+      const ultimos = await query(`SELECT * FROM chat_retornos_agendados ORDER BY id DESC LIMIT 20`).catch(err => ({ rows: [], err: err.message }));
+      return { ok: true, schema: cols.rows, total: total.rows[0]?.t, ultimos: ultimos.rows, erro: ultimos.err };
+    } catch (err) {
+      return { ok: false, erro: err.message };
+    }
+  });
+
   // === chat-triagem-ativas ===
   const triagemAtivas = async (req, reply) => withDb(reply, async () => {
     const r = await query(`SELECT conta_id, telefone, status, passo_atual, atualizado_em FROM chat_triagem_sessoes WHERE status='ativa' LIMIT 1000`).catch(() => ({ rows: [] }));

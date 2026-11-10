@@ -7448,12 +7448,13 @@ let rtMesAtual = new Date(); // 1º dia do mês visível no calendário
 rtMesAtual.setDate(1); rtMesAtual.setHours(0,0,0,0);
 let rtDiaSelecionado = null; // 'YYYY-MM-DD' ou null = mostrar tudo
 
-function abrirRetornosDashboard(){
+async function abrirRetornosDashboard(){
   qs('#rtDashBack').classList.add('on');
   // Começa sempre no mês atual
   const hoje = new Date(); rtMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
   rtDiaSelecionado = null;
-  renderDashboard();
+  renderDashboard(); // Render com cache atual
+  await carregarRetornos(); // Garante fresh e re-renderiza
 }
 function fecharRetornosDashboard(){ qs('#rtDashBack').classList.remove('on'); }
 
