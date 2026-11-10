@@ -185,14 +185,91 @@ export default async function aliasRoutes(fastify) {
   fastify.get('/webhook/chat-manual-estado-get', manualEstadoGet);
   fastify.post('/webhook/chat-manual-estado-get', manualEstadoGet);
 
-  // === chat-permissoes-list ===
+  // === chat-permissoes-list/save ===
+  // Schema: chat_permissoes_config(chave PK, valor jsonb) — chave='features_user' = global
+  //         chat_user_permissoes(usuario PK, permissoes jsonb) — override por usuario
+  let _permTablesOk = false;
+  async function garantirTabelasPerm() {
+    if (_permTablesOk) return;
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_permissoes_config (
+        chave TEXT PRIMARY KEY,
+        valor JSONB DEFAULT '{}'::jsonb,
+        atualizado_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_user_permissoes (
+        usuario TEXT PRIMARY KEY,
+        permissoes JSONB DEFAULT '{}'::jsonb,
+        atualizado_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+    _permTablesOk = true;
+  }
+
+  function parseJson(v) {
+    if (v == null) return null;
+    if (typeof v === 'object') return v;
+    try { return JSON.parse(v); } catch (_) { return null; }
+  }
+
   const permissoesList = async (req, reply) => withDb(reply, async () => {
-    const r = await query(`SELECT * FROM chat_permissoes_config LIMIT 1`).catch(() => ({ rows: [] }));
-    const features = r.rows[0]?.features || {};
-    return { ok: true, features };
+    await garantirTabelasPerm();
+    const usuario = String(req.query?.usuario || req.body?.usuario || '').toLowerCase().trim();
+    const g = await query(`SELECT valor FROM chat_permissoes_config WHERE chave='features_user' LIMIT 1`).catch(() => ({ rows: [] }));
+    const global_ = parseJson(g.rows[0]?.valor) || {};
+    let override = null;
+    if (usuario) {
+      const u = await query(`SELECT permissoes FROM chat_user_permissoes WHERE LOWER(usuario)=LOWER($1) LIMIT 1`, [usuario]).catch(() => ({ rows: [] }));
+      override = parseJson(u.rows[0]?.permissoes);
+    }
+    const effective = override ? { ...global_, ...override } : global_;
+    return { ok: true, permissoes: effective, global: global_, override };
   });
   fastify.get('/webhook/chat-permissoes-list', permissoesList);
   fastify.post('/webhook/chat-permissoes-list', permissoesList);
+
+  const permissoesSave = async (req, reply) => withDb(reply, async () => {
+    await garantirTabelasPerm();
+    const b = req.body || {};
+    const perms = b.permissoes && typeof b.permissoes === 'object' ? b.permissoes : null;
+    if (!perms && b._reset !== true) {
+      return reply.code(400).send({ ok: false, erro: 'permissoes obrigatorio (objeto)' });
+    }
+    const usuario = String(b.usuario || '').toLowerCase().trim();
+    // Sanitiza: so booleans + keys alfanumericas
+    const limpo = {};
+    if (perms) {
+      for (const k of Object.keys(perms)) {
+        if (/^[a-z0-9_]+$/i.test(k)) limpo[k] = !!perms[k];
+      }
+    }
+    const jsonStr = JSON.stringify(limpo);
+    const reset = b._reset === true;
+
+    if (usuario && usuario !== 'default') {
+      if (reset) {
+        await query(`DELETE FROM chat_user_permissoes WHERE LOWER(usuario)=LOWER($1)`, [usuario]);
+      } else {
+        await query(
+          `INSERT INTO chat_user_permissoes (usuario, permissoes, atualizado_em)
+           VALUES ($1, $2::jsonb, NOW())
+           ON CONFLICT (usuario) DO UPDATE SET permissoes=EXCLUDED.permissoes, atualizado_em=NOW()`,
+          [usuario, jsonStr]
+        );
+      }
+    } else {
+      await query(
+        `INSERT INTO chat_permissoes_config (chave, valor, atualizado_em)
+         VALUES ('features_user', $1::jsonb, NOW())
+         ON CONFLICT (chave) DO UPDATE SET valor=EXCLUDED.valor, atualizado_em=NOW()`,
+        [jsonStr]
+      );
+    }
+    return { ok: true, escopo: usuario && usuario !== 'default' ? 'user' : 'global', reset };
+  });
+  fastify.post('/webhook/chat-permissoes-save', permissoesSave);
 
   // === chat-stickers-list ===
   const stickersList = async (req, reply) => withDb(reply, async () => {
