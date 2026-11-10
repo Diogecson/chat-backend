@@ -159,25 +159,64 @@ export default async function acoesRoutes(fastify) {
   fastify.post('/webhook/chat-manual-estado-set', manualEstadoSet);
 
   // === chat-retorno-criar ===
+  // Schema varia entre instalacoes: autodetect colunas de data e nota.
+  let _retornosSchema = null;
+  async function detectarSchemaRetornos() {
+    if (_retornosSchema) return _retornosSchema;
+    // Garante tabela
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_retornos_agendados (
+        id SERIAL PRIMARY KEY,
+        codigo TEXT UNIQUE,
+        conta_id TEXT,
+        telefone TEXT,
+        atendente TEXT DEFAULT '',
+        quando TIMESTAMPTZ,
+        observacao TEXT DEFAULT '',
+        status TEXT DEFAULT 'pendente',
+        criado_em TIMESTAMPTZ DEFAULT NOW(),
+        concluido_em TIMESTAMPTZ
+      )
+    `).catch(() => {});
+    // Pega colunas reais
+    const r = await query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='chat_retornos_agendados'
+    `);
+    const cols = new Set(r.rows.map(x => x.column_name));
+    _retornosSchema = {
+      colData: cols.has('agendado_para') ? 'agendado_para' : (cols.has('quando') ? 'quando' : 'agendado_para'),
+      colNota: cols.has('nota') ? 'nota' : (cols.has('observacao') ? 'observacao' : 'nota'),
+      temCodigo: cols.has('codigo'),
+      cols,
+    };
+    // Adiciona codigo se faltar (pra UPDATE/concluir funcionar)
+    if (!_retornosSchema.temCodigo) {
+      await query(`ALTER TABLE chat_retornos_agendados ADD COLUMN IF NOT EXISTS codigo TEXT`).catch(() => {});
+      await query(`UPDATE chat_retornos_agendados SET codigo = id::text WHERE codigo IS NULL`).catch(() => {});
+      _retornosSchema.temCodigo = true;
+    }
+    return _retornosSchema;
+  }
+
   const retornoCriar = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
-    // atendente vem do body OU do usuario logado se nao mandar
     const atendente = String(b.atendente || b.usuario || '').toLowerCase();
-    // Aceita 'quando' (nome que o front usa) OU 'agendado_para' (nome legacy)
     const agendado_para = String(b.quando || b.agendado_para || '').trim();
-    // Aceita 'observacao' (front) OU 'nota' (legacy)
     const nota = String(b.observacao || b.nota || '').substring(0, 500);
     if (!conta_id || !telefone || !agendado_para) {
       return reply.code(400).send({ ok: false, erro: 'conta_id, telefone e quando (data) obrigatórios' });
     }
+    const sch = await detectarSchemaRetornos();
+    const codigo = 'rt_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
     await query(
-      `INSERT INTO chat_retornos_agendados (conta_id, telefone, atendente, agendado_para, nota, status)
-       VALUES ($1,$2,$3,$4::timestamptz,$5,'pendente')`,
-      [conta_id, telefone, atendente, agendado_para, nota]
+      `INSERT INTO chat_retornos_agendados (codigo, conta_id, telefone, atendente, ${sch.colData}, ${sch.colNota}, status)
+       VALUES ($1,$2,$3,$4,$5::timestamptz,$6,'pendente')`,
+      [codigo, conta_id, telefone, atendente, agendado_para, nota]
     );
-    return { ok: true };
+    return { ok: true, codigo };
   });
   fastify.post('/webhook/chat-retorno-criar', retornoCriar);
 

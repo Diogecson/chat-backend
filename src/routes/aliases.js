@@ -141,39 +141,43 @@ export default async function aliasRoutes(fastify) {
   fastify.post('/webhook/chat-respostas-list', respostasList);
 
   // === chat-retorno-list ===
-  // Retorna com nomes que o front espera: codigo, quando, observacao, venceu
+  // Retorna com nomes que o front espera: codigo, quando, observacao, venceu.
+  // Autodetect: tabela pode ter colunas 'quando'/'observacao' OU 'agendado_para'/'nota'.
+  let _retornosCols = null;
+  async function detectarColsRetornos() {
+    if (_retornosCols) return _retornosCols;
+    const r = await query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='chat_retornos_agendados'
+    `).catch(() => ({ rows: [] }));
+    const cols = new Set(r.rows.map(x => x.column_name));
+    _retornosCols = {
+      data: cols.has('quando') ? 'quando' : (cols.has('agendado_para') ? 'agendado_para' : null),
+      nota: cols.has('observacao') ? 'observacao' : (cols.has('nota') ? 'nota' : null),
+      codigo: cols.has('codigo'),
+    };
+    return _retornosCols;
+  }
   const retornoList = async (req, reply) => withDb(reply, async () => {
     const usuario = p(req, 'usuario');
+    const sc = await detectarColsRetornos();
+    if (!sc.data) return { ok: true, retornos: [] };
+    const codExpr = sc.codigo ? `COALESCE(codigo, id::text)` : `id::text`;
+    const notaExpr = sc.nota ? sc.nota : `''`;
     const sql = usuario
-      ? `SELECT
-           COALESCE(codigo, id::text) AS codigo,
-           conta_id, telefone, atendente,
-           agendado_para AS quando,
-           nota AS observacao,
-           (agendado_para < NOW()) AS venceu,
-           status
+      ? `SELECT ${codExpr} AS codigo, conta_id, telefone, atendente,
+               ${sc.data} AS quando, ${notaExpr} AS observacao,
+               (${sc.data} < NOW()) AS venceu, status
          FROM chat_retornos_agendados
          WHERE LOWER(atendente)=LOWER($1) AND status='pendente'
-         ORDER BY agendado_para`
-      : `SELECT
-           COALESCE(codigo, id::text) AS codigo,
-           conta_id, telefone, atendente,
-           agendado_para AS quando,
-           nota AS observacao,
-           (agendado_para < NOW()) AS venceu,
-           status
+         ORDER BY ${sc.data}`
+      : `SELECT ${codExpr} AS codigo, conta_id, telefone, atendente,
+               ${sc.data} AS quando, ${notaExpr} AS observacao,
+               (${sc.data} < NOW()) AS venceu, status
          FROM chat_retornos_agendados
          WHERE status='pendente'
-         ORDER BY agendado_para`;
-    const r = await query(sql, usuario ? [usuario] : []).catch(err => {
-      // Se der erro por falta de coluna 'codigo' (schema antigo), tenta sem ela
-      return query(
-        usuario
-          ? `SELECT id::text AS codigo, conta_id, telefone, atendente, agendado_para AS quando, nota AS observacao, (agendado_para < NOW()) AS venceu, status FROM chat_retornos_agendados WHERE LOWER(atendente)=LOWER($1) AND status='pendente' ORDER BY agendado_para`
-          : `SELECT id::text AS codigo, conta_id, telefone, atendente, agendado_para AS quando, nota AS observacao, (agendado_para < NOW()) AS venceu, status FROM chat_retornos_agendados WHERE status='pendente' ORDER BY agendado_para`,
-        usuario ? [usuario] : []
-      ).catch(() => ({ rows: [] }));
-    });
+         ORDER BY ${sc.data}`;
+    const r = await query(sql, usuario ? [usuario] : []).catch(() => ({ rows: [] }));
     return { ok: true, retornos: r.rows };
   });
   fastify.get('/webhook/chat-retorno-list', retornoList);
