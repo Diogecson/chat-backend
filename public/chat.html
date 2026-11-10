@@ -2967,7 +2967,8 @@ function conversaMatchVisao(c){
   const emTriagem = (typeof triagemDaConversa==='function') ? !!triagemDaConversa(c.conta_id, c.telefone) : false;
   if(VISAO === 'matriculas') return conversaEhMatricula(c);
   if(VISAO === 'ia_ativa') return !finalizada && !!c.ia_ativa;
-  if(VISAO === 'finalizadas') return finalizada;
+  // Finalizadas = finalizada MAS NÃO matrícula (matrícula tem seu próprio filtro)
+  if(VISAO === 'finalizadas') return finalizada && !conversaEhMatricula(c);
   if(VISAO === 'atendimentos') return !finalizada && conversaTemDonoHumano(c);
   if(VISAO === 'triagem') return emTriagem && !finalizada;
   if(VISAO === 'aguardando') return conversaAguardandoConsultor(c);
@@ -3966,7 +3967,9 @@ function renderConversas(filtro){
     const fbTodas   = qs('#fbTodas');   if(fbTodas)   fbTodas.textContent   = c.todas||0;
     const fbAtend   = qs('#fbAtendimentos'); if(fbAtend) fbAtend.textContent = c.atendimentos||0;
     const fbTri     = qs('#fbTriagem'); if(fbTri)     fbTri.textContent     = c.triagem||0;
-    const fbFin     = qs('#fbFinalizadas'); if(fbFin) fbFin.textContent     = c.finalizadas||0;
+    // Finalizadas = total finalizadas MENOS matrículas (matrícula tem card próprio)
+    const finSemMat = Math.max(0, (c.finalizadas||0) - (c.matriculas||0));
+    const fbFin     = qs('#fbFinalizadas'); if(fbFin) fbFin.textContent     = finSemMat;
     const fbMat     = qs('#fbMatriculas'); if(fbMat)  fbMat.textContent     = c.matriculas||0;
     const fbIa      = qs('#fbIaAtiva'); if(fbIa)      fbIa.textContent      = c.ia_ativa||0;
     // Aguardando = fallback local (backend ainda nao envia)
@@ -3980,8 +3983,9 @@ function renderConversas(filtro){
     const naoFinal = conversas.filter(x => !x.finalizada);
     const contMinhas   = naoFinal.filter(x => String(x.dono||'').toLowerCase() === String(USUARIO||'').toLowerCase()).length;
     const contSemDono  = naoFinal.filter(x => !x.dono).length;
-    const contFinal    = conversas.filter(x => x.finalizada).length;
     const contMat      = conversas.filter(conversaEhMatricula).length;
+    // Finalizadas no contador = finalizada MAS NÃO matrícula (matrícula tem card próprio)
+    const contFinal    = conversas.filter(x => x.finalizada && !conversaEhMatricula(x)).length;
     const contAtend    = naoFinal.filter(conversaTemDonoHumano).length;
     const contTri      = (typeof triagemDaConversa==='function')
       ? naoFinal.filter(x => !!triagemDaConversa(x.conta_id, x.telefone)).length : 0;
