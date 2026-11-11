@@ -7596,8 +7596,28 @@ async function concluirRetorno(codigo, status){
 function abrirConversaDoRetorno(conta_id, telefone){
   fecharRetornosDashboard();
   const conv = conversas.find(c => c.conta_id===conta_id && c.telefone===telefone);
-  if(conv){ selecionarConversa(conv); }
-  else toast('Conversa não está na sua lista atual','warn');
+  if(conv){ selecionarConversa(conv); return; }
+  // Nao esta no cache atual: força abrir mudando visão pra 'todas' e procurando
+  // com retry (funil.html usa o mesmo esquema via ?abrir=)
+  const chave = conta_id + '_' + telefone;
+  if(typeof setVisao === 'function') setVisao('todas');
+  let tentativas = 0;
+  const maxT = 15;
+  const iv = setInterval(() => {
+    tentativas++;
+    const c = (conversas||[]).find(x => x.conta_id===conta_id && x.telefone===telefone);
+    if(c){
+      clearInterval(iv);
+      selecionarConversa(c);
+      return;
+    }
+    if(tentativas >= maxT){
+      clearInterval(iv);
+      // Fallback: redireciona pra URL que chat.html sabe processar (?abrir=)
+      const token = (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})();
+      location.href = 'chat.html?token=' + encodeURIComponent(token) + '&abrir=' + encodeURIComponent(chave);
+    }
+  }, 500);
 }
 
 function retornoDaConversa(conta_id, telefone){
