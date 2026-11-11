@@ -255,8 +255,11 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 
   <!-- Lista de campanhas -->
   <div class="card">
-    <div class="card-head">
+    <div class="card-head" style="gap:10px;flex-wrap:wrap">
       <h3 class="card-title"><i class="bi bi-clock-history"></i> Campanhas</h3>
+      <select id="fltContaCamp" onchange="carregarCampanhas()" style="flex:1;min-width:200px;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.85rem;background:#fff">
+        <option value="">Todas as contas</option>
+      </select>
       <button class="btn btn-secondary" onclick="carregarCampanhas()"><i class="bi bi-arrow-clockwise"></i></button>
     </div>
     <div style="max-height:70vh;overflow-y:auto">
@@ -393,6 +396,12 @@ async function carregarContas(){
     }
     sel.innerHTML = '<option value="">— selecione —</option>' +
       contas.map(c => '<option value="'+(c.id||c.codigo)+'">'+escapeHtml(c.nome||c.id||c.codigo)+'</option>').join('');
+    // Popula tambem o filtro de campanhas (lista de Campanhas)
+    const sel2 = qs('#fltContaCamp');
+    if(sel2){
+      sel2.innerHTML = '<option value="">Todas as contas</option>' +
+        contas.map(c => '<option value="'+(c.id||c.codigo)+'">'+escapeHtml(c.nome||c.id||c.codigo)+'</option>').join('');
+    }
   }catch(e){ toast('Erro ao carregar contas: '+e.message,'err'); }
 }
 
@@ -694,16 +703,21 @@ async function carregarCampanhas(){
   const tbody = qs('#tblCampanhas');
   try{
     const perm = await getContasPermitidasDoUsuario();
-    const r = await api(URL_LIST);
+    // Filtro explícito de conta (dropdown "fltContaCamp"); vazio = todas permitidas
+    const contaFiltro = (qs('#fltContaCamp')||{}).value || '';
+    const r = await api(URL_LIST + (contaFiltro ? ('?conta_id=' + encodeURIComponent(contaFiltro)) : ''));
     let camps = r.campanhas || [];
     // Filtra campanhas por contas permitidas (SUPER vê tudo)
     if(perm !== '__all__'){
       camps = camps.filter(c => _isContaPermitidaDisparos(c.conta_id, perm));
     }
     if(!camps.length){
-      tbody.innerHTML = '<tr><td colspan="7" class="empty"><i class="bi bi-inbox"></i>Nenhuma campanha ainda.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="empty"><i class="bi bi-inbox"></i>Nenhuma campanha '+(contaFiltro?'dessa conta.':'ainda.')+'</td></tr>';
       return;
     }
+    // Mapa id->nome pra decorar as linhas
+    const nomeConta = {};
+    for(const c of (contas||[])) nomeConta[c.id||c.codigo] = c.nome || c.id || c.codigo;
     tbody.innerHTML = camps.map(c => {
       const total = Number(c.total_msgs||0);
       const enviadas = Number(c.enviadas||0);
@@ -728,10 +742,12 @@ async function carregarCampanhas(){
       const corMat = matriculas > 0 ? '#16a34a' : '#94a3b8';
       const corPerda = perdas > 0 ? '#dc2626' : '#94a3b8';
       const corConv = Number(convPct) >= 5 ? '#16a34a' : (Number(convPct) >= 1 ? '#c78100' : '#94a3b8');
+      const contaNomeLn = nomeConta[c.conta_id] || c.conta_id || '—';
       return `<tr>
         <td>
           <div style="font-weight:700">${escapeHtml(c.nome||c.codigo)}</div>
           <div style="font-size:.72rem;color:#7b8aa0;margin-top:2px">${escapeHtml(c.template_name)} · ${dt}${pulados>0?` · <span style="color:#c78100;font-weight:600">${pulados} pulados</span>`:''}</div>
+          <div style="font-size:.7rem;color:#2563eb;margin-top:3px;font-weight:600"><i class="bi bi-whatsapp"></i> ${escapeHtml(contaNomeLn)}</div>
         </td>
         <td><span class="pill ${c.status}">${c.status.replace('_',' ')}</span></td>
         <td>
