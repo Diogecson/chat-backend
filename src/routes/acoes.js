@@ -244,18 +244,30 @@ export default async function acoesRoutes(fastify) {
     const whereSql = (id && temId) ? `id = $2` : (temCodigo ? `codigo = $2` : `id = $2`);
     const whereVal = (id && temId) ? id : (codigo || id);
 
-    const setExtra = temConcluidoEm
-      ? `, concluido_em = CASE WHEN $1='concluido' THEN NOW() ELSE concluido_em END`
-      : '';
     const returning = temCodigo ? 'codigo, status' : 'status';
 
-    const r = await query(
-      `UPDATE chat_retornos_agendados
-       SET status=$1${setExtra}
-       WHERE ${whereSql}
-       RETURNING ${returning}`,
-      [novoStatus, whereVal]
-    );
+    // Tenta com concluido_em primeiro; se der erro de coluna, refaz sem
+    async function runUpdate(incluirCol) {
+      const setExtra = incluirCol ? `, concluido_em = CASE WHEN $1='concluido' THEN NOW() ELSE concluido_em END` : '';
+      return query(
+        `UPDATE chat_retornos_agendados
+         SET status=$1${setExtra}
+         WHERE ${whereSql}
+         RETURNING ${returning}`,
+        [novoStatus, whereVal]
+      );
+    }
+    let r;
+    try {
+      r = await runUpdate(temConcluidoEm);
+    } catch (err) {
+      // Qualquer erro relacionado a coluna inexistente: fallback sem
+      if (/does not exist/i.test(err.message || '')) {
+        r = await runUpdate(false);
+      } else {
+        throw err;
+      }
+    }
     if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'retorno não encontrado' });
     return { ok: true, status: r.rows[0].status, codigo: r.rows[0].codigo || codigo };
   });
