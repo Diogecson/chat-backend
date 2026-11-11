@@ -7596,9 +7596,8 @@ async function concluirRetorno(codigo, status){
 function abrirConversaDoRetorno(conta_id, telefone){
   fecharRetornosDashboard();
   const conv = conversas.find(c => c.conta_id===conta_id && c.telefone===telefone);
-  if(conv){ selecionarConversa(conv); return; }
-  // Nao esta no cache atual: força abrir mudando visão pra 'todas' e procurando
-  // com retry (funil.html usa o mesmo esquema via ?abrir=)
+  if(conv){ abrirConversa(conv.id); return; }
+  // Nao esta no cache atual: muda visão pra 'todas' e faz polling
   const chave = conta_id + '_' + telefone;
   if(typeof setVisao === 'function') setVisao('todas');
   let tentativas = 0;
@@ -7608,12 +7607,12 @@ function abrirConversaDoRetorno(conta_id, telefone){
     const c = (conversas||[]).find(x => x.conta_id===conta_id && x.telefone===telefone);
     if(c){
       clearInterval(iv);
-      selecionarConversa(c);
+      abrirConversa(c.id);
       return;
     }
     if(tentativas >= maxT){
       clearInterval(iv);
-      // Fallback: redireciona pra URL que chat.html sabe processar (?abrir=)
+      // Fallback: redireciona com ?abrir= (mesmo handler do funil)
       const token = (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})();
       location.href = 'chat.html?token=' + encodeURIComponent(token) + '&abrir=' + encodeURIComponent(chave);
     }
