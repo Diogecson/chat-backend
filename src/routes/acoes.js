@@ -226,22 +226,38 @@ export default async function acoesRoutes(fastify) {
   // === chat-retorno-concluir ===
   const retornoConcluir = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
-    // Front manda 'codigo' (varchar) e 'status'; legacy manda 'id' (int)
     const codigo = String(b.codigo || '').trim();
     const id = parseInt(b.id) || 0;
     const novoStatus = String(b.status || 'concluido').substring(0, 30);
     if (!codigo && !id) return reply.code(400).send({ ok: false, erro: 'codigo ou id obrigatório' });
-    const whereSql = id ? `id = $2` : `codigo = $2`;
-    const whereVal = id || codigo;
+
+    // Detecta se a tabela tem 'concluido_em' — se nao, so atualiza status
+    const colsR = await query(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name='chat_retornos_agendados'
+    `).catch(() => ({ rows: [] }));
+    const cols = new Set(colsR.rows.map(x => x.column_name));
+    const temConcluidoEm = cols.has('concluido_em');
+    const temId = cols.has('id');
+    const temCodigo = cols.has('codigo');
+
+    const whereSql = (id && temId) ? `id = $2` : (temCodigo ? `codigo = $2` : `id = $2`);
+    const whereVal = (id && temId) ? id : (codigo || id);
+
+    const setExtra = temConcluidoEm
+      ? `, concluido_em = CASE WHEN $1='concluido' THEN NOW() ELSE concluido_em END`
+      : '';
+    const returning = temCodigo ? 'codigo, status' : 'status';
+
     const r = await query(
       `UPDATE chat_retornos_agendados
-       SET status=$1, concluido_em=CASE WHEN $1='concluido' THEN NOW() ELSE concluido_em END
+       SET status=$1${setExtra}
        WHERE ${whereSql}
-       RETURNING codigo, status`,
+       RETURNING ${returning}`,
       [novoStatus, whereVal]
     );
     if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'retorno não encontrado' });
-    return { ok: true, status: r.rows[0].status, codigo: r.rows[0].codigo };
+    return { ok: true, status: r.rows[0].status, codigo: r.rows[0].codigo || codigo };
   });
   fastify.post('/webhook/chat-retorno-concluir', retornoConcluir);
 
