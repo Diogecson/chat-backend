@@ -190,10 +190,13 @@ export default async function acoesRoutes(fastify) {
       temCodigo: cols.has('codigo'),
       cols,
     };
-    // Adiciona codigo se faltar (pra UPDATE/concluir funcionar)
+    // Adiciona codigo se faltar (pra UPDATE/concluir funcionar).
+    // Se tem 'id' (SERIAL), popula codigo = id::text; se nao tem, gera um
     if (!_retornosSchema.temCodigo) {
       await query(`ALTER TABLE chat_retornos_agendados ADD COLUMN IF NOT EXISTS codigo TEXT`).catch(() => {});
-      await query(`UPDATE chat_retornos_agendados SET codigo = id::text WHERE codigo IS NULL`).catch(() => {});
+      if (cols.has('id')) {
+        await query(`UPDATE chat_retornos_agendados SET codigo = id::text WHERE codigo IS NULL`).catch(() => {});
+      }
       _retornosSchema.temCodigo = true;
     }
     return _retornosSchema;

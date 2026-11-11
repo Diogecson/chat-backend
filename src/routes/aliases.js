@@ -162,7 +162,8 @@ export default async function aliasRoutes(fastify) {
     const usuario = p(req, 'usuario');
     const sc = await detectarColsRetornos();
     if (!sc.data) return { ok: true, retornos: [] };
-    const codExpr = sc.codigo ? `COALESCE(codigo, id::text)` : `id::text`;
+    // Usa codigo direto se existir; se nao, tenta id (tabela pode ter um ou outro)
+    const codExpr = sc.codigo ? `codigo` : `id::text`;
     const notaExpr = sc.nota ? sc.nota : `''`;
     const sql = usuario
       ? `SELECT ${codExpr} AS codigo, conta_id, telefone, atendente,
@@ -192,7 +193,10 @@ export default async function aliasRoutes(fastify) {
         WHERE table_name='chat_retornos_agendados' ORDER BY ordinal_position
       `).catch(() => ({ rows: [] }));
       const total = await query(`SELECT COUNT(*)::int AS t FROM chat_retornos_agendados`).catch(() => ({ rows: [{t:0}] }));
-      const ultimos = await query(`SELECT * FROM chat_retornos_agendados ORDER BY id DESC LIMIT 20`).catch(err => ({ rows: [], err: err.message }));
+      // Tenta ordenar por criado_em, se nao existir cai pra codigo
+      const ultimos = await query(`SELECT * FROM chat_retornos_agendados ORDER BY criado_em DESC NULLS LAST LIMIT 20`).catch(() =>
+        query(`SELECT * FROM chat_retornos_agendados ORDER BY codigo DESC LIMIT 20`).catch(err => ({ rows: [], err: err.message }))
+      );
       return { ok: true, schema: cols.rows, total: total.rows[0]?.t, ultimos: ultimos.rows, erro: ultimos.err };
     } catch (err) {
       return { ok: false, erro: err.message };
