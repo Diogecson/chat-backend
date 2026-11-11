@@ -334,13 +334,18 @@ async function carregar(){
       else if(raw.toLowerCase() === '__none__') _MINHAS_CONTAS_PERM = '__none__';
       else _MINHAS_CONTAS_PERM = raw;
     }
-    // ADM (não SUPER): filtra lista pra mostrar só usuários que compartilham ao menos 1 conta
+    // ADM: filtra lista + esconde SUPER do form
     if(_MEU_PAPEL === 'ADM' || _MEU_PAPEL === 'ADMIN'){
       lista = _filtrarAtendentesPorConta(lista, _MINHAS_CONTAS_PERM);
       // Esconde opção SUPER do form (ADM não cria/promove SUPER)
       const optSuper = document.querySelector('#fPapel option[value="SUPER"]');
       if(optSuper) optSuper.style.display = 'none';
       // Esconde contas que o ADM não tem no picker
+      _CONTAS_CACHE = _CONTAS_CACHE.filter(c => _contaEstaNasMinhas(String(c.id), _MINHAS_CONTAS_PERM));
+    }
+    // SUPER: só filtra se contas_permitidas NÃO for '__all__' (SUPER master mantém tudo)
+    else if(_MEU_PAPEL === 'SUPER' && _MINHAS_CONTAS_PERM !== '__all__' && _MINHAS_CONTAS_PERM !== '*'){
+      lista = _filtrarAtendentesPorConta(lista, _MINHAS_CONTAS_PERM);
       _CONTAS_CACHE = _CONTAS_CACHE.filter(c => _contaEstaNasMinhas(String(c.id), _MINHAS_CONTAS_PERM));
     }
     ATENDENTES = lista;
@@ -360,11 +365,16 @@ function _filtrarAtendentesPorConta(lista, minhaPerm){
   if(minhaPerm === '__all__') return lista;
   if(minhaPerm === '__none__') return [];
   const minhasContas = new Set(minhaPerm.split(',').map(s=>s.trim()).filter(Boolean));
+  const souSuper = _MEU_PAPEL === 'SUPER';
   return lista.filter(a => {
-    // SUPER sempre fica oculto na visão de ADM (hierarquia)
-    if(String(a.role||'').toUpperCase() === 'SUPER') return false;
+    // ADM vendo lista: esconde SUPER por hierarquia (ADM não mexe em SUPER)
+    // SUPER vendo lista: mostra todos os papéis (inclusive outros SUPER da sua conta)
+    if(!souSuper && String(a.role||'').toUpperCase() === 'SUPER') return false;
     const p = String(a.contas_permitidas||'*').trim();
-    if(!p || p === '*' || p.toLowerCase() === '__all__') return true;
+    if(!p || p === '*' || p.toLowerCase() === '__all__') {
+      // Usuário sem restrição — só aparece pra quem é SUPER (pra não "vazar" tudo pra ADM)
+      return souSuper;
+    }
     if(p.toLowerCase() === '__none__') return false;
     return p.split(',').map(s=>s.trim()).some(c => minhasContas.has(c));
   });

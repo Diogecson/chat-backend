@@ -156,9 +156,10 @@ document.getElementById('subLabel').textContent = `${nome} · ${papel === 'SUPER
 let linhasBrutas = []; // Array de arrays (primeira linha = header)
 let cabecalhos = [];
 
+const contasPermitidas = localStorage.getItem("chat_contas_permitidas") || "*";
 async function carregarStats(){
   try {
-    const r = await fetch(BASE + '/chat-matriculas-stats');
+    const r = await fetch(BASE + '/chat-matriculas-stats?contas_permitidas=' + encodeURIComponent(contasPermitidas||'__all__'));
     const d = await r.json();
     if(!d.ok) return;
     document.getElementById('statTotal').textContent = d.total_na_base.toLocaleString('pt-BR');

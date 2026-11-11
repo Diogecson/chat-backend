@@ -238,7 +238,7 @@ async function carregarMetricas(){
     const r = await fetch(BASE + '/chat-funil-metricas', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ usuario, role: papel, contas_permitidas: contasPermitidas }),
+      body: JSON.stringify({ usuario, role: papel, papel, contas_permitidas: contasPermitidas }),
     });
     const d = await r.json();
     if(!d || !d.ok) return;
@@ -252,7 +252,7 @@ async function carregarMetricas(){
 
 async function carregarMatriculas(){
   try{
-    const r = await fetch(BASE + '/chat-matriculas-stats');
+    const r = await fetch(BASE + '/chat-matriculas-stats?contas_permitidas=' + encodeURIComponent(contasPermitidas||'__all__'));
     const d = await r.json();
     if(!d || !d.ok) return;
     cacheMatriculas = {};

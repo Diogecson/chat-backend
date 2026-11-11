@@ -151,22 +151,36 @@ export default async function matriculasRoutes(fastify) {
 
   // GET /webhook/chat-matriculas-stats — numero de matriculas por consultor
   // Match: telefone em chat_alunos_matriculados + dono em chat_conversa_dono
+  // Aceita ?contas_permitidas=csv ou __all__ pra isolar por conta
   const stats = async (req, reply) => {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     await garantirTabela();
+    const perm = String(req.query?.contas_permitidas || req.body?.contas_permitidas || '__all__').trim();
+    const filtroConta = (perm && perm !== '__all__' && perm !== '*' && perm !== '__none__');
     try {
       const totalRes = await query(`SELECT COUNT(*)::int AS t FROM chat_alunos_matriculados`);
       const atualRes = await query(`SELECT MAX(atualizado_em) AS ultimo FROM chat_alunos_matriculados`);
-      const consultorRes = await query(`
-        SELECT LOWER(cd.atendente) AS atendente,
-               COUNT(DISTINCT am.telefone)::int AS matriculas
-        FROM chat_alunos_matriculados am
-        INNER JOIN chat_conversa_dono cd ON cd.telefone = am.telefone
-        WHERE cd.atendente <> ''
-          AND cd.atendente NOT IN ('triagem_ia','ia_followup','sistema','')
-        GROUP BY LOWER(cd.atendente)
-        ORDER BY matriculas DESC
-      `);
+      const consultorRes = await query(
+        filtroConta
+          ? `SELECT LOWER(cd.atendente) AS atendente,
+                    COUNT(DISTINCT am.telefone)::int AS matriculas
+             FROM chat_alunos_matriculados am
+             INNER JOIN chat_conversa_dono cd ON cd.telefone = am.telefone
+             WHERE cd.atendente <> ''
+               AND cd.atendente NOT IN ('triagem_ia','ia_followup','sistema','')
+               AND cd.conta_id = ANY(string_to_array($1, ','))
+             GROUP BY LOWER(cd.atendente)
+             ORDER BY matriculas DESC`
+          : `SELECT LOWER(cd.atendente) AS atendente,
+                    COUNT(DISTINCT am.telefone)::int AS matriculas
+             FROM chat_alunos_matriculados am
+             INNER JOIN chat_conversa_dono cd ON cd.telefone = am.telefone
+             WHERE cd.atendente <> ''
+               AND cd.atendente NOT IN ('triagem_ia','ia_followup','sistema','')
+             GROUP BY LOWER(cd.atendente)
+             ORDER BY matriculas DESC`,
+        filtroConta ? [perm] : []
+      );
       return {
         ok: true,
         total_na_base: totalRes.rows[0].t,

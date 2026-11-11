@@ -120,6 +120,7 @@ export default async function funilRoutes(fastify) {
   // ===== Metricas de tempo de resposta por consultor =====
   // Pra cada par (msg_in cliente -> msg_out consultor seguinte) na mesma conversa,
   // calcula o delta. Ignora respostas que demoraram >12h (chat morreu e voltou).
+  // $1 = conta_id filtro ('__all__' ou codigo); $2 = contas_permitidas CSV ('__all__' ou lista)
   const SQL_METRICAS = `
 WITH msgs AS (
   SELECT conta_id, telefone, direcao, LOWER(COALESCE(atendente,'')) AS atendente, timestamp,
@@ -128,6 +129,7 @@ WITH msgs AS (
   FROM chat_mensagens
   WHERE timestamp > NOW() - INTERVAL '7 days'
     AND ($1 = '__all__' OR conta_id = $1)
+    AND ($2 = '__all__' OR $2 = '*' OR conta_id = ANY(string_to_array($2, ',')))
 ),
 respostas AS (
   SELECT atendente,
@@ -151,8 +153,9 @@ ORDER BY media_min ASC NULLS LAST
   async function metricasHandle(req, reply) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     const conta = forceConta(p(req, 'conta_id'));
+    const perm = forceContasPermitidas(p(req, 'contas_permitidas', '__all__'));
     try {
-      const r = await query(SQL_METRICAS, [conta]);
+      const r = await query(SQL_METRICAS, [conta, perm]);
       return {
         ok: true,
         janela_dias: 7,
