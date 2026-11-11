@@ -211,13 +211,7 @@ export default async function aliasRoutes(fastify) {
   fastify.get('/webhook/chat-triagem-ativas', triagemAtivas);
   fastify.post('/webhook/chat-triagem-ativas', triagemAtivas);
 
-  // === chat-triagem-config-list ===
-  const triagemConfigList = async (req, reply) => withDb(reply, async () => {
-    const r = await query(`SELECT * FROM chat_triagem_config ORDER BY codigo`).catch(() => ({ rows: [] }));
-    return { ok: true, configs: r.rows };
-  });
-  fastify.get('/webhook/chat-triagem-config-list', triagemConfigList);
-  fastify.post('/webhook/chat-triagem-config-list', triagemConfigList);
+  // chat-triagem-config-list migrado pra src/routes/triagem.js
 
   // === chat-manual-nos-list ===
   const manualNosList = async (req, reply) => withDb(reply, async () => {
