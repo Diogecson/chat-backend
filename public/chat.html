@@ -4603,6 +4603,25 @@ async function carregarMensagens(){
       ultimoRenderCount = mensagens.length;
       // Atualiza cache com msgs novas (últimas 200 pra não estourar memória)
       if(window.__MSGS_CACHE) window.__MSGS_CACHE.set(requisicaoParaId, mensagens.slice(-200));
+      // === REABRE A JANELA 24h SE CHEGOU MSG DO CLIENTE ===
+      // Se alguma adicionada é 'in' e eh a mais recente, janela_expira = ts + 24h
+      try{
+        const ultimaIn = adicionadas.filter(m => m.direcao === 'in')
+          .reduce((max, m) => (!max || new Date(m.timestamp) > new Date(max.timestamp)) ? m : max, null);
+        if(ultimaIn && conversaAtiva && conversaAtiva.id === requisicaoParaId){
+          const novaExp = new Date(new Date(ultimaIn.timestamp).getTime() + 24*60*60*1000);
+          const atualExp = conversaAtiva.janela_expira ? new Date(conversaAtiva.janela_expira) : null;
+          if(!atualExp || novaExp > atualExp){
+            conversaAtiva.janela_expira = novaExp.toISOString();
+            // Atualiza o pill no header + esconde o alert "Fora da janela 24h"
+            const tipo = (contas.find(x => x.id === conversaAtiva.conta_id) || {}).tipo || 'evolution';
+            if(typeof atualizarJanela === 'function') atualizarJanela(conversaAtiva, tipo);
+            // Reflete na lista lateral tambem
+            const cv = conversas.find(c => c.id === conversaAtiva.id);
+            if(cv){ cv.janela_expira = conversaAtiva.janela_expira; cv.ultima_direcao = 'in'; }
+          }
+        }
+      }catch(_){}
     } else if(mudouStatus){
       // Só refresha o ícone de status das outbound; sem re-render pesado
       atualizarStatusOutbound();
