@@ -1031,7 +1031,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <a href="#" id="railAtendentes" onclick="event.preventDefault();abrirAtendentes()" title="Gerenciar atendentes (ADM vê só da conta)" data-admin><i class="bi bi-people-fill"></i></a>
       <a href="#" id="railFila" onclick="event.preventDefault();abrirFila()" title="Fila de distribuição" data-admin><i class="bi bi-shuffle"></i></a>
       <a href="#" id="railMotivos" onclick="event.preventDefault();abrirMotivos()" title="Motivos de fechamento" data-admin><i class="bi bi-tags-fill"></i></a>
-      <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-admin><i class="bi bi-eraser-fill"></i></a>
+      <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-admin data-feat="finalizar_antigas"><i class="bi bi-eraser-fill"></i></a>
       <a href="#" id="railAdminLink" onclick="event.preventDefault();abrirAdminLink()" title="Empurrar atualização (só SUPER)" data-super><i class="bi bi-megaphone-fill"></i></a>
       <a href="#" id="railPermissoes" onclick="event.preventDefault();abrirPermissoes()" title="Permissões (só SUPER)" data-super><i class="bi bi-toggle-on"></i></a>
       <a href="#" id="railContas" onclick="event.preventDefault();abrirContas()" title="Gerenciar contas / números WhatsApp" data-admin><i class="bi bi-gear-fill"></i></a>
@@ -1059,12 +1059,12 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <div class="dist-actions">
         <button class="dist-btn-sel" onclick="distSelecionarTodasVisiveis()"><i class="bi bi-check2-square"></i> Todas visíveis</button>
         <button class="dist-btn-clear" onclick="distLimparSel()"><i class="bi bi-x-circle"></i> Limpar</button>
-        <button class="dist-btn-go" onclick="abrirDistModal()" data-admin><i class="bi bi-diagram-3"></i> Distribuir</button>
-        <button class="dist-btn-go" onclick="abrirDistEnviarModal()" style="background:#f59e0b;color:#fff"><i class="bi bi-send-fill"></i> Enviar msg</button>
-        <button class="dist-btn-go" onclick="abrirFinalizarMassaModal()" style="background:#dc2626;color:#fff" data-admin><i class="bi bi-check2-circle"></i> Finalizar</button>
-        <button class="dist-btn-go" onclick="abrirFecharMassaHS()" style="background:#ff7a59;color:#fff" data-admin title="Fecha deals no HubSpot como perdidos + finaliza chats"><i class="bi bi-bullseye"></i> Fechar HubSpot</button>
-        <button class="dist-btn-go" onclick="abrirEtiquetarMassa()" style="background:#7c3aed;color:#fff" title="Adiciona etiqueta em N conversas"><i class="bi bi-tag-fill"></i> Etiquetar</button>
-        <button class="dist-btn-go" onclick="executarEncerrarTriagemMassa()" style="background:#0891b2;color:#fff" data-admin title="Encerra triagem IA das conversas selecionadas"><i class="bi bi-funnel"></i> Encerrar Triagem</button>
+        <button class="dist-btn-go" onclick="abrirDistModal()" data-admin data-feat="mass_distribuir"><i class="bi bi-diagram-3"></i> Distribuir</button>
+        <button class="dist-btn-go" onclick="abrirDistEnviarModal()" style="background:#f59e0b;color:#fff" data-feat="mass_enviar"><i class="bi bi-send-fill"></i> Enviar msg</button>
+        <button class="dist-btn-go" onclick="abrirFinalizarMassaModal()" style="background:#dc2626;color:#fff" data-admin data-feat="mass_finalizar"><i class="bi bi-check2-circle"></i> Finalizar</button>
+        <button class="dist-btn-go" onclick="abrirFecharMassaHS()" style="background:#ff7a59;color:#fff" data-admin data-feat="mass_hubspot" title="Fecha deals no HubSpot como perdidos + finaliza chats"><i class="bi bi-bullseye"></i> Fechar HubSpot</button>
+        <button class="dist-btn-go" onclick="abrirEtiquetarMassa()" style="background:#7c3aed;color:#fff" data-feat="mass_etiqueta" title="Adiciona etiqueta em N conversas"><i class="bi bi-tag-fill"></i> Etiquetar</button>
+        <button class="dist-btn-go" onclick="executarEncerrarTriagemMassa()" style="background:#0891b2;color:#fff" data-admin data-feat="mass_encerrar_triagem" title="Encerra triagem IA das conversas selecionadas"><i class="bi bi-funnel"></i> Encerrar Triagem</button>
       </div>
     </div>
     <div class="sb-filtros-wrap" id="sbFiltrosWrap">

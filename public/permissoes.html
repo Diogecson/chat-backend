@@ -170,8 +170,16 @@ const FEATURES = [
   { key:'consulta',     label:'Consultar Contato',   desc:'Ver se um telefone já tem chat aberto',  icon:'bi-search' },
   // --- SIDEBAR DE CONVERSAS (botões no header) ---
   { key:'novo_contato', label:'Novo Contato',        desc:'Criar contato novo e mandar primeiro template', icon:'bi-person-plus-fill' },
-  { key:'mass_dist',    label:'Distribuição em Massa',desc:'Selecionar várias conversas e distribuir/enviar/finalizar', icon:'bi-diagram-3' },
+  { key:'mass_dist',    label:'Modo Seleção em Massa',desc:'Ativar/desativar o modo de selecionar várias conversas', icon:'bi-diagram-3' },
   { key:'status_fila',  label:'Status ONLINE/OFFLINE',desc:'Botão rápido no header pra entrar/sair da fila',  icon:'bi-circle-fill' },
+  // --- AÇÕES EM MASSA (barra que aparece ao selecionar conversas) ---
+  { key:'mass_distribuir',       label:'Massa: Distribuir',        desc:'Atribuir várias conversas pra consultores de uma vez', icon:'bi-diagram-3' },
+  { key:'mass_enviar',           label:'Massa: Enviar mensagem',   desc:'Enviar texto/template pra várias conversas',           icon:'bi-send-fill' },
+  { key:'mass_finalizar',        label:'Massa: Finalizar',         desc:'Finalizar várias conversas com motivo',                icon:'bi-check2-circle' },
+  { key:'mass_hubspot',          label:'Massa: Fechar HubSpot',    desc:'Fechar deals perdidos no HubSpot + finalizar chats',   icon:'bi-bullseye' },
+  { key:'mass_etiqueta',         label:'Massa: Etiquetar',         desc:'Adicionar uma etiqueta em várias conversas',           icon:'bi-tag-fill' },
+  { key:'mass_encerrar_triagem', label:'Massa: Encerrar Triagem',  desc:'Desativar triagem IA de várias conversas',             icon:'bi-funnel' },
+  { key:'finalizar_antigas',     label:'Finalizar conversas antigas', desc:'Limpeza em massa por data (ex: tudo do mês passado pra trás)', icon:'bi-eraser-fill' },
   // --- GESTÃO / ADMIN ---
   { key:'contas',       label:'Gestão de Contas',    desc:'Configurar Meta/Evolution',              icon:'bi-gear-fill' },
 ];
