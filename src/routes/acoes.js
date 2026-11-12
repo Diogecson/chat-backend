@@ -520,6 +520,104 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-fila-proximo', filaProximo);
 
+  // === chat-finalizar-antigas-preview ===
+  // Body: { antes_de: 'YYYY-MM-DD' }  -> conta quantas seriam finalizadas
+  // Conversas "antigas" = cuja ULTIMA msg (direcao qualquer) eh ANTES de antes_de 00:00 BRT
+  // Ignora conversas ja finalizadas.
+  const SQL_ANTIGAS_COUNT = `
+    WITH ult AS (
+      SELECT conta_id, telefone, MAX(timestamp) AS ultima
+      FROM chat_mensagens
+      GROUP BY conta_id, telefone
+    )
+    SELECT COUNT(*)::int AS total
+    FROM ult u
+    LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+    WHERE u.ultima < ($1::date AT TIME ZONE 'America/Sao_Paulo')
+      AND COALESCE(cd.finalizada, false) = false
+  `;
+  const previewAntigas = async (req, reply) => withDb(reply, async () => {
+    const antes_de = String((req.body || {}).antes_de || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(antes_de)) {
+      return reply.code(400).send({ ok: false, erro: 'antes_de deve ser YYYY-MM-DD' });
+    }
+    const r = await query(SQL_ANTIGAS_COUNT, [antes_de]);
+    return { ok: true, total: r.rows[0]?.total || 0, antes_de };
+  });
+  fastify.post('/webhook/chat-finalizar-antigas-preview', previewAntigas);
+
+  // === chat-finalizar-antigas ===
+  // Body: { antes_de: 'YYYY-MM-DD', motivo?: '', usuario?: '' }
+  // UPDATE em massa: marca finalizada=true, grava motivo_fechamento, finalizada_em=NOW().
+  // Faz INSERT em chat_conversa_dono pras que ainda nao tem linha.
+  // Registra 1 evento por conversa pra auditoria.
+  const finalizarAntigas = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    const antes_de = String(b.antes_de || '').trim();
+    const motivo = String(b.motivo || '').substring(0, 80);
+    const usuario = String(b.usuario || 'admin').substring(0, 80);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(antes_de)) {
+      return reply.code(400).send({ ok: false, erro: 'antes_de deve ser YYYY-MM-DD' });
+    }
+    // 1. Levanta quais conversas serao afetadas (pra INSERT e evento)
+    const alvos = await query(
+      `WITH ult AS (
+         SELECT conta_id, telefone, MAX(timestamp) AS ultima
+         FROM chat_mensagens
+         GROUP BY conta_id, telefone
+       )
+       SELECT u.conta_id, u.telefone, (cd.conta_id IS NULL) AS novo
+       FROM ult u
+       LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+       WHERE u.ultima < ($1::date AT TIME ZONE 'America/Sao_Paulo')
+         AND COALESCE(cd.finalizada, false) = false`,
+      [antes_de]
+    );
+    if (!alvos.rows.length) return { ok: true, finalizadas: 0, antes_de };
+
+    // 2. INSERT pras conversas sem linha em chat_conversa_dono
+    const sem_dono = alvos.rows.filter(r => r.novo);
+    for (const s of sem_dono) {
+      await query(
+        `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, atribuido_em, atribuido_por, finalizada, motivo_fechamento, finalizada_em)
+         VALUES ($1,$2,'',NOW(),$3,true,$4,NOW())
+         ON CONFLICT (conta_id, telefone) DO NOTHING`,
+        [s.conta_id, s.telefone, 'finalizacao_antigas:' + usuario, motivo]
+      ).catch(() => {});
+    }
+
+    // 3. UPDATE em massa
+    const upd = await query(
+      `UPDATE chat_conversa_dono cd
+       SET finalizada=true,
+           motivo_fechamento=$2,
+           finalizada_em=NOW()
+       FROM (
+         SELECT conta_id, telefone, MAX(timestamp) AS ultima
+         FROM chat_mensagens GROUP BY conta_id, telefone
+       ) u
+       WHERE cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+         AND u.ultima < ($1::date AT TIME ZONE 'America/Sao_Paulo')
+         AND COALESCE(cd.finalizada, false) = false`,
+      [antes_de, motivo]
+    );
+
+    // 4. Grava 1 evento por conversa (silencioso se tabela nao existir)
+    const texto = `Finalizada em massa (última msg antes de ${antes_de})`;
+    for (const a of alvos.rows) {
+      try {
+        await query(
+          `INSERT INTO chat_conversa_eventos (conta_id, telefone, tipo, ator, alvo, motivo, texto, criado_em)
+           VALUES ($1,$2,'finalizacao',$3,'',$4,$5,NOW())`,
+          [a.conta_id, a.telefone, usuario, motivo, texto]
+        );
+      } catch (_) { }
+    }
+
+    return { ok: true, finalizadas: upd.rowCount || alvos.rows.length, antes_de, motivo };
+  });
+  fastify.post('/webhook/chat-finalizar-antigas', finalizarAntigas);
+
   // === chat-atendente-delete ===
   // Remove um atendente (respostas rapidas e historico ficam, via FK ou nao)
   const atendenteDelete = async (req, reply) => withDb(reply, async () => {

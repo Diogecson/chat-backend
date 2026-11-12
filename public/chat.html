@@ -1031,6 +1031,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <a href="#" id="railAtendentes" onclick="event.preventDefault();abrirAtendentes()" title="Gerenciar atendentes (ADM vê só da conta)" data-admin><i class="bi bi-people-fill"></i></a>
       <a href="#" id="railFila" onclick="event.preventDefault();abrirFila()" title="Fila de distribuição" data-admin><i class="bi bi-shuffle"></i></a>
       <a href="#" id="railMotivos" onclick="event.preventDefault();abrirMotivos()" title="Motivos de fechamento" data-admin><i class="bi bi-tags-fill"></i></a>
+      <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-admin><i class="bi bi-eraser-fill"></i></a>
       <a href="#" id="railAdminLink" onclick="event.preventDefault();abrirAdminLink()" title="Empurrar atualização (só SUPER)" data-super><i class="bi bi-megaphone-fill"></i></a>
       <a href="#" id="railPermissoes" onclick="event.preventDefault();abrirPermissoes()" title="Permissões (só SUPER)" data-super><i class="bi bi-toggle-on"></i></a>
       <a href="#" id="railContas" onclick="event.preventDefault();abrirContas()" title="Gerenciar contas / números WhatsApp" data-admin><i class="bi bi-gear-fill"></i></a>
@@ -1464,6 +1465,40 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
     </div>
     <div class="dm-foot">
       <button class="dm-btn-cancel" onclick="fecharFinalizarMassa()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FINALIZAR ANTIGAS (limpeza em massa por data) -->
+<div class="dm-back" id="faBack" onclick="if(event.target===this)fecharFinalizarAntigas()">
+  <div class="dm-modal" style="max-width:520px">
+    <div class="dm-head" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:#fff">
+      <h3><i class="bi bi-eraser-fill"></i> Finalizar conversas antigas</h3>
+      <button class="dm-close" onclick="fecharFinalizarAntigas()" style="color:#fff"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="dm-body">
+      <div style="margin-bottom:12px;color:#5b6b83;font-size:13px">
+        Finaliza em massa toda conversa cuja <b>última mensagem</b> é anterior à data escolhida.<br>
+        Pula conversas já finalizadas.
+      </div>
+      <label style="display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px">Data limite (finaliza tudo ANTES de):</label>
+      <input type="date" id="faData" onchange="faPreview()" style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:12px">
+
+      <label style="display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px">Motivo de fechamento (opcional):</label>
+      <select id="faMotivo" style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:12px">
+        <option value="">— Sem motivo —</option>
+      </select>
+
+      <div id="faPreview" style="padding:12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;font-size:14px;color:#991b1b;text-align:center">
+        <i class="bi bi-info-circle"></i> Escolha uma data pra ver quantas conversas serão finalizadas
+      </div>
+      <div id="faProgress" style="display:none;margin-top:12px;padding:10px;background:#f3f4f6;border-radius:6px;font-size:13px;text-align:center"></div>
+    </div>
+    <div class="dm-foot">
+      <button class="dm-btn-cancel" onclick="fecharFinalizarAntigas()">Cancelar</button>
+      <button id="faExecutar" onclick="faExecutar()" disabled style="background:#dc2626;color:#fff;border:0;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;opacity:.5">
+        <i class="bi bi-check2-circle"></i> Finalizar
+      </button>
     </div>
   </div>
 </div>
@@ -3791,6 +3826,89 @@ async function executarFinalizarMassa(motivo){
   document.getElementById('btnDistToggle').classList.remove('on');
   document.getElementById('distBar').style.display = 'none';
   await carregarConversas();
+}
+
+/* ===== FINALIZAR ANTIGAS (limpeza em massa por data) ===== */
+let __FA_TOTAL = 0;
+async function abrirFinalizarAntigas(){
+  // Default: primeiro dia do mês atual (finaliza tudo do mês passado pra trás)
+  const hoje = new Date();
+  const primeiroDoMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+  const yyyy = primeiroDoMes.getFullYear();
+  const mm = String(primeiroDoMes.getMonth()+1).padStart(2,'0');
+  const dd = String(primeiroDoMes.getDate()).padStart(2,'0');
+  document.getElementById('faData').value = `${yyyy}-${mm}-${dd}`;
+  // Popula motivos
+  if(!MOTIVOS_CACHE.length) await carregarMotivos();
+  const sel = document.getElementById('faMotivo');
+  sel.innerHTML = '<option value="">— Sem motivo —</option>' + (MOTIVOS_CACHE||[]).map(m =>
+    `<option value="${escapeAttr(m.codigo)}">${escapeHtml(m.nome)}</option>`
+  ).join('');
+  document.getElementById('faProgress').style.display = 'none';
+  document.getElementById('faBack').classList.add('on');
+  faPreview();
+}
+function fecharFinalizarAntigas(){
+  document.getElementById('faBack').classList.remove('on');
+}
+async function faPreview(){
+  const data = document.getElementById('faData').value;
+  const box = document.getElementById('faPreview');
+  const btn = document.getElementById('faExecutar');
+  __FA_TOTAL = 0;
+  btn.disabled = true; btn.style.opacity = '.5';
+  if(!data){
+    box.innerHTML = '<i class="bi bi-info-circle"></i> Escolha uma data pra ver quantas conversas serão finalizadas';
+    return;
+  }
+  box.innerHTML = '<i class="bi bi-hourglass-split"></i> Contando...';
+  try {
+    const r = await safeFetchJson(BASE + '/chat-finalizar-antigas-preview', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({ antes_de: data })
+    });
+    if(!r || !r.ok){ box.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Erro: ' + (r?.erro || 'desconhecido'); return; }
+    __FA_TOTAL = r.total|0;
+    const [y,m,d] = data.split('-');
+    const dataFmt = `${d}/${m}/${y}`;
+    if(__FA_TOTAL === 0){
+      box.innerHTML = `<i class="bi bi-check-circle" style="color:#16a34a"></i> Nenhuma conversa pendente anterior a <b>${dataFmt}</b>`;
+    } else {
+      box.innerHTML = `<i class="bi bi-exclamation-triangle-fill"></i> <b>${__FA_TOTAL}</b> conversa${__FA_TOTAL===1?'':'s'} ser${__FA_TOTAL===1?'á':'ão'} finalizada${__FA_TOTAL===1?'':'s'} (última msg antes de <b>${dataFmt}</b>)`;
+      btn.disabled = false; btn.style.opacity = '1';
+    }
+  } catch(e){ box.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Erro: ' + e.message; }
+}
+async function faExecutar(){
+  const data = document.getElementById('faData').value;
+  const motivo = document.getElementById('faMotivo').value;
+  if(!data || !__FA_TOTAL) return;
+  const motNome = motivo ? ((MOTIVOS_CACHE||[]).find(m=>m.codigo===motivo)||{}).nome || motivo : '(sem motivo)';
+  if(!confirm(`Finalizar ${__FA_TOTAL} conversas com motivo "${motNome}"?\n\nEssa ação não pode ser desfeita em massa.`)) return;
+  const btn = document.getElementById('faExecutar');
+  btn.disabled = true; btn.style.opacity = '.5';
+  const prog = document.getElementById('faProgress');
+  prog.style.display = 'block';
+  prog.innerHTML = '<i class="bi bi-hourglass-split"></i> Finalizando...';
+  try {
+    const r = await safeFetchJson(BASE + '/chat-finalizar-antigas', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({ antes_de: data, motivo, usuario: USUARIO })
+    });
+    if(!r || !r.ok){
+      prog.innerHTML = '<i class="bi bi-exclamation-triangle" style="color:#dc2626"></i> Erro: ' + (r?.erro || 'desconhecido');
+      btn.disabled = false; btn.style.opacity = '1';
+      return;
+    }
+    prog.innerHTML = `<i class="bi bi-check-circle" style="color:#16a34a"></i> <b>${r.finalizadas}</b> conversas finalizadas`;
+    toast(`${r.finalizadas} conversas finalizadas`, '');
+    setTimeout(() => { fecharFinalizarAntigas(); carregarConversas(); }, 1500);
+  } catch(e){
+    prog.innerHTML = '<i class="bi bi-exclamation-triangle" style="color:#dc2626"></i> Erro: ' + e.message;
+    btn.disabled = false; btn.style.opacity = '1';
+  }
 }
 
 /* ===== ENCERRAR TRIAGEM EM MASSA ===== */
