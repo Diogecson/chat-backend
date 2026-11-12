@@ -142,4 +142,140 @@ export default async function triagemRoutes(fastify) {
       return { ok: false, erro: err.message };
     }
   });
+
+  // GET /webhook/chat-triagem-config — retorna {ok, config, passos}
+  // Pega a triagem por codigo (query), ou a ativa, ou 'default'.
+  const triagemGet = async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const codigoReq = String(p(req, 'codigo', '')).trim();
+    try {
+      const cfgRes = await query(
+        `SELECT codigo, nome, ativa, ativa_auto, ativa_por_palavra_chave, palavras_chave, contas_ids,
+                mensagem_inicial, mensagem_final, max_tentativas, atualizado_em
+         FROM chat_triagem_config
+         WHERE codigo = COALESCE(NULLIF($1, ''), (SELECT codigo FROM chat_triagem_config WHERE ativa=true LIMIT 1), 'default')
+         LIMIT 1`,
+        [codigoReq]
+      );
+      const config = cfgRes.rows[0] || {};
+      let passos = [];
+      if (config.codigo) {
+        const passosRes = await query(
+          `SELECT codigo, ordem, campo, mensagem, validacao_prompt, ativo, criado_em,
+                  COALESCE(tipo_resposta,'text') AS tipo_resposta,
+                  COALESCE(opcoes,'[]'::jsonb) AS opcoes,
+                  COALESCE(fallback_codigo,'') AS fallback_codigo
+           FROM chat_triagem_passos
+           WHERE ativo=true AND triagem_codigo = $1
+           ORDER BY ordem ASC`,
+          [config.codigo]
+        );
+        passos = passosRes.rows;
+      }
+      return { ok: true, config, passos };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  };
+  fastify.get('/webhook/chat-triagem-config', triagemGet);
+  fastify.post('/webhook/chat-triagem-config', triagemGet);
+
+  // POST /webhook/chat-triagem-config-save — grava a configuração global da triagem
+  fastify.post('/webhook/chat-triagem-config-save', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const codigo = String(b.codigo || 'default').trim();
+    const ativa_auto = !!b.ativa_auto;
+    const ativa_por_palavra_chave = !!b.ativa_por_palavra_chave;
+    const palavras_chave = Array.isArray(b.palavras_chave)
+      ? b.palavras_chave.map(x => String(x || '').trim().substring(0, 60)).filter(Boolean).slice(0, 50)
+      : [];
+    const contas_ids = Array.isArray(b.contas_ids)
+      ? b.contas_ids.map(x => String(x || '').trim()).filter(Boolean)
+      : [];
+    const mensagem_inicial = String(b.mensagem_inicial || '').substring(0, 2000);
+    const mensagem_final = String(b.mensagem_final || '').substring(0, 2000);
+    const max_tentativas = Math.max(1, Math.min(5, Number(b.max_tentativas || 2)));
+    try {
+      const r = await query(
+        `UPDATE chat_triagem_config
+         SET ativa_auto=$2, ativa_por_palavra_chave=$3, palavras_chave=$4, contas_ids=$5,
+             mensagem_inicial=$6, mensagem_final=$7, max_tentativas=$8, atualizado_em=NOW()
+         WHERE codigo=$1 RETURNING codigo`,
+        [codigo, ativa_auto, ativa_por_palavra_chave, palavras_chave, contas_ids,
+         mensagem_inicial, mensagem_final, max_tentativas]
+      );
+      if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'triagem nao encontrada: ' + codigo });
+      return { ok: true };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // POST /webhook/chat-triagem-passo-save — insert/update de um passo
+  fastify.post('/webhook/chat-triagem-passo-save', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const codigo = String(b.codigo || ('passo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6))).trim();
+    const triagem_codigo = String(b.triagem_codigo || 'default').trim();
+    const ordem = Math.max(1, Math.min(999, Number(b.ordem || 1)));
+    const campo = String(b.campo || '').substring(0, 60).trim();
+    const mensagem = String(b.mensagem || '').substring(0, 2000).trim();
+    const validacao_prompt = String(b.validacao_prompt || '').substring(0, 2000).trim();
+    const tipoIn = String(b.tipo_resposta || 'text').trim().toLowerCase();
+    const tipo_resposta = ['text', 'buttons', 'list'].includes(tipoIn) ? tipoIn : 'text';
+    let opcoes = Array.isArray(b.opcoes) ? b.opcoes : [];
+    if (typeof b.opcoes === 'string') {
+      try { const parsed = JSON.parse(b.opcoes); if (Array.isArray(parsed)) opcoes = parsed; } catch (_) { }
+    }
+    opcoes = opcoes
+      .filter(o => o && (o.titulo || o.id))
+      .map(o => ({
+        id: String(o.id || '').substring(0, 50).trim(),
+        titulo: String(o.titulo || '').substring(0, 50).trim(),
+        proximo_codigo: String(o.proximo_codigo || '').substring(0, 80).trim(),
+        etiqueta: String(o.etiqueta || '').substring(0, 50).trim(),
+      }))
+      .slice(0, 10);
+    const fallback_codigo = String(b.fallback_codigo || '').substring(0, 80).trim();
+    if (!mensagem) return reply.code(400).send({ ok: false, erro: 'mensagem obrigatoria' });
+    try {
+      const r = await query(
+        `INSERT INTO chat_triagem_passos
+           (codigo, triagem_codigo, ordem, campo, mensagem, validacao_prompt,
+            tipo_resposta, opcoes, fallback_codigo, ativo)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,true)
+         ON CONFLICT (codigo) DO UPDATE SET
+           triagem_codigo=EXCLUDED.triagem_codigo, ordem=EXCLUDED.ordem,
+           campo=EXCLUDED.campo, mensagem=EXCLUDED.mensagem,
+           validacao_prompt=EXCLUDED.validacao_prompt,
+           tipo_resposta=EXCLUDED.tipo_resposta, opcoes=EXCLUDED.opcoes,
+           fallback_codigo=EXCLUDED.fallback_codigo, ativo=true, atualizado_em=NOW()
+         RETURNING codigo, ordem`,
+        [codigo, triagem_codigo, ordem, campo, mensagem, validacao_prompt,
+         tipo_resposta, JSON.stringify(opcoes), fallback_codigo]
+      );
+      if (!r.rows.length) return reply.code(500).send({ ok: false, erro: 'upsert vazio' });
+      return { ok: true, codigo: r.rows[0].codigo, ordem: r.rows[0].ordem };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // POST /webhook/chat-triagem-passo-delete — hard delete
+  fastify.post('/webhook/chat-triagem-passo-delete', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const codigo = String(p(req, 'codigo', '')).trim();
+    if (!codigo) return reply.code(400).send({ ok: false, erro: 'codigo obrigatorio' });
+    try {
+      await query(`DELETE FROM chat_triagem_passos WHERE codigo=$1`, [codigo]);
+      return { ok: true };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
 }

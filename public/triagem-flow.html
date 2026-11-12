@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniFECAF · Editor de Fluxo · Triagem</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%237c3aed'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='15' font-weight='bold'>UF</text></svg>">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--purple:#7c3aed;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;--meta:#1877f2}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;overflow:hidden}
+body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);display:flex;flex-direction:column}
+
+/* ====== TOPBAR ====== */
+.topbar{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:10px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;box-shadow:0 2px 10px rgba(0,40,85,.2);flex-shrink:0;z-index:5}
+.tb-brand{display:flex;align-items:center;gap:10px}
+.tb-mark{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--purple),#9060ff);display:grid;place-items:center;font-size:18px}
+.tb-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:.98rem;line-height:1}
+.tb-sub{font-size:.65rem;letter-spacing:2px;text-transform:uppercase;opacity:.75;font-weight:600;margin-top:2px}
+.tb-divider{width:1px;height:28px;background:rgba(255,255,255,.2)}
+.tb-sel{display:flex;align-items:center;gap:8px;flex:1;min-width:260px}
+.tb-sel label{font-size:.72rem;opacity:.8;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.tb-sel select{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 12px;font-size:.85rem;font-weight:600;cursor:pointer;min-width:220px;max-width:360px;outline:none;font-family:inherit}
+.tb-sel select option{color:#0f1b2d;background:#fff}
+.tb-badge{padding:3px 10px;background:#dcfce7;color:#16a34a;border-radius:12px;font-size:.68rem;font-weight:800;letter-spacing:.3px}
+.tb-actions{display:flex;gap:6px;align-items:center}
+.tb-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 12px;border-radius:8px;font-weight:600;font-size:.78rem;cursor:pointer;display:inline-flex;align-items:center;gap:5px;font-family:inherit;text-decoration:none;transition:.15s}
+.tb-btn:hover{background:rgba(255,255,255,.22)}
+.tb-btn.primary{background:#16a34a;border-color:#16a34a}
+.tb-btn.primary:hover{background:#15803d}
+.tb-btn.purple{background:var(--purple);border-color:var(--purple)}
+.tb-btn.purple:hover{background:#6d28d9}
+.tb-btn.danger{background:rgba(220,38,38,.9);border-color:#dc2626}
+.tb-btn.danger:hover{background:#b91c1c}
+
+/* ====== CANVAS FULL ====== */
+.canvas{flex:1;background:#f3f4f8;overflow:auto;position:relative;background-image:radial-gradient(#d1d5e0 1px, transparent 1px);background-size:22px 22px}
+.canvas-inner{position:relative;display:inline-flex;align-items:center;gap:90px;padding:80px 60px;min-width:100%;min-height:100%}
+.node{position:relative;flex-shrink:0;width:260px;background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(15,27,45,.08);border:1.5px solid #e4e7ef;overflow:hidden;cursor:pointer;transition:.15s;z-index:2}
+.node:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(103,60,255,.2);border-color:#c7b5ff}
+.node-head{padding:9px 14px;display:flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:.72rem;letter-spacing:.3px;text-transform:uppercase}
+.node-head i{font-size:.95rem}
+.node-head.start{background:linear-gradient(135deg,#10b981,#059669)}
+.node-head.end{background:linear-gradient(135deg,#f43f5e,#be123c)}
+.node-head.step-text{background:linear-gradient(135deg,#6366f1,#4f46e5)}
+.node-head.step-buttons{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.node-head.step-list{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.node-body{padding:12px 14px}
+.node-field{display:inline-block;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:700;margin-bottom:6px;text-transform:lowercase}
+.node-msg{font-size:.82rem;color:#1a2438;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;min-height:3.2em}
+.node-opts{margin-top:10px;padding-top:10px;border-top:1px dashed #e4e7ef;display:flex;flex-direction:column;gap:4px;font-size:.7rem;color:#64748b}
+.node-opts .op{background:#fef3c7;color:#78350f;padding:1px 7px;border-radius:4px;font-weight:700;margin-right:5px}
+.node-ordem{position:absolute;top:-10px;left:-10px;width:28px;height:28px;background:#fff;color:#4f46e5;border:2px solid #4f46e5;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.78rem;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.node-acts{position:absolute;top:8px;right:8px;display:none;gap:4px;z-index:3}
+.node:hover .node-acts{display:flex}
+.node-acts button{width:26px;height:26px;border:none;border-radius:6px;cursor:pointer;display:grid;place-items:center;font-size:.78rem;background:rgba(255,255,255,.9);color:#4b5563;transition:.15s}
+.node-acts button:hover{background:#fff;color:#4f46e5}
+.node-acts .btn-del:hover{color:#dc2626;background:#fee2e2}
+.node.start-end{width:170px}
+.node.start-end .node-body{padding:10px 14px;font-size:.78rem;color:#64748b;text-align:center;line-height:1.35}
+
+/* Setas */
+.canvas-arrow{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:1}
+.canvas-arrow path{fill:none;stroke:#94a3b8;stroke-width:2.5;stroke-linecap:round}
+.canvas-arrow .arrow-head{fill:#94a3b8;stroke:none}
+
+.insert-btn{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;background:#fff;border:2px solid #d1d5db;border-radius:50%;cursor:pointer;display:grid;place-items:center;color:#9ca3af;font-size:1.05rem;transition:.15s;z-index:4;opacity:0}
+.canvas-inner:hover .insert-btn{opacity:1}
+.insert-btn:hover{border-color:#4f46e5;color:#4f46e5;transform:translateY(-50%) scale(1.18)}
+
+.empty-canvas{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#94a3b8;font-size:.9rem}
+.empty-canvas i{font-size:3rem;opacity:.5}
+
+/* Mini-map / controles no canto */
+.canvas-controls{position:absolute;bottom:18px;right:18px;display:flex;gap:6px;z-index:10}
+.canvas-controls button{width:36px;height:36px;border-radius:50%;border:1px solid #d1d5db;background:#fff;color:#4b5563;cursor:pointer;display:grid;place-items:center;font-size:.95rem;box-shadow:0 2px 8px rgba(0,0,0,.08);transition:.15s}
+.canvas-controls button:hover{background:#f3f4f6;color:#4f46e5;border-color:#a5b4fc}
+
+/* ===== MODAL ===== */
+.modal-back{display:none;position:fixed;inset:0;background:rgba(15,27,45,.55);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal-back.on{display:flex}
+.modal-card{background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-width:820px;width:100%;max-height:92vh;overflow-y:auto}
+.modal-head{padding:16px 22px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{margin:0;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:1.05rem}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:1.5rem;line-height:1}
+.modal-body{padding:22px}
+.modal-foot{padding:14px 22px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end;background:#fbfcfe}
+.lbl{display:block;font-size:.72rem;letter-spacing:.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;margin-top:14px}
+.lbl:first-child{margin-top:0}
+.input,.textarea{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;font-family:inherit;font-size:.88rem;color:var(--ink);outline:none;transition:.15s}
+.input:focus,.textarea:focus{border-color:var(--purple);box-shadow:0 0 0 3px rgba(124,58,237,.12)}
+.textarea{min-height:90px;resize:vertical}
+.helper{font-size:.73rem;color:var(--muted);margin-top:4px;line-height:1.4}
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;box-shadow:0 6px 14px rgba(124,58,237,.28)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-danger{background:#fce8e8;color:var(--err)}
+.btn-sm{padding:5px 9px;font-size:.75rem}
+
+.seg{display:inline-flex;background:#f0f2f7;border-radius:10px;padding:3px;gap:2px}
+.seg label{cursor:pointer;padding:7px 14px;font-size:.82rem;font-weight:700;color:var(--muted);border-radius:8px;transition:.15s}
+.seg input{display:none}
+.seg label:has(input:checked){background:#fff;color:var(--purple);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.seg label.on{background:#fff;color:var(--purple);box-shadow:0 2px 6px rgba(0,0,0,.08)}
+.opcoes-wrap{border:1.5px dashed var(--line);border-radius:10px;padding:12px;background:#fafbfc;margin-top:4px}
+.opcoes-lista{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.opcoes-lista:empty::before{content:'Nenhuma opção. Clique em "Adicionar opção".';display:block;padding:14px;text-align:center;color:var(--muted);font-size:.8rem;font-style:italic}
+.opcao-row{display:grid;grid-template-columns:170px minmax(0,1fr) 180px 32px;gap:10px;align-items:end;background:#fff;padding:10px;border-radius:8px;border:1px solid var(--line)}
+.opcao-row .col{display:flex;flex-direction:column;gap:3px;min-width:0}
+.opcao-row .col-lbl{font-size:.62rem;letter-spacing:.5px;color:var(--muted);font-weight:700;text-transform:uppercase}
+.opcao-row .input{padding:7px 10px;font-size:.83rem}
+.opcao-row select{padding:7px 10px;font-size:.83rem;border:1.5px solid var(--line);border-radius:8px;background:#fff;outline:none;width:100%;text-overflow:ellipsis}
+.opcao-row .btn-rm{background:#fce8e8;color:var(--err);border:none;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:.9rem;align-self:end}
+
+/* Toasts */
+.toasts{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);font-size:.85rem;border-left:4px solid var(--ok);min-width:240px}
+.toast.err{border-left-color:var(--err)}
+.toast.warn{border-left-color:var(--warn)}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="tb-mark">🤖</div>
+    <div>
+      <div class="tb-title">Editor de Fluxo</div>
+      <div class="tb-sub">Triagem · UniFECAF</div>
+    </div>
+  </div>
+  <div class="tb-divider"></div>
+  <div class="tb-sel">
+    <label>Editando:</label>
+    <select id="triagemSel" onchange="trocarTriagem()"><option>Carregando...</option></select>
+    <span class="tb-badge" id="triagemBadge" style="display:none">🟢 ATIVA</span>
+  </div>
+  <div class="tb-actions">
+    <button class="tb-btn primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
+    <button class="tb-btn purple" onclick="ativarTriagem()" title="Marcar como ativa"><i class="bi bi-check-circle"></i> Ativar</button>
+    <button class="tb-btn" onclick="novaTriagem()"><i class="bi bi-file-earmark-plus"></i> Nova</button>
+    <button class="tb-btn" onclick="duplicarTriagem()"><i class="bi bi-files"></i> Duplicar</button>
+    <button class="tb-btn" onclick="renomearTriagem()"><i class="bi bi-pencil"></i> Renomear</button>
+    <button class="tb-btn danger" onclick="excluirTriagem()"><i class="bi bi-trash"></i></button>
+    <div class="tb-divider"></div>
+    <a class="tb-btn" href="triagem.html" title="Voltar ao editor padrão"><i class="bi bi-gear"></i> Configurações</a>
+    <a class="tb-btn" href="chat.html"><i class="bi bi-chat-dots"></i> Chat</a>
+  </div>
+</div>
+
+<div class="canvas" id="canvas">
+  <div class="canvas-inner" id="canvasInner">
+    <div class="empty-canvas"><i class="bi bi-diagram-3"></i><div>Carregando fluxo...</div></div>
+  </div>
+  <div class="canvas-controls">
+    <button onclick="zoomCanvas(0.1)" title="Aumentar"><i class="bi bi-zoom-in"></i></button>
+    <button onclick="zoomCanvas(-0.1)" title="Diminuir"><i class="bi bi-zoom-out"></i></button>
+    <button onclick="zoomReset()" title="Resetar"><i class="bi bi-aspect-ratio"></i></button>
+  </div>
+</div>
+
+<!-- MODAL Passo -->
+<div class="modal-back" id="modalPassoBack">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modalPassoTitulo">Novo passo</h3>
+      <button class="modal-close" onclick="fecharPasso()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pCodigo">
+      <label class="lbl">Ordem</label>
+      <input class="input" id="pOrdem" type="number" min="1" max="99" value="1" style="width:100px">
+
+      <label class="lbl">Nome do campo (identificador na resposta)</label>
+      <input class="input" id="pCampo" placeholder="Ex: nome, curso, horario" maxlength="60">
+      <div class="helper">A resposta do cliente vai ser salva com esse nome. Ex: <code>respostas.curso = "administração"</code>.</div>
+
+      <label class="lbl">Mensagem enviada ao cliente</label>
+      <textarea class="textarea" id="pMensagem" placeholder="Ex: Qual curso te interessa?" maxlength="2000"></textarea>
+
+      <label class="lbl">Tipo de resposta</label>
+      <div class="seg" id="segTipo">
+        <label class="on"><input type="radio" name="pTipoResposta" value="text" checked> <i class="bi bi-chat-text"></i> Texto livre</label>
+        <label><input type="radio" name="pTipoResposta" value="buttons"> <i class="bi bi-grid-3x3-gap-fill"></i> Botões (até 3)</label>
+        <label><input type="radio" name="pTipoResposta" value="list"> <i class="bi bi-list-ul"></i> Lista (até 10)</label>
+      </div>
+      <div class="helper">Botões e lista só funcionam em contas <strong>Meta oficial</strong>.</div>
+
+      <div id="opcoesBox" style="display:none;margin-top:14px">
+        <label class="lbl" style="margin-top:0">Opções (o que o cliente pode escolher)</label>
+        <div class="opcoes-wrap">
+          <div class="opcoes-lista" id="opcoesLista"></div>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="addOpcao()"><i class="bi bi-plus-lg"></i> Adicionar opção</button>
+        </div>
+        <label class="lbl">Se cliente responder algo fora das opções</label>
+        <select class="input" id="pFallback">
+          <option value="">Repetir o mesmo passo com aviso</option>
+          <option value="__end__">Encerrar triagem e chamar consultor</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="fecharPasso()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarPasso()"><i class="bi bi-check-lg"></i> Salvar passo</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+// ============ CONFIG / HELPERS ============
+const URL_BASE = '';
+const URL_GET      = URL_BASE + '/webhook/chat-triagem-config';
+const URL_PSAVE    = URL_BASE + '/webhook/chat-triagem-passo-save';
+const URL_PDEL     = URL_BASE + '/webhook/chat-triagem-passo-delete';
+const URL_MOTIVOS  = URL_BASE + '/webhook/chat-motivos-list';
+const URL_TRI_LIST = URL_BASE + '/webhook/chat-triagem-config-list';
+const URL_TRI_NOVA = URL_BASE + '/webhook/chat-triagem-config-nova';
+const URL_TRI_REN  = URL_BASE + '/webhook/chat-triagem-config-rename';
+const URL_TRI_DUP  = URL_BASE + '/webhook/chat-triagem-config-duplicate';
+const URL_TRI_ATIV = URL_BASE + '/webhook/chat-triagem-config-set-active';
+const URL_TRI_DEL  = URL_BASE + '/webhook/chat-triagem-config-delete';
+
+const TOKEN   = localStorage.getItem('chat_token')  || sessionStorage.getItem('chat_token')  || '';
+const USUARIO = localStorage.getItem('chat_usuario')|| sessionStorage.getItem('chat_usuario')|| '';
+if(!TOKEN || !USUARIO){ location.href='login.html'; }
+
+let TRIAGEM_ATUAL = (new URLSearchParams(location.search)).get('codigo') || '';
+let passos = [];
+let MOTIVOS_CACHE = [];
+let zoomLevel = 1;
+
+function qs(s){ return document.querySelector(s); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg,tipo){ const st=qs('#toasts'); const el=document.createElement('div'); el.className='toast'+(tipo?' '+tipo:''); el.textContent=msg; st.appendChild(el); setTimeout(()=>{el.style.opacity='0';el.style.transition='.3s';setTimeout(()=>el.remove(),300)},3200); }
+
+async function api(url, opts){
+  opts = opts || {};
+  const sep = url.includes('?')?'&':'?';
+  const method = (opts.method||'GET').toUpperCase();
+  if(method === 'GET'){
+    const u = url + sep + 'token=' + encodeURIComponent(TOKEN) + '&usuario=' + encodeURIComponent(USUARIO);
+    const r = await fetch(u); return r.json();
+  }
+  const body = JSON.stringify(Object.assign({token:TOKEN, usuario:USUARIO, _actor:USUARIO}, opts.bodyObj||{}));
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'text/plain;charset=UTF-8'}, body});
+  return r.json();
+}
+
+// ============ TRIAGENS (lista no topo) ============
+async function carregarListaTriagens(){
+  try{
+    const r = await api(URL_TRI_LIST);
+    if(!r.ok){ toast('Erro ao listar triagens','err'); return; }
+    const sel = qs('#triagemSel');
+    sel.innerHTML = '';
+    (r.triagens||[]).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t.codigo;
+      o.textContent = t.nome + (t.ativa?' 🟢':'') + ' ('+(t.total_passos||0)+' passos)';
+      sel.appendChild(o);
+    });
+    // Seleciona: URL > ativa > primeira
+    if(TRIAGEM_ATUAL && (r.triagens||[]).some(t => t.codigo===TRIAGEM_ATUAL)) sel.value = TRIAGEM_ATUAL;
+    else{
+      const ativa = (r.triagens||[]).find(t => t.ativa);
+      TRIAGEM_ATUAL = ativa ? ativa.codigo : ((r.triagens||[])[0]||{}).codigo || '';
+      sel.value = TRIAGEM_ATUAL;
+    }
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+function trocarTriagem(){
+  TRIAGEM_ATUAL = qs('#triagemSel').value;
+  // atualiza querystring (sem reload)
+  history.replaceState(null, '', 'triagem-flow.html?codigo=' + encodeURIComponent(TRIAGEM_ATUAL));
+  carregar();
+}
+async function novaTriagem(){
+  const nome = prompt('Nome da nova triagem:', 'Nova triagem');
+  if(!nome || !nome.trim()) return;
+  const r = await api(URL_TRI_NOVA, {method:'POST', bodyObj:{nome: nome.trim()}});
+  if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+  toast('Triagem criada',''); TRIAGEM_ATUAL = r.codigo;
+  await carregarListaTriagens(); qs('#triagemSel').value = TRIAGEM_ATUAL; await carregar();
+}
+async function duplicarTriagem(){
+  if(!TRIAGEM_ATUAL) return;
+  const nome = prompt('Nome da cópia:', '');
+  const r = await api(URL_TRI_DUP, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL, nome_novo: (nome||'').trim()}});
+  if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+  toast('Triagem duplicada',''); TRIAGEM_ATUAL = r.codigo;
+  await carregarListaTriagens(); qs('#triagemSel').value = TRIAGEM_ATUAL; await carregar();
+}
+async function renomearTriagem(){
+  if(!TRIAGEM_ATUAL) return;
+  const atual = qs('#triagemSel').options[qs('#triagemSel').selectedIndex].textContent.replace(/\s*🟢.*/,'').replace(/\s*\(\d+ passos\)/,'');
+  const nome = prompt('Novo nome:', atual);
+  if(!nome || !nome.trim()) return;
+  const r = await api(URL_TRI_REN, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL, nome: nome.trim()}});
+  if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+  toast('Renomeada',''); await carregarListaTriagens(); qs('#triagemSel').value = TRIAGEM_ATUAL;
+}
+async function ativarTriagem(){
+  if(!TRIAGEM_ATUAL) return;
+  if(!confirm('Marcar essa triagem como ATIVA? Ela vira a usada em produção (as outras ficam salvas mas paradas).')) return;
+  const r = await api(URL_TRI_ATIV, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL}});
+  if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+  toast('Triagem ativada','');
+  await carregarListaTriagens(); qs('#triagemSel').value = TRIAGEM_ATUAL; renderBadge(true);
+}
+async function excluirTriagem(){
+  if(!TRIAGEM_ATUAL) return;
+  if(TRIAGEM_ATUAL === 'default'){ toast('Não pode deletar a triagem default','warn'); return; }
+  const nome = qs('#triagemSel').options[qs('#triagemSel').selectedIndex].textContent;
+  if(!confirm('EXCLUIR "'+nome+'"? Todos os passos serão perdidos. Essa ação NÃO pode ser desfeita.')) return;
+  const r = await api(URL_TRI_DEL, {method:'POST', bodyObj:{codigo: TRIAGEM_ATUAL}});
+  if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+  toast('Excluída',''); TRIAGEM_ATUAL = ''; await carregarListaTriagens(); qs('#triagemSel').dispatchEvent(new Event('change'));
+}
+function renderBadge(ativa){
+  const b = qs('#triagemBadge'); if(!b) return;
+  b.style.display = ativa ? '' : 'none';
+}
+
+// ============ MOTIVOS (pra opcoes de fechar) ============
+async function carregarMotivos(){
+  try{
+    const r = await api(URL_MOTIVOS);
+    MOTIVOS_CACHE = (r && r.motivos) || [];
+  }catch(_){ MOTIVOS_CACHE = []; }
+}
+
+// ============ CARREGAR CONFIG + PASSOS ============
+async function carregar(){
+  if(!TRIAGEM_ATUAL) return;
+  try{
+    const r = await api(URL_GET + '?codigo=' + encodeURIComponent(TRIAGEM_ATUAL));
+    if(!r.ok){ toast('Erro ao carregar','err'); return; }
+    const cfg = r.config || {};
+    renderBadge(!!cfg.ativa);
+    passos = r.passos || [];
+    renderPassos();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ============ RENDER CANVAS ============
+function renderPassos(){
+  const wrap = qs('#canvasInner');
+  if(!wrap) return;
+  const ps = (passos||[]).slice().sort((a,b)=>Number(a.ordem||0)-Number(b.ordem||0));
+  wrap.innerHTML = '';
+  wrap.style.transform = 'scale(' + zoomLevel + ')';
+  wrap.style.transformOrigin = 'top left';
+
+  const nodes = [
+    {tipo:'start', head:'<i class="bi bi-play-circle-fill"></i> Início', body:'Cliente envia a 1ª mensagem', cls:'start'},
+    ...ps.map(p => {
+      const t = p.tipo_resposta || 'text';
+      const tipoLabel = t==='buttons'?'<i class="bi bi-grid-3x3-gap-fill"></i> Botões' : (t==='list'?'<i class="bi bi-list-ul"></i> Lista' : '<i class="bi bi-chat-text"></i> Texto');
+      const opcoes = Array.isArray(p.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p.opcoes||'[]')}catch(_){return []} })();
+      let opcoesHtml = '';
+      if((t==='buttons'||t==='list') && opcoes.length){
+        opcoesHtml = '<div class="node-opts">' + opcoes.slice(0,5).map(o => {
+          let dest;
+          if(o.proximo_codigo === '__end__') dest = '→ consultor';
+          else if(o.proximo_codigo && o.proximo_codigo.startsWith('__close__')){
+            const mc = o.proximo_codigo.replace('__close__','');
+            const m = (MOTIVOS_CACHE||[]).find(x => x.codigo === mc);
+            dest = '✗ ' + escapeHtml(m ? m.nome : mc);
+          }
+          else dest = o.proximo_codigo ? '→ ' + escapeHtml((ps.find(x=>x.codigo===o.proximo_codigo)||{}).campo || '?') : '→ próximo';
+          return '<div><span class="op">' + escapeHtml(o.titulo||'?') + '</span>' + dest + '</div>';
+        }).join('') + (opcoes.length>5 ? '<div style="opacity:.7">+'+(opcoes.length-5)+' opções</div>' : '') + '</div>';
+      }
+      return {
+        tipo:'step', codigo:p.codigo, ordem:p.ordem, head: tipoLabel, cls: 'step-'+t,
+        body: (p.campo?`<div class="node-field">${escapeHtml(p.campo)}</div>`:'') +
+              `<div class="node-msg">${escapeHtml(p.mensagem||'(sem mensagem)')}</div>` + opcoesHtml,
+      };
+    }),
+    {tipo:'end', head:'<i class="bi bi-person-check-fill"></i> Fim', body:'Chama o consultor humano', cls:'end'},
+  ];
+
+  nodes.forEach((n, idx) => {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.tipo === 'start' || n.tipo === 'end' ? ' start-end' : '');
+    if(n.tipo === 'step'){
+      el.onclick = () => editarPasso(n.codigo);
+      el.innerHTML = `
+        <div class="node-ordem">${n.ordem}</div>
+        <div class="node-acts">
+          <button class="btn-del" onclick="event.stopPropagation();deletarPasso('${escapeHtml(n.codigo)}')" title="Excluir"><i class="bi bi-trash"></i></button>
+        </div>
+        <div class="node-head ${n.cls}">${n.head}</div>
+        <div class="node-body">${n.body}</div>`;
+    } else {
+      el.innerHTML = `<div class="node-head ${n.cls}">${n.head}</div><div class="node-body">${escapeHtml(n.body)}</div>`;
+    }
+    wrap.appendChild(el);
+
+    if(idx < nodes.length - 1){
+      const gap = document.createElement('button');
+      gap.className = 'insert-btn';
+      gap.innerHTML = '<i class="bi bi-plus"></i>';
+      gap.title = 'Inserir passo aqui';
+      let ordemNovo;
+      if(n.tipo === 'start') ordemNovo = 1;
+      else if(n.tipo === 'step') ordemNovo = Number(n.ordem||0) + 1;
+      else ordemNovo = ps.length + 1;
+      gap.onclick = (e)=>{ e.stopPropagation(); abrirPasso(null, ordemNovo); };
+      wrap.appendChild(gap);
+    }
+  });
+
+  requestAnimationFrame(desenharSetas);
+}
+
+function desenharSetas(){
+  const wrap = qs('#canvasInner');
+  if(!wrap) return;
+  const old = wrap.querySelector('.canvas-arrow');
+  if(old) old.remove();
+  const nodes = Array.from(wrap.querySelectorAll('.node'));
+  if(nodes.length < 2) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('canvas-arrow');
+  svg.setAttribute('width', wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+  svg.style.width = wrap.scrollWidth + 'px';
+  svg.style.height = wrap.scrollHeight + 'px';
+  for(let i=0; i<nodes.length-1; i++){
+    const a = nodes[i].getBoundingClientRect();
+    const b = nodes[i+1].getBoundingClientRect();
+    const x1 = (a.right - wrapRect.left) / zoomLevel;
+    const y1 = (a.top - wrapRect.top + a.height/2) / zoomLevel;
+    const x2 = (b.left - wrapRect.left) / zoomLevel;
+    const y2 = (b.top - wrapRect.top + b.height/2) / zoomLevel;
+    const midX = (x1+x2)/2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2-8} ${y2}`);
+    svg.appendChild(path);
+    const head = document.createElementNS('http://www.w3.org/2000/svg','polygon');
+    head.setAttribute('points', `${x2-8},${y2-5} ${x2},${y2} ${x2-8},${y2+5}`);
+    head.classList.add('arrow-head');
+    svg.appendChild(head);
+  }
+  wrap.insertBefore(svg, wrap.firstChild);
+}
+window.addEventListener('resize', desenharSetas);
+
+function zoomCanvas(delta){
+  zoomLevel = Math.max(0.5, Math.min(1.6, zoomLevel + delta));
+  renderPassos();
+}
+function zoomReset(){ zoomLevel = 1; renderPassos(); }
+
+// ============ MODAL PASSO ============
+function abrirPasso(codigo, ordemPreset){
+  const p = codigo ? passos.find(x => x.codigo === codigo) : null;
+  qs('#modalPassoTitulo').textContent = p ? 'Editar passo' : 'Novo passo';
+  qs('#pCodigo').value = p?.codigo || '';
+  qs('#pOrdem').value = p?.ordem || (ordemPreset != null ? ordemPreset : passos.length + 1);
+  qs('#pCampo').value = p?.campo || '';
+  qs('#pMensagem').value = p?.mensagem || '';
+  const tipo = (p?.tipo_resposta) || 'text';
+  document.querySelectorAll('#segTipo input[name="pTipoResposta"]').forEach(el => {
+    el.checked = el.value === tipo;
+    el.parentElement.classList.toggle('on', el.value === tipo);
+  });
+  renderOpcoesBox(tipo);
+  const opcoes = Array.isArray(p?.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p?.opcoes||'[]')}catch(_){return []} })();
+  qs('#opcoesLista').innerHTML = '';
+  (opcoes||[]).forEach(o => addOpcao(o));
+  qs('#pFallback').value = p?.fallback_codigo || '';
+  atualizarOpcoesFallback(p?.codigo);
+  document.querySelectorAll('#segTipo label').forEach(l => {
+    l.onclick = () => {
+      document.querySelectorAll('#segTipo label').forEach(x => x.classList.remove('on'));
+      l.classList.add('on');
+      l.querySelector('input').checked = true;
+      renderOpcoesBox(l.querySelector('input').value);
+    };
+  });
+  qs('#modalPassoBack').classList.add('on');
+}
+function editarPasso(codigo){ abrirPasso(codigo); }
+function fecharPasso(){ qs('#modalPassoBack').classList.remove('on'); }
+function renderOpcoesBox(tipo){
+  qs('#opcoesBox').style.display = (tipo==='buttons'||tipo==='list') ? '' : 'none';
+}
+function atualizarOpcoesFallback(meuCodigo){
+  const sel = qs('#pFallback');
+  const vals = Array.from(sel.querySelectorAll('option[data-dyn]')).map(o => o);
+  vals.forEach(o => o.remove());
+  passos.filter(x => x.codigo !== meuCodigo).forEach(x => {
+    const o = document.createElement('option');
+    o.value = x.codigo;
+    o.dataset.dyn = '1';
+    o.textContent = '→ ' + (x.campo || x.codigo);
+    sel.appendChild(o);
+  });
+  // Motivos de fechamento (__close__XXX)
+  (MOTIVOS_CACHE||[]).forEach(m => {
+    const o = document.createElement('option');
+    o.value = '__close__' + m.codigo;
+    o.dataset.dyn = '1';
+    o.textContent = '✗ Fechar: ' + m.nome;
+    sel.appendChild(o);
+  });
+}
+function addOpcao(o){
+  o = o || {};
+  const lista = qs('#opcoesLista');
+  const row = document.createElement('div');
+  row.className = 'opcao-row';
+  const optsFrontend = passos.map(p => `<option value="${escapeHtml(p.codigo)}">${escapeHtml('→ '+(p.campo||p.codigo))}</option>`).join('');
+  const optsMotivos = (MOTIVOS_CACHE||[]).map(m => `<option value="__close__${escapeHtml(m.codigo)}">${escapeHtml('✗ Fechar: '+m.nome)}</option>`).join('');
+  row.innerHTML = `
+    <div class="col"><div class="col-lbl">Título do botão</div>
+      <input class="input opcao-titulo" data-id="${escapeHtml(o.id||('opt_'+Date.now()+Math.random().toString(36).slice(2,5)))}" value="${escapeHtml(o.titulo||'')}" maxlength="20" placeholder="Ex: EAD"></div>
+    <div class="col"><div class="col-lbl">Vai para</div>
+      <select class="opcao-proximo">
+        <option value="">— Próximo por ordem</option>
+        <option value="__end__">— Finalizar (consultor)</option>
+        ${optsFrontend}
+        ${optsMotivos}
+      </select></div>
+    <div class="col"><div class="col-lbl">Etiqueta (opcional)</div>
+      <input class="input opcao-etiqueta" value="${escapeHtml(o.etiqueta||'')}" maxlength="40" placeholder="Ex: Primeira Grad"></div>
+    <button class="btn-rm" onclick="this.parentElement.remove()"><i class="bi bi-x"></i></button>`;
+  lista.appendChild(row);
+  if(o.proximo_codigo) row.querySelector('.opcao-proximo').value = o.proximo_codigo;
+}
+
+async function salvarPasso(){
+  const codigo = qs('#pCodigo').value || undefined;
+  const ordem = Math.max(1, Number(qs('#pOrdem').value)||1);
+  const campo = qs('#pCampo').value.trim();
+  const mensagem = qs('#pMensagem').value.trim();
+  const tipo_resposta = document.querySelector('input[name="pTipoResposta"]:checked')?.value || 'text';
+  const fallback_codigo = qs('#pFallback').value || '';
+  if(!mensagem){ toast('Mensagem obrigatória','warn'); return; }
+  let opcoes = [];
+  if(tipo_resposta==='buttons' || tipo_resposta==='list'){
+    qs('#opcoesLista').querySelectorAll('.opcao-row').forEach(r => {
+      const titulo = r.querySelector('.opcao-titulo').value.trim();
+      const id = r.querySelector('.opcao-titulo').dataset.id || ('opt_'+Date.now());
+      const proximo_codigo = r.querySelector('.opcao-proximo').value || '';
+      const etiqueta = (r.querySelector('.opcao-etiqueta')?.value || '').trim();
+      if(titulo) opcoes.push({id, titulo, proximo_codigo, etiqueta});
+    });
+    if(!opcoes.length){ toast('Adicione pelo menos 1 opção','warn'); return; }
+  }
+  try{
+    const r = await api(URL_PSAVE, {method:'POST', bodyObj:{codigo, triagem_codigo: TRIAGEM_ATUAL || 'default', ordem, campo, mensagem, tipo_resposta, opcoes, fallback_codigo}});
+    if(r.ok){ toast('Passo salvo',''); fecharPasso(); await carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function deletarPasso(codigo){
+  if(!confirm('Deletar esse passo?')) return;
+  try{
+    const r = await api(URL_PDEL, {method:'POST', bodyObj:{codigo}});
+    if(r.ok){ toast('Passo removido',''); await carregar(); }
+    else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+// ============ INIT ============
+(async () => {
+  await carregarMotivos();
+  await carregarListaTriagens();
+  await carregar();
+})();
+</script>
+
+</body>
+</html>

@@ -264,7 +264,10 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 <div class="card">
   <div class="card-head">
     <h3 class="card-title"><i class="bi bi-list-ol"></i> Passos da triagem</h3>
-    <button class="btn btn-primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
+    <div style="display:flex;gap:8px">
+      <a class="btn btn-secondary" id="btnFlowOpen" href="triagem-flow.html" onclick="this.href='triagem-flow.html'+(TRIAGEM_ATUAL?('?codigo='+encodeURIComponent(TRIAGEM_ATUAL)):'')" title="Abrir editor em tela cheia"><i class="bi bi-arrows-fullscreen"></i> Editor tela cheia</a>
+      <button class="btn btn-primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
+    </div>
   </div>
   <div class="card-body" id="passosBody" style="padding:14px">
     <div class="canvas-wrap" id="canvasWrap">
