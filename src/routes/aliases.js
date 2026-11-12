@@ -467,22 +467,122 @@ export default async function aliasRoutes(fastify) {
   fastify.get('/webhook/chat-conversas-finalizadas', conversasFinalizadas);
   fastify.post('/webhook/chat-conversas-finalizadas', conversasFinalizadas);
 
-  // === chat-buscar-mensagens (busca por texto dentro das msgs) ===
+  // === chat-buscar-mensagens (busca profunda por texto da msg OU telefone OU nome) ===
+  // Compat c/ workflow n8n original: aceita `q` ou `termo`, retorna {ok, termo, total, conversas}
+  // onde cada conversa tem shape igual ao /chat-conversas pra merge no front.
   const buscarMensagens = async (req, reply) => withDb(reply, async () => {
-    const conta_id = forceConta(p(req, 'conta_id', '__all__')) || '__all__';
-    const termo = p(req, 'termo').trim();
-    const limit = parseInt(p(req, 'limit', '50')) || 50;
-    if (!termo || termo.length < 2) return { ok: true, resultados: [] };
-    const r = await query(
-      `SELECT conta_id, telefone, nome_contato, texto, timestamp, direcao, atendente
-       FROM chat_mensagens
-       WHERE ($1 = '__all__' OR conta_id = $1)
-         AND texto ILIKE $2
-       ORDER BY timestamp DESC
-       LIMIT $3`,
-      [conta_id, '%' + termo + '%', limit]
-    );
-    return { ok: true, resultados: r.rows };
+    const conta_id = forceConta(p(req, 'conta_id', '')) || '';
+    const termo = String(p(req, 'q', p(req, 'termo', ''))).trim().substring(0, 200);
+    const actor = String(p(req, 'actor', '')).toLowerCase();
+    const role = String(p(req, 'role', 'USER')).toUpperCase();
+    if (!termo || termo.length < 3) return { ok: false, erro: 'termo minimo 3 chars', total: 0, conversas: [] };
+
+    // Casa texto ILIKE, telefone contendo digitos, nome_contato ILIKE, OU nome custom ILIKE
+    const termoDigits = termo.replace(/\D/g, '');
+    const like = '%' + termo + '%';
+    const likeDigits = termoDigits ? '%' + termoDigits + '%' : null;
+
+    const sql = `
+WITH matches AS (
+  SELECT DISTINCT m.conta_id, m.telefone,
+    (SELECT MAX(timestamp) FROM chat_mensagens m2
+      WHERE m2.conta_id=m.conta_id AND m2.telefone=m.telefone
+        AND (m2.texto ILIKE $1 OR m2.nome_contato ILIKE $1)
+    ) AS match_ts,
+    (SELECT texto FROM chat_mensagens m2
+      WHERE m2.conta_id=m.conta_id AND m2.telefone=m.telefone
+        AND m2.texto ILIKE $1
+      ORDER BY m2.timestamp DESC LIMIT 1) AS trecho
+  FROM chat_mensagens m
+  WHERE (m.texto ILIKE $1
+         OR m.nome_contato ILIKE $1
+         OR ($2::text IS NOT NULL AND m.telefone ILIKE $2))
+    AND ($3::text = '' OR m.conta_id = $3)
+  LIMIT 500
+),
+matches_custom AS (
+  -- Pega tb conversas cujo nome custom casa (mesmo sem msg com o termo)
+  SELECT DISTINCT cc.conta_id, cc.telefone,
+    NULL::timestamptz AS match_ts, NULL::text AS trecho
+  FROM chat_contatos_custom cc
+  WHERE cc.nome ILIKE $1
+    AND ($3::text = '' OR cc.conta_id = $3)
+    AND NOT EXISTS (SELECT 1 FROM matches mm WHERE mm.conta_id=cc.conta_id AND mm.telefone=cc.telefone)
+  LIMIT 100
+),
+todos AS (
+  SELECT * FROM matches UNION ALL SELECT * FROM matches_custom
+),
+nomes AS (
+  SELECT DISTINCT ON (m.conta_id, m.telefone) m.conta_id, m.telefone, m.nome_contato
+  FROM chat_mensagens m
+  JOIN todos mt ON mt.conta_id=m.conta_id AND mt.telefone=m.telefone
+  WHERE m.nome_contato IS NOT NULL AND m.nome_contato <> ''
+  ORDER BY m.conta_id, m.telefone, m.timestamp DESC
+),
+ultimas AS (
+  SELECT DISTINCT ON (m.conta_id, m.telefone) m.conta_id, m.telefone,
+    COALESCE(NULLIF(m.texto,''), m.tipo, '') AS ultima_msg,
+    m.timestamp AS ultima_hora,
+    m.direcao AS ultima_direcao
+  FROM chat_mensagens m
+  JOIN todos mt ON mt.conta_id=m.conta_id AND mt.telefone=m.telefone
+  ORDER BY m.conta_id, m.telefone, m.timestamp DESC
+)
+SELECT
+  mt.conta_id, mt.telefone,
+  COALESCE(cc.nome, n.nome_contato, mt.telefone) AS nome,
+  COALESCE(cd.atendente, '') AS dono,
+  COALESCE(cd.finalizada, false) AS finalizada,
+  cd.finalizada_em,
+  cd.motivo_fechamento,
+  mf.tipo AS motivo_tipo,
+  mf.nome AS motivo_nome,
+  mf.cor AS motivo_cor,
+  u.ultima_msg,
+  u.ultima_hora,
+  u.ultima_direcao,
+  mt.trecho AS trecho_match,
+  COALESCE(mt.match_ts, u.ultima_hora) AS match_ts,
+  (SELECT string_agg(etiqueta, ',' ORDER BY etiqueta) FROM chat_conversa_etiquetas ce
+   WHERE ce.conta_id=mt.conta_id AND ce.telefone=mt.telefone) AS etiquetas_csv
+FROM todos mt
+LEFT JOIN chat_contatos_custom cc ON cc.conta_id=mt.conta_id AND cc.telefone=mt.telefone
+LEFT JOIN nomes n ON n.conta_id=mt.conta_id AND n.telefone=mt.telefone
+LEFT JOIN ultimas u ON u.conta_id=mt.conta_id AND u.telefone=mt.telefone
+LEFT JOIN chat_conversa_dono cd ON cd.conta_id=mt.conta_id AND cd.telefone=mt.telefone
+LEFT JOIN chat_motivos_fechamento mf ON mf.codigo=cd.motivo_fechamento
+WHERE ($4::text = 'ADM' OR $4::text = 'ADMIN' OR $4::text = 'SUPER'
+       OR cd.atendente IS NULL OR cd.atendente = ''
+       OR LOWER(cd.atendente) = $5::text)
+ORDER BY COALESCE(mt.match_ts, u.ultima_hora) DESC NULLS LAST
+LIMIT 500`;
+    const r = await query(sql, [like, likeDigits, conta_id, role, actor]);
+    const conversas = r.rows.map(m => {
+      const conta = String(m.conta_id || '');
+      const tel = String(m.telefone || '');
+      const etiquetas = m.etiquetas_csv ? String(m.etiquetas_csv).split(',').filter(Boolean) : [];
+      return {
+        id: conta + '__' + tel,
+        conta_id: conta, telefone: tel,
+        nome: m.nome || tel,
+        ultima_msg: String(m.ultima_msg || '').substring(0, 160),
+        ultima_hora: m.ultima_hora || '',
+        ultima_direcao: m.ultima_direcao || 'in',
+        nao_lidas: 0, janela_expira: null,
+        dono: String(m.dono || ''),
+        finalizada: !!m.finalizada,
+        finalizada_em: m.finalizada_em || '',
+        motivo_fechamento: m.motivo_fechamento || '',
+        motivo_tipo: m.motivo_tipo || '',
+        motivo_nome: m.motivo_nome || '',
+        motivo_cor: m.motivo_cor || '',
+        etiquetas,
+        trecho_match: String(m.trecho_match || '').substring(0, 200),
+        match_ts: m.match_ts || '',
+      };
+    });
+    return { ok: true, termo, total: conversas.length, conversas };
   });
   fastify.get('/webhook/chat-buscar-mensagens', buscarMensagens);
   fastify.post('/webhook/chat-buscar-mensagens', buscarMensagens);

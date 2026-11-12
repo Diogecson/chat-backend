@@ -1169,7 +1169,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
     <div class="sb-search">
       <div class="sb-search-wrap">
         <i class="bi bi-search"></i>
-        <input id="busca" type="text" placeholder="Buscar conversa... (Enter = busca profunda no texto)" oninput="filtrarConversas()" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarMensagensProfundas();}">
+        <input id="busca" type="text" placeholder="Buscar por nome, telefone ou mensagem..." oninput="filtrarConversas()" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarMensagensProfundas();}">
       </div>
     </div>
     </div><!-- /sb-filtros-wrap -->
@@ -2867,17 +2867,50 @@ async function buscarMensagensProfundas(){
   }
 }
 
-// Ao limpar o input (ou tirar 3+ chars), sai do modo busca profunda
+// Debounce + auto-fallback no server quando o filtro local nao acha nada.
+// Antes: user digitava e precisava apertar Enter se nao achasse (as vezes achava, as vezes nao,
+// porque o local so olha as ~500 conversas carregadas). Agora: 400ms depois de parar de digitar,
+// se o local retornou 0 e o termo tem 3+ chars, roda busca no server automaticamente.
+let __buscaDebounceTimer = null;
+let __ultimaBuscaServerTermo = '';
 const _origFiltrar = window.filtrarConversas;
 if(typeof _origFiltrar === 'function'){
   window.filtrarConversas = function(){
     const v = (qs('#busca').value||'').trim();
-    if(!v && BUSCA_PROFUNDA_ATIVA){
-      BUSCA_PROFUNDA_ATIVA = false;
-      BUSCA_PROFUNDA_CONVERSAS = [];
-      window.__ULTIMA_BUSCA_PROFUNDA = null;
+
+    // Limpou input: sai do modo profundo e re-renderiza
+    if(!v){
+      if(BUSCA_PROFUNDA_ATIVA){
+        BUSCA_PROFUNDA_ATIVA = false;
+        BUSCA_PROFUNDA_CONVERSAS = [];
+        window.__ULTIMA_BUSCA_PROFUNDA = null;
+      }
+      __ultimaBuscaServerTermo = '';
+      if(__buscaDebounceTimer){ clearTimeout(__buscaDebounceTimer); __buscaDebounceTimer = null; }
+      return _origFiltrar.apply(this, arguments);
     }
-    return _origFiltrar.apply(this, arguments);
+
+    // Filtro local imediato
+    _origFiltrar.apply(this, arguments);
+
+    // Agenda busca profunda no server se termo >= 3 chars
+    if(v.length < 3) return;
+    if(__buscaDebounceTimer) clearTimeout(__buscaDebounceTimer);
+    __buscaDebounceTimer = setTimeout(async () => {
+      const vAtual = (qs('#busca').value||'').trim();
+      if(vAtual !== v) return;              // usuário continuou digitando
+      if(vAtual === __ultimaBuscaServerTermo) return; // já buscou esse termo
+      // Se o local achou algo visualmente razoavel, nao gasta o server
+      const tLocal = vAtual.toLowerCase();
+      const localCount = (conversas||[]).filter(c =>
+        (c.nome||'').toLowerCase().includes(tLocal) ||
+        String(c.telefone||'').includes(tLocal) ||
+        (c.ultima_msg||'').toLowerCase().includes(tLocal)
+      ).length;
+      if(localCount >= 1) return;           // local achou, nao precisa
+      __ultimaBuscaServerTermo = vAtual;
+      try{ await buscarMensagensProfundas(); }catch(_){}
+    }, 400);
   };
 }
 function setFiltroConsultor(usuario){
