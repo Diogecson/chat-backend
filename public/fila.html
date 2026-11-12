@@ -352,12 +352,13 @@ function renderFila(){
     cont.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum consultor na fila.<br><span style="font-size:.85rem">Adicione um abaixo pra começar.</span></div>';
     return;
   }
+  // O "próximo" vem do backend (baseado em menor carga, não round-robin).
+  // O "último" é só histórico (ultimo_atribuido guardado).
   const ultimo = String(ESTADO.ultimo_atribuido||'').toLowerCase();
-  const idxUltimo = fila.findIndex(a => a.usuario === ultimo);
-  const proximoIdx = (idxUltimo + 1) % fila.length;
+  const proximoUsuario = String((ESTADO.proximo && ESTADO.proximo.usuario) || '').toLowerCase();
   cont.innerHTML = fila.map((a, i) => {
-    const isProximo = i === proximoIdx;
-    const isUltimo = i === idxUltimo;
+    const isProximo = a.usuario === proximoUsuario;
+    const isUltimo = !isProximo && a.usuario === ultimo;
     const av = a.foto_url ? `<img src="${esc(a.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(a.nome))}'">` : iniciais(a.nome);
     let badge = '';
     if(isProximo) badge = '<span class="badge-proximo"><i class="bi bi-arrow-right"></i> próximo</span>';
