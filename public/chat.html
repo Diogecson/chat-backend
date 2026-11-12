@@ -4516,9 +4516,32 @@ async function reabrirConversa(){
   }, btn);
 }
 
+// Recalcula janela_expira baseado nas msgs em memoria. Protege contra
+// casos em que o backend (ou cache local) esta desatualizado: se a msg mais
+// recente 'in' tem janela_expira maior que o valor atual, atualiza.
+function _recalcularJanelaLocal(){
+  if(!conversaAtiva || !Array.isArray(mensagens) || !mensagens.length) return;
+  let ultimaIn = null;
+  for(const m of mensagens){
+    if(m.direcao === 'in' && m.timestamp){
+      if(!ultimaIn || new Date(m.timestamp) > new Date(ultimaIn.timestamp)) ultimaIn = m;
+    }
+  }
+  if(!ultimaIn) return;
+  const novaExp = new Date(new Date(ultimaIn.timestamp).getTime() + 24*60*60*1000);
+  const atualExp = conversaAtiva.janela_expira ? new Date(conversaAtiva.janela_expira) : null;
+  if(!atualExp || novaExp > atualExp){
+    conversaAtiva.janela_expira = novaExp.toISOString();
+    const cv = conversas.find(c => c.id === conversaAtiva.id);
+    if(cv){ cv.janela_expira = conversaAtiva.janela_expira; }
+  }
+}
+
 function atualizarJanela(c,tipo){
   const pill=qs('#pnJanela');const txt=qs('#pnJanelaTxt');
   if(tipo!=='meta'){pill.className='pn-janela na';txt.textContent='Sem restrição (Evolution)';qs('#alertJanela').style.display='none';return}
+  // Blindagem: antes de ler, garante que janela_expira reflete a ultima msg 'in'
+  if(c === conversaAtiva){ _recalcularJanelaLocal(); }
   const exp=c.janela_expira?new Date(c.janela_expira):null;
   if(exp&&exp>new Date()){
     const min=Math.round((exp-new Date())/60000);
@@ -4585,6 +4608,11 @@ async function carregarMensagens(){
       renderMensagens();
       // Salva cache pra próxima abertura ser instantânea
       if(window.__MSGS_CACHE) window.__MSGS_CACHE.set(requisicaoParaId, mensagens.slice(-200));
+      // Re-renderiza o pill da janela 24h com base nas msgs carregadas
+      try{
+        const tipo = (contas.find(x => x.id === conversaAtiva.conta_id) || {}).tipo || 'evolution';
+        if(typeof atualizarJanela === 'function') atualizarJanela(conversaAtiva, tipo);
+      }catch(_){}
       return;
     }
     // Diff por codigo
@@ -4603,23 +4631,15 @@ async function carregarMensagens(){
       ultimoRenderCount = mensagens.length;
       // Atualiza cache com msgs novas (últimas 200 pra não estourar memória)
       if(window.__MSGS_CACHE) window.__MSGS_CACHE.set(requisicaoParaId, mensagens.slice(-200));
-      // === REABRE A JANELA 24h SE CHEGOU MSG DO CLIENTE ===
-      // Se alguma adicionada é 'in' e eh a mais recente, janela_expira = ts + 24h
+      // Se chegou msg 'in', atualizarJanela() blindada reabre o pill + esconde o alert
       try{
-        const ultimaIn = adicionadas.filter(m => m.direcao === 'in')
-          .reduce((max, m) => (!max || new Date(m.timestamp) > new Date(max.timestamp)) ? m : max, null);
-        if(ultimaIn && conversaAtiva && conversaAtiva.id === requisicaoParaId){
-          const novaExp = new Date(new Date(ultimaIn.timestamp).getTime() + 24*60*60*1000);
-          const atualExp = conversaAtiva.janela_expira ? new Date(conversaAtiva.janela_expira) : null;
-          if(!atualExp || novaExp > atualExp){
-            conversaAtiva.janela_expira = novaExp.toISOString();
-            // Atualiza o pill no header + esconde o alert "Fora da janela 24h"
-            const tipo = (contas.find(x => x.id === conversaAtiva.conta_id) || {}).tipo || 'evolution';
-            if(typeof atualizarJanela === 'function') atualizarJanela(conversaAtiva, tipo);
-            // Reflete na lista lateral tambem
-            const cv = conversas.find(c => c.id === conversaAtiva.id);
-            if(cv){ cv.janela_expira = conversaAtiva.janela_expira; cv.ultima_direcao = 'in'; }
-          }
+        const temIn = adicionadas.some(m => m.direcao === 'in');
+        if(temIn && conversaAtiva && conversaAtiva.id === requisicaoParaId){
+          const tipo = (contas.find(x => x.id === conversaAtiva.conta_id) || {}).tipo || 'evolution';
+          if(typeof atualizarJanela === 'function') atualizarJanela(conversaAtiva, tipo);
+          // Reflete ultima_direcao na lista lateral
+          const cv = conversas.find(c => c.id === conversaAtiva.id);
+          if(cv){ cv.janela_expira = conversaAtiva.janela_expira; cv.ultima_direcao = 'in'; }
         }
       }catch(_){}
     } else if(mudouStatus){
