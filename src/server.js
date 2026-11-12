@@ -23,6 +23,7 @@ import matriculasRoutes from './routes/matriculas.js';
 import triagemRoutes from './routes/triagem.js';
 import gestaoRoutes from './routes/gestao.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
+import { startTriagemEngine } from './crons/triagem-engine.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -167,6 +168,12 @@ try {
     };
     setInterval(rodarCron, 2 * 60 * 1000);
     setTimeout(rodarCron, 15 * 1000); // Roda 15s depois do boot pra pegar o atraso atual
+  }
+
+  // Engine de triagem: substitui o workflow-triagem-cron.json do n8n.
+  // Usa fastify.inject pra reaproveitar /webhook/chat-enviar e /webhook/chat-conversa-finalizar.
+  if (hasDb()) {
+    startTriagemEngine(fastify);
   }
 
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
