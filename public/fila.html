@@ -340,26 +340,32 @@ function renderStatus(){
   } else {
     const p = ESTADO.proximo;
     const av = p.foto_url ? `<img src="${esc(p.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(p.nome))}'">` : iniciais(p.nome);
-    prox.innerHTML = `<div class="fila-avatar">${av}</div><div><div style="font-weight:700">${esc(p.nome)}</div><div style="font-size:.72rem;color:var(--muted);font-weight:500">@${esc(p.usuario)}</div></div>`;
+    const bk = (p.backlog != null) ? `<div style="font-size:.7rem;color:var(--muted);font-weight:600;margin-top:2px"><i class="bi bi-inbox"></i> ${p.backlog} conversa${p.backlog === 1 ? '' : 's'} aberta${p.backlog === 1 ? '' : 's'} (menor carga)</div>` : '';
+    prox.innerHTML = `<div class="fila-avatar">${av}</div><div><div style="font-weight:700">${esc(p.nome)}</div><div style="font-size:.72rem;color:var(--muted);font-weight:500">@${esc(p.usuario)}</div>${bk}</div>`;
   }
 }
 
 function renderFila(){
   const cont = qs('#listaFila');
-  const fila = ESTADO.in_fila || [];
+  const fila = (ESTADO.in_fila || []).slice();
   qs('#countFila').textContent = fila.length;
   if(!fila.length){
     cont.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum consultor na fila.<br><span style="font-size:.85rem">Adicione um abaixo pra começar.</span></div>';
     return;
   }
-  // O "próximo" vem do backend (baseado em menor carga, não round-robin).
-  // O "último" é só histórico (ultimo_atribuido guardado).
+  // Ordem visual = ordem da distribuição: menor backlog em cima, desempate alfabético.
+  fila.sort((a,b) => {
+    const diff = (a.backlog|0) - (b.backlog|0);
+    if(diff) return diff;
+    return String(a.usuario||'').localeCompare(String(b.usuario||''));
+  });
   const ultimo = String(ESTADO.ultimo_atribuido||'').toLowerCase();
   const proximoUsuario = String((ESTADO.proximo && ESTADO.proximo.usuario) || '').toLowerCase();
   cont.innerHTML = fila.map((a, i) => {
     const isProximo = a.usuario === proximoUsuario;
     const isUltimo = !isProximo && a.usuario === ultimo;
     const av = a.foto_url ? `<img src="${esc(a.foto_url)}" alt="" onerror="this.parentNode.textContent='${esc(iniciais(a.nome))}'">` : iniciais(a.nome);
+    const bk = (a.backlog != null) ? `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.72rem;color:var(--muted);font-weight:600;margin-left:6px"><i class="bi bi-inbox"></i>${a.backlog}</span>` : '';
     let badge = '';
     if(isProximo) badge = '<span class="badge-proximo"><i class="bi bi-arrow-right"></i> próximo</span>';
     else if(isUltimo) badge = '<span class="badge-ultimo">último</span>';
@@ -367,7 +373,7 @@ function renderFila(){
       <div class="fila-pos">${i+1}</div>
       <div class="fila-avatar">${av}</div>
       <div class="fila-body">
-        <div class="fila-nome">${esc(a.nome)} ${badge}</div>
+        <div class="fila-nome">${esc(a.nome)} ${badge} ${bk}</div>
         <div class="fila-user">@${esc(a.usuario)}</div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="removerFila('${esc(a.usuario)}')" title="Remover da fila"><i class="bi bi-x-lg"></i></button>
@@ -407,10 +413,10 @@ async function salvarConfig(){
 }
 
 async function resetar(){
-  if(!confirm('Resetar rotação? O próximo atribuído volta a ser o primeiro consultor da fila.')) return;
+  if(!confirm('Resetar rotação zera apenas o histórico de "último atribuído".\n\nA ordem de distribuição é definida por MENOR CARGA (quem tem menos conversas abertas).\nPra mudar o próximo, finalize/transfira conversas de quem tá com menos backlog.\n\nContinuar?')) return;
   try {
     const r = await api(URL_CONFIG, {method:'POST', bodyObj:{ativa: qs('#chkAtiva').checked, resetar:true}});
-    if(r.ok){ toast('Rotação resetada.',''); carregar(); }
+    if(r.ok){ toast('Histórico zerado. Próximo continua sendo quem tem menos conversas abertas.',''); carregar(); }
     else toast('Erro: '+(r.erro||'servidor'),'err');
   } catch(e){ toast('Erro: '+e.message,'err'); }
 }

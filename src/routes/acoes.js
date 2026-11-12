@@ -403,13 +403,22 @@ export default async function acoesRoutes(fastify) {
     const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
     const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
     const rows = await query(
-      `SELECT LOWER(usuario) AS usuario, COALESCE(nome,usuario) AS nome,
-              COALESCE(foto_url,'') AS foto_url, COALESCE(na_fila,false) AS na_fila
-       FROM chat_atendentes
-       WHERE COALESCE(ativo,true)=true
-         AND LOWER(COALESCE(papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
-         AND LOWER(usuario) <> 'admin'
-       ORDER BY usuario`
+      `SELECT LOWER(a.usuario) AS usuario,
+              COALESCE(a.nome, a.usuario) AS nome,
+              COALESCE(a.foto_url,'') AS foto_url,
+              COALESCE(a.na_fila,false) AS na_fila,
+              COALESCE(cnt.backlog, 0)::int AS backlog
+       FROM chat_atendentes a
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS backlog
+         FROM chat_conversa_dono cd
+         WHERE LOWER(cd.atendente) = LOWER(a.usuario)
+           AND COALESCE(cd.finalizada, false) = false
+       ) cnt ON true
+       WHERE COALESCE(a.ativo,true)=true
+         AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+         AND LOWER(a.usuario) <> 'admin'
+       ORDER BY a.usuario`
     );
     const inFila = rows.rows.filter(a => a.na_fila === true);
     const foraFila = rows.rows.filter(a => a.na_fila !== true);
@@ -442,8 +451,8 @@ export default async function acoesRoutes(fastify) {
       ativa: c.ativa !== false,
       ultimo_atribuido: ultimo,
       proximo,
-      in_fila: inFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url })),
-      fora_fila: foraFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url })),
+      in_fila: inFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
+      fora_fila: foraFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
     };
   });
   fastify.get('/webhook/chat-fila-status', filaStatus);
