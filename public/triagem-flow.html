@@ -160,6 +160,7 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
     <button class="tb-btn primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
     <button class="tb-btn purple" onclick="ativarTriagem()" title="Marcar como ativa"><i class="bi bi-check-circle"></i> Ativar</button>
     <button class="tb-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="aplicarTemplateBF()" title="Aplicar fluxo Black Friday pronto"><i class="bi bi-lightning-charge-fill"></i> Template Black Friday</button>
+    <button class="tb-btn danger" onclick="resetarSessoes()" title="Zera triagens em andamento (destrava clientes presos no fluxo antigo)"><i class="bi bi-arrow-counterclockwise"></i> Destravar sessões</button>
     <button class="tb-btn" onclick="novaTriagem()"><i class="bi bi-file-earmark-plus"></i> Nova</button>
     <button class="tb-btn" onclick="duplicarTriagem()"><i class="bi bi-files"></i> Duplicar</button>
     <button class="tb-btn" onclick="renomearTriagem()"><i class="bi bi-pencil"></i> Renomear</button>
@@ -258,6 +259,7 @@ const URL_PDEL     = URL_BASE + '/webhook/chat-triagem-passo-delete';
 const URL_KB_LIST  = URL_BASE + '/webhook/chat-triagem-conhecimento-list';
 const URL_KB_SAVE  = URL_BASE + '/webhook/chat-triagem-conhecimento-save';
 const URL_TPL      = URL_BASE + '/webhook/chat-triagem-aplicar-template';
+const URL_RESET_SESSOES = URL_BASE + '/webhook/chat-triagem-resetar-sessoes';
 const URL_MOTIVOS  = URL_BASE + '/webhook/chat-motivos-list';
 const URL_TRI_LIST = URL_BASE + '/webhook/chat-triagem-config-list';
 const URL_TRI_NOVA = URL_BASE + '/webhook/chat-triagem-config-nova';
@@ -360,7 +362,9 @@ async function aplicarTemplateBF(){
     'APLICAR TEMPLATE "BLACK FRIDAY 2026" na triagem atual?\n\n' +
     '➤ Vai criar 5 passos (qualificação → valores → curso → fechar → despedida)\n' +
     '➤ Vai popular a Base de Conhecimento com 28 entradas sobre a Black Friday\n' +
-    '➤ Vai APAGAR TODOS os passos atuais dessa triagem\n\n' +
+    '➤ Vai APAGAR TODOS os passos atuais dessa triagem\n' +
+    '➤ Vai ATIVAR essa triagem (as outras ficam paradas)\n' +
+    '➤ Vai ZERAR as triagens em andamento (destrava clientes presos no fluxo antigo)\n\n' +
     'Quer continuar?'
   );
   if(!ok) return;
@@ -369,10 +373,30 @@ async function aplicarTemplateBF(){
       triagem_codigo: TRIAGEM_ATUAL,
       template: 'black_friday_2026',
       limpar: true,
+      ativar: true,
+      resetar_sessoes: true,
     }});
     if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
-    toast(`Template aplicado: ${r.passos_criados} passos + ${r.kb_entradas} entradas na base`,'');
+    toast(`Template OK: ${r.passos_criados} passos, ${r.kb_entradas} entradas, ${r.sessoes_resetadas} sessões resetadas`,'');
+    await carregarListaTriagens();
+    qs('#triagemSel').value = TRIAGEM_ATUAL;
     await carregar();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function resetarSessoes(){
+  const ok = confirm(
+    'ZERAR TODAS as triagens em andamento?\n\n' +
+    'Clientes que estão presos no meio do fluxo (antigo ou atual) vão sair da triagem ' +
+    'e a conversa volta pro consultor humano.\n\n' +
+    'Use isso depois de trocar o fluxo da triagem.\n\n' +
+    'Quer continuar?'
+  );
+  if(!ok) return;
+  try{
+    const r = await api(URL_RESET_SESSOES, {method:'POST', bodyObj:{}});
+    if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+    toast(`${r.removidas} sessão(ões) resetada(s)`,'');
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 

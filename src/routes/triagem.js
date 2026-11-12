@@ -361,6 +361,45 @@ export default async function triagemRoutes(fastify) {
     }
   });
 
+  // POST /webhook/chat-triagem-resetar-conversa — apaga a sessao de triagem
+  // de um cliente especifico, pra conversa voltar ao estado "sem triagem"
+  // (atendente consegue pegar manualmente). Body: {conta_id, telefone}
+  fastify.post('/webhook/chat-triagem-resetar-conversa', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const conta_id = String(p(req, 'conta_id', '')).trim();
+    const telefone = String(p(req, 'telefone', '')).trim();
+    if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatorios' });
+    try {
+      const r = await query(
+        `DELETE FROM chat_triagem_sessoes WHERE conta_id=$1 AND telefone=$2 RETURNING conta_id, telefone`,
+        [conta_id, telefone]
+      );
+      return { ok: true, removidas: r.rowCount };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // POST /webhook/chat-triagem-resetar-sessoes — apaga todas as sessoes ativas
+  // (util depois de aplicar um template novo pra ninguem ficar preso na triagem
+  // antiga). Body: {conta_id?} opcional pra filtrar por conta.
+  fastify.post('/webhook/chat-triagem-resetar-sessoes', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const conta_id = String(p(req, 'conta_id', '')).trim();
+    try {
+      const sql = conta_id
+        ? `DELETE FROM chat_triagem_sessoes WHERE status='ativa' AND conta_id=$1`
+        : `DELETE FROM chat_triagem_sessoes WHERE status='ativa'`;
+      const args = conta_id ? [conta_id] : [];
+      const r = await query(sql, args);
+      return { ok: true, removidas: r.rowCount };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
   // POST /webhook/chat-triagem-aplicar-template — aplica um fluxo pre-montado
   // na triagem informada. Body: {triagem_codigo, template, limpar:true|false}
   // Templates: 'black_friday_2026'
@@ -370,6 +409,8 @@ export default async function triagemRoutes(fastify) {
     const triagem_codigo = String(b.triagem_codigo || '').trim();
     const template = String(b.template || '').trim();
     const limpar = b.limpar === true || String(b.limpar) === 'true' || b.limpar === 1;
+    const ativar = b.ativar === true || String(b.ativar) === 'true' || b.ativar === 1;
+    const resetar_sessoes = b.resetar_sessoes === true || String(b.resetar_sessoes) === 'true' || b.resetar_sessoes === 1;
     if (!triagem_codigo) return reply.code(400).send({ ok: false, erro: 'triagem_codigo obrigatorio' });
     if (!template) return reply.code(400).send({ ok: false, erro: 'template obrigatorio' });
 
@@ -507,6 +548,21 @@ export default async function triagemRoutes(fastify) {
         kbTotal.entradas += entradas.length;
       }
 
+      // Ativa a triagem (vira a usada em producao)
+      let ativada = false;
+      if (ativar) {
+        await query(`UPDATE chat_triagem_config SET ativa=false, atualizado_em=NOW() WHERE ativa=true AND codigo <> $1`, [triagem_codigo]);
+        await query(`UPDATE chat_triagem_config SET ativa=true, atualizado_em=NOW() WHERE codigo=$1`, [triagem_codigo]);
+        ativada = true;
+      }
+
+      // Zera sessoes ativas (clientes travados no fluxo antigo saem da triagem)
+      let sessoes_resetadas = 0;
+      if (resetar_sessoes) {
+        const rs = await query(`DELETE FROM chat_triagem_sessoes WHERE status='ativa'`);
+        sessoes_resetadas = rs.rowCount || 0;
+      }
+
       return {
         ok: true,
         template,
@@ -515,6 +571,8 @@ export default async function triagemRoutes(fastify) {
         kb_passos: kbTotal.passos,
         kb_entradas: kbTotal.entradas,
         limpou_antigos: limpar,
+        ativada,
+        sessoes_resetadas,
       };
     } catch (err) {
       reply.code(500);
