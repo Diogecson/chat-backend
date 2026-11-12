@@ -278,6 +278,27 @@ async function processarSessao(fastify, s, cfgByCodigo, passosByCodigo, cfgDefau
     return;
   }
 
+  // Decide proximo passo: respeita fallback_codigo quando setado (vale pra TEXT)
+  // - '__end__'  -> encerra
+  // - 'cod_xxx'  -> pula pro passo cod_xxx (se existir na mesma triagem)
+  // - vazio      -> avanca por ordem (comportamento padrao)
+  const fbk = String(passoAtualObj.fallback_codigo || '').trim();
+  if (fbk === '__end__') {
+    await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgText(mensagemFinal) });
+    await query(SQL_UPDATE_SESSION, [-1, 'concluida', JSON.stringify(respostasNew), 0, msgTs, s.session_id]);
+    return;
+  }
+  if (fbk && !fbk.startsWith('__')) {
+    const idxAlvo = passos.findIndex(x => x.codigo === fbk);
+    if (idxAlvo >= 0) {
+      const alvo = passos[idxAlvo];
+      await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgFromPasso(alvo) });
+      await query(SQL_UPDATE_SESSION, [idxAlvo + 1, 'ativa', JSON.stringify(respostasNew), 0, msgTs, s.session_id]);
+      return;
+    }
+    // Se codigo apontado nao existe, cai no fluxo padrao (avanca por ordem)
+  }
+
   const proximoNum = passoAtual + 1;
   if (proximoNum > total) {
     await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgText(mensagemFinal) });

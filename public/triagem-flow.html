@@ -211,6 +211,15 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
       </div>
       <div class="helper">Botões e lista só funcionam em contas <strong>Meta oficial</strong>. Base de conhecimento busca por palavra-chave na resposta do cliente.</div>
 
+      <div id="textBox" style="display:none;margin-top:14px">
+        <label class="lbl" style="margin-top:0">Depois que cliente responder, ir para</label>
+        <select class="input" id="pNextText">
+          <option value="">→ Próximo passo (ordem padrão)</option>
+          <option value="__end__">Encerrar triagem e chamar consultor</option>
+        </select>
+        <div class="helper">Útil pra pular passos ou encerrar direto. Use "próximo (ordem padrão)" se quer que avance normalmente.</div>
+      </div>
+
       <div id="opcoesBox" style="display:none;margin-top:14px">
         <label class="lbl" style="margin-top:0">Opções (o que o cliente pode escolher)</label>
         <div class="opcoes-wrap">
@@ -835,6 +844,7 @@ async function abrirPasso(codigo, ordemPreset){
   (opcoes||[]).forEach(o => addOpcao(o));
   qs('#pFallback').value = p?.fallback_codigo || '';
   qs('#pFallbackKb').value = (tipo==='conhecimento' ? (p?.fallback_codigo || '') : '');
+  qs('#pNextText').value = (tipo==='text' ? (p?.fallback_codigo || '') : '');
   qs('#pConhecimento').value = '';  // limpa antes de carregar
   atualizarOpcoesFallback(p?.codigo);
   document.querySelectorAll('#segTipo label').forEach(l => {
@@ -859,6 +869,7 @@ function fecharPasso(){ qs('#modalPassoBack').classList.remove('on'); }
 function renderOpcoesBox(tipo){
   qs('#opcoesBox').style.display = (tipo==='buttons'||tipo==='list') ? '' : 'none';
   qs('#conhecimentoBox').style.display = (tipo==='conhecimento') ? '' : 'none';
+  qs('#textBox').style.display = (tipo==='text') ? '' : 'none';
 }
 
 // Converte array de entradas [{chaves:[], resposta:''}] em texto formatado
@@ -886,16 +897,24 @@ function _kbFromText(txt){
 }
 function atualizarOpcoesFallback(meuCodigo){
   const sel = qs('#pFallback');
-  const vals = Array.from(sel.querySelectorAll('option[data-dyn]')).map(o => o);
-  vals.forEach(o => o.remove());
-  passos.filter(x => x.codigo !== meuCodigo).forEach(x => {
-    const o = document.createElement('option');
-    o.value = x.codigo;
-    o.dataset.dyn = '1';
-    o.textContent = '→ ' + (x.campo || x.codigo);
-    sel.appendChild(o);
+  const selText = qs('#pNextText');
+  // Limpa opções dinâmicas dos dois selects
+  [sel, selText].forEach(s => {
+    if(!s) return;
+    Array.from(s.querySelectorAll('option[data-dyn]')).forEach(o => o.remove());
   });
-  // Motivos de fechamento (__close__XXX)
+  // Lista de passos (exclui o próprio)
+  passos.filter(x => x.codigo !== meuCodigo).forEach(x => {
+    [sel, selText].forEach(s => {
+      if(!s) return;
+      const o = document.createElement('option');
+      o.value = x.codigo;
+      o.dataset.dyn = '1';
+      o.textContent = '→ ' + (x.campo || x.codigo);
+      s.appendChild(o);
+    });
+  });
+  // Motivos de fechamento (__close__XXX) — só pro pFallback (botões)
   (MOTIVOS_CACHE||[]).forEach(m => {
     const o = document.createElement('option');
     o.value = '__close__' + m.codigo;
@@ -934,7 +953,11 @@ async function salvarPasso(){
   const campo = qs('#pCampo').value.trim();
   const mensagem = qs('#pMensagem').value.trim();
   const tipo_resposta = document.querySelector('input[name="pTipoResposta"]:checked')?.value || 'text';
-  let fallback_codigo = qs('#pFallback').value || '';
+  // fallback_codigo semantica varia por tipo:
+  // - buttons/list: resposta fora das opções
+  // - conhecimento: nenhuma chave bateu
+  // - text:         pra onde ir depois que cliente responder (vazio = próximo por ordem)
+  let fallback_codigo = (tipo_resposta === 'text') ? (qs('#pNextText').value || '') : (qs('#pFallback').value || '');
   if(!mensagem){ toast('Mensagem obrigatória','warn'); return; }
   let opcoes = [];
   let entradasKb = [];
