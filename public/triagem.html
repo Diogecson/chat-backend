@@ -37,6 +37,7 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 .btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
 
 .wrap{max-width:1000px;margin:24px auto;padding:0 22px 40px}
+.wrap-wide{max-width:1600px;margin:0 auto 18px;padding:0 22px}
 .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
 .card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
 .card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
@@ -72,8 +73,8 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 .toggle-info span{font-size:.78rem;color:var(--muted);line-height:1.4}
 
 /* ===== CANVAS DE PASSOS (estilo flow builder) ===== */
-.canvas-wrap{position:relative;background:#f3f4f8;border:1.5px solid var(--line);border-radius:14px;padding:30px 20px;overflow-x:auto;overflow-y:hidden;min-height:260px;background-image:radial-gradient(#e2e5ee 1px, transparent 1px);background-size:18px 18px}
-.canvas-row{position:relative;display:flex;align-items:center;gap:60px;min-height:200px;padding-bottom:10px}
+.canvas-wrap{position:relative;background:#f3f4f8;border:1.5px solid var(--line);border-radius:14px;padding:40px 24px;overflow-x:auto;overflow-y:hidden;min-height:480px;background-image:radial-gradient(#e2e5ee 1px, transparent 1px);background-size:18px 18px}
+.canvas-row{position:relative;display:flex;align-items:center;gap:80px;min-height:400px;padding-bottom:10px}
 .node{position:relative;flex-shrink:0;width:230px;background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(15,27,45,.08);border:1.5px solid #e4e7ef;overflow:hidden;cursor:pointer;transition:.15s;z-index:2}
 .node:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(103,60,255,.18);border-color:#c7b5ff}
 .node-head{padding:8px 12px;display:flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:.72rem;letter-spacing:.3px;text-transform:uppercase}
@@ -256,7 +257,10 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
   </div>
 </div>
 
-<!-- Card 2: Passos -->
+</div>
+
+<!-- Card 2: Passos — fora do .wrap pra ocupar mais largura -->
+<div class="wrap-wide">
 <div class="card">
   <div class="card-head">
     <h3 class="card-title"><i class="bi bi-list-ol"></i> Passos da triagem</h3>
@@ -268,7 +272,6 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
     </div>
   </div>
 </div>
-
 </div>
 
 <!-- MODAL Passo -->
