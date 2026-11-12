@@ -225,7 +225,7 @@ export default async function triagemRoutes(fastify) {
     const mensagem = String(b.mensagem || '').substring(0, 2000).trim();
     const validacao_prompt = String(b.validacao_prompt || '').substring(0, 2000).trim();
     const tipoIn = String(b.tipo_resposta || 'text').trim().toLowerCase();
-    const tipo_resposta = ['text', 'buttons', 'list'].includes(tipoIn) ? tipoIn : 'text';
+    const tipo_resposta = ['text', 'buttons', 'list', 'conhecimento'].includes(tipoIn) ? tipoIn : 'text';
     let opcoes = Array.isArray(b.opcoes) ? b.opcoes : [];
     if (typeof b.opcoes === 'string') {
       try { const parsed = JSON.parse(b.opcoes); if (Array.isArray(parsed)) opcoes = parsed; } catch (_) { }
@@ -271,8 +271,118 @@ export default async function triagemRoutes(fastify) {
     const codigo = String(p(req, 'codigo', '')).trim();
     if (!codigo) return reply.code(400).send({ ok: false, erro: 'codigo obrigatorio' });
     try {
+      // Limpa base de conhecimento associada tambem (idempotente)
+      try { await query(`DELETE FROM chat_triagem_conhecimento WHERE passo_codigo=$1`, [codigo]); } catch (_) { }
       await query(`DELETE FROM chat_triagem_passos WHERE codigo=$1`, [codigo]);
       return { ok: true };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // ==========================================================================
+  // BASE DE CONHECIMENTO por passo (tipo_resposta = 'conhecimento')
+  // Cada entrada tem um array de chaves e uma resposta. O engine da triagem
+  // procura (ILIKE) qualquer uma das chaves na mensagem do cliente e devolve
+  // a resposta. Se nenhuma bater, usa o fallback_codigo do passo.
+  // ==========================================================================
+  async function ensureKbTable() {
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_triagem_conhecimento (
+        id SERIAL PRIMARY KEY,
+        passo_codigo VARCHAR(80) NOT NULL,
+        triagem_codigo VARCHAR(80) NOT NULL DEFAULT 'default',
+        chaves TEXT[] NOT NULL DEFAULT '{}',
+        resposta TEXT NOT NULL,
+        ordem INT NOT NULL DEFAULT 0,
+        ativo BOOLEAN NOT NULL DEFAULT true,
+        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await query(`CREATE INDEX IF NOT EXISTS idx_kb_passo ON chat_triagem_conhecimento (passo_codigo)`);
+  }
+
+  // GET /webhook/chat-triagem-conhecimento-list?passo_codigo=XXX
+  const kbList = async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const passo_codigo = String(p(req, 'passo_codigo', '')).trim();
+    if (!passo_codigo) return reply.code(400).send({ ok: false, erro: 'passo_codigo obrigatorio' });
+    try {
+      await ensureKbTable();
+      const r = await query(
+        `SELECT id, chaves, resposta, ordem
+         FROM chat_triagem_conhecimento
+         WHERE passo_codigo=$1 AND ativo=true
+         ORDER BY ordem ASC, id ASC`,
+        [passo_codigo]
+      );
+      return { ok: true, entradas: r.rows, total: r.rows.length };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  };
+  fastify.get('/webhook/chat-triagem-conhecimento-list', kbList);
+  fastify.post('/webhook/chat-triagem-conhecimento-list', kbList);
+
+  // POST /webhook/chat-triagem-conhecimento-save — bulk replace: apaga tudo do
+  // passo e insere o array novo. Body: {passo_codigo, triagem_codigo, entradas:[{chaves:[], resposta:''}]}
+  fastify.post('/webhook/chat-triagem-conhecimento-save', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const passo_codigo = String(b.passo_codigo || '').trim();
+    const triagem_codigo = String(b.triagem_codigo || 'default').trim();
+    if (!passo_codigo) return reply.code(400).send({ ok: false, erro: 'passo_codigo obrigatorio' });
+    let entradas = Array.isArray(b.entradas) ? b.entradas : [];
+    entradas = entradas
+      .map(e => ({
+        chaves: Array.isArray(e.chaves)
+          ? e.chaves.map(k => String(k || '').trim().toLowerCase()).filter(Boolean).slice(0, 30)
+          : [],
+        resposta: String(e.resposta || '').trim().substring(0, 4000),
+      }))
+      .filter(e => e.chaves.length && e.resposta);
+    try {
+      await ensureKbTable();
+      await query(`DELETE FROM chat_triagem_conhecimento WHERE passo_codigo=$1`, [passo_codigo]);
+      for (let i = 0; i < entradas.length; i++) {
+        const e = entradas[i];
+        await query(
+          `INSERT INTO chat_triagem_conhecimento (passo_codigo, triagem_codigo, chaves, resposta, ordem, ativo)
+           VALUES ($1,$2,$3::text[],$4,$5,true)`,
+          [passo_codigo, triagem_codigo, e.chaves, e.resposta, i + 1]
+        );
+      }
+      return { ok: true, total: entradas.length };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // POST /webhook/chat-triagem-conhecimento-match — usado pelo engine em runtime:
+  // {passo_codigo, texto} -> {ok, match:true|false, resposta?, entrada_id?}
+  fastify.post('/webhook/chat-triagem-conhecimento-match', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const passo_codigo = String(p(req, 'passo_codigo', '')).trim();
+    const texto = String(p(req, 'texto', '')).trim().toLowerCase();
+    if (!passo_codigo || !texto) return reply.code(400).send({ ok: false, erro: 'passo_codigo e texto obrigatorios' });
+    try {
+      await ensureKbTable();
+      // Busca a entrada com MAIOR número de chaves que casam (unaccent-like simples via lower)
+      const r = await query(
+        `SELECT id, resposta, chaves,
+                (SELECT COUNT(*) FROM unnest(chaves) k WHERE position(lower(k) IN $2) > 0) AS score
+         FROM chat_triagem_conhecimento
+         WHERE passo_codigo=$1 AND ativo=true
+         ORDER BY score DESC, ordem ASC
+         LIMIT 1`,
+        [passo_codigo, texto]
+      );
+      const top = r.rows[0];
+      if (!top || Number(top.score) === 0) return { ok: true, match: false };
+      return { ok: true, match: true, resposta: top.resposta, entrada_id: top.id, score: Number(top.score) };
     } catch (err) {
       reply.code(500);
       return { ok: false, erro: err.message };

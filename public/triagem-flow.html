@@ -64,6 +64,8 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
 .node-head.step-text{background:linear-gradient(135deg,#6366f1,#4f46e5)}
 .node-head.step-buttons{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
 .node-head.step-list{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.node-head.step-conhecimento{background:linear-gradient(135deg,#14b8a6,#0d9488)}
+.node-kb-info{margin-top:8px;padding:6px 10px;background:#ccfbf1;color:#0f766e;border-radius:6px;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:5px}
 .node-body{padding:12px 14px}
 .node-field{display:inline-block;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:700;margin-bottom:6px;text-transform:lowercase}
 .node-msg{font-size:.82rem;color:#1a2438;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;min-height:3.2em}
@@ -116,7 +118,7 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
 .btn-danger{background:#fce8e8;color:var(--err)}
 .btn-sm{padding:5px 9px;font-size:.75rem}
 
-.seg{display:inline-flex;background:#f0f2f7;border-radius:10px;padding:3px;gap:2px}
+.seg{display:inline-flex;flex-wrap:wrap;background:#f0f2f7;border-radius:10px;padding:3px;gap:2px}
 .seg label{cursor:pointer;padding:7px 14px;font-size:.82rem;font-weight:700;color:var(--muted);border-radius:8px;transition:.15s}
 .seg input{display:none}
 .seg label:has(input:checked){background:#fff;color:var(--purple);box-shadow:0 2px 6px rgba(0,0,0,.08)}
@@ -203,8 +205,9 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
         <label class="on"><input type="radio" name="pTipoResposta" value="text" checked> <i class="bi bi-chat-text"></i> Texto livre</label>
         <label><input type="radio" name="pTipoResposta" value="buttons"> <i class="bi bi-grid-3x3-gap-fill"></i> Botões (até 3)</label>
         <label><input type="radio" name="pTipoResposta" value="list"> <i class="bi bi-list-ul"></i> Lista (até 10)</label>
+        <label><input type="radio" name="pTipoResposta" value="conhecimento"> <i class="bi bi-journal-text"></i> Base conhecimento</label>
       </div>
-      <div class="helper">Botões e lista só funcionam em contas <strong>Meta oficial</strong>.</div>
+      <div class="helper">Botões e lista só funcionam em contas <strong>Meta oficial</strong>. Base de conhecimento busca por palavra-chave na resposta do cliente.</div>
 
       <div id="opcoesBox" style="display:none;margin-top:14px">
         <label class="lbl" style="margin-top:0">Opções (o que o cliente pode escolher)</label>
@@ -216,6 +219,23 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
         <select class="input" id="pFallback">
           <option value="">Repetir o mesmo passo com aviso</option>
           <option value="__end__">Encerrar triagem e chamar consultor</option>
+        </select>
+      </div>
+
+      <div id="conhecimentoBox" style="display:none;margin-top:14px">
+        <label class="lbl" style="margin-top:0">Base de conhecimento (palavras-chave → resposta)</label>
+        <div class="helper" style="margin-bottom:8px">
+          Uma entrada por linha. Formato:<br>
+          <code>palavra1, palavra2, palavra3 | Resposta que o bot vai mandar</code><br>
+          O bot busca qualquer palavra na mensagem do cliente (case-insensitive). Ganha quem bater mais palavras.
+        </div>
+        <textarea class="textarea" id="pConhecimento" style="min-height:260px;font-family:'SF Mono',Consolas,monospace;font-size:13px;line-height:1.5" placeholder="valor, preço, mensalidade, custo, quanto custa | Os valores são: EAD R$ 297, Semipresencial R$ 497. Posso te passar mais detalhes de algum curso?
+polo, endereço, onde fica, localização | Temos polos em Osasco, Carapicuíba e Barueri. De qual você está mais perto?
+horário, horario, que horas, aula | As aulas acontecem de Seg a Sex, 19h-22h. Finais de semana só o semipresencial."></textarea>
+        <label class="lbl">Se nenhuma palavra-chave bater</label>
+        <select class="input" id="pFallbackKb">
+          <option value="">Repetir pergunta (padrão)</option>
+          <option value="__end__">Encerrar e chamar consultor</option>
         </select>
       </div>
     </div>
@@ -234,6 +254,8 @@ const URL_BASE = '';
 const URL_GET      = URL_BASE + '/webhook/chat-triagem-config';
 const URL_PSAVE    = URL_BASE + '/webhook/chat-triagem-passo-save';
 const URL_PDEL     = URL_BASE + '/webhook/chat-triagem-passo-delete';
+const URL_KB_LIST  = URL_BASE + '/webhook/chat-triagem-conhecimento-list';
+const URL_KB_SAVE  = URL_BASE + '/webhook/chat-triagem-conhecimento-save';
 const URL_MOTIVOS  = URL_BASE + '/webhook/chat-motivos-list';
 const URL_TRI_LIST = URL_BASE + '/webhook/chat-triagem-config-list';
 const URL_TRI_NOVA = URL_BASE + '/webhook/chat-triagem-config-nova';
@@ -249,6 +271,7 @@ if(!TOKEN || !USUARIO){ location.href='login.html'; }
 let TRIAGEM_ATUAL = (new URLSearchParams(location.search)).get('codigo') || '';
 let passos = [];
 let MOTIVOS_CACHE = [];
+let KB_COUNT = {};  // {passo_codigo: n}
 let zoomLevel = 1;
 
 function qs(s){ return document.querySelector(s); }
@@ -360,6 +383,15 @@ async function carregar(){
     const cfg = r.config || {};
     renderBadge(!!cfg.ativa);
     passos = r.passos || [];
+    // Carrega contagem de entradas KB por passo (so pros tipo_resposta=conhecimento)
+    KB_COUNT = {};
+    const kbPassos = passos.filter(p => p.tipo_resposta === 'conhecimento');
+    await Promise.all(kbPassos.map(async p => {
+      try{
+        const kr = await api(URL_KB_LIST + '?passo_codigo=' + encodeURIComponent(p.codigo));
+        if(kr && kr.ok) KB_COUNT[p.codigo] = kr.total || 0;
+      }catch(_){}
+    }));
     renderPassos();
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
@@ -483,9 +515,14 @@ function renderPassos(){
     const t = p.tipo_resposta || 'text';
     const tipoLabel = t==='buttons' ? '<i class="bi bi-grid-3x3-gap-fill"></i> Botões'
                     : t==='list'    ? '<i class="bi bi-list-ul"></i> Lista'
+                    : t==='conhecimento' ? '<i class="bi bi-journal-text"></i> Base conhecimento'
                                     : '<i class="bi bi-chat-text"></i> Texto';
     const opcoes = _opcoes(p);
     let opcoesHtml = '';
+    if(t==='conhecimento'){
+      const n = (KB_COUNT[p.codigo] || 0);
+      opcoesHtml = `<div class="node-kb-info"><i class="bi bi-database-check"></i> ${n} ${n===1?'entrada':'entradas'} na base</div>`;
+    }
     if((t==='buttons'||t==='list') && opcoes.length){
       opcoesHtml = '<div class="node-opts">' + opcoes.map((o, i) => {
         let dest;
@@ -729,7 +766,7 @@ function zoomCanvas(delta){
 function zoomReset(){ zoomLevel = 1; renderPassos(); }
 
 // ============ MODAL PASSO ============
-function abrirPasso(codigo, ordemPreset){
+async function abrirPasso(codigo, ordemPreset){
   const p = codigo ? passos.find(x => x.codigo === codigo) : null;
   qs('#modalPassoTitulo').textContent = p ? 'Editar passo' : 'Novo passo';
   qs('#pCodigo').value = p?.codigo || '';
@@ -746,6 +783,8 @@ function abrirPasso(codigo, ordemPreset){
   qs('#opcoesLista').innerHTML = '';
   (opcoes||[]).forEach(o => addOpcao(o));
   qs('#pFallback').value = p?.fallback_codigo || '';
+  qs('#pFallbackKb').value = (tipo==='conhecimento' ? (p?.fallback_codigo || '') : '');
+  qs('#pConhecimento').value = '';  // limpa antes de carregar
   atualizarOpcoesFallback(p?.codigo);
   document.querySelectorAll('#segTipo label').forEach(l => {
     l.onclick = () => {
@@ -756,11 +795,43 @@ function abrirPasso(codigo, ordemPreset){
     };
   });
   qs('#modalPassoBack').classList.add('on');
+  // Se tipo conhecimento e passo existente, carrega entradas da base
+  if(tipo === 'conhecimento' && p?.codigo){
+    try{
+      const r = await api(URL_KB_LIST + '?passo_codigo=' + encodeURIComponent(p.codigo));
+      if(r && r.ok) qs('#pConhecimento').value = _kbToText(r.entradas||[]);
+    }catch(_){}
+  }
 }
 function editarPasso(codigo){ abrirPasso(codigo); }
 function fecharPasso(){ qs('#modalPassoBack').classList.remove('on'); }
 function renderOpcoesBox(tipo){
   qs('#opcoesBox').style.display = (tipo==='buttons'||tipo==='list') ? '' : 'none';
+  qs('#conhecimentoBox').style.display = (tipo==='conhecimento') ? '' : 'none';
+}
+
+// Converte array de entradas [{chaves:[], resposta:''}] em texto formatado
+function _kbToText(entradas){
+  return (entradas||[]).map(e => {
+    const ch = (e.chaves||[]).join(', ');
+    return ch + ' | ' + (e.resposta||'');
+  }).join('\n');
+}
+// Parseia o textarea em array {chaves, resposta}
+function _kbFromText(txt){
+  const linhas = String(txt||'').split(/\r?\n/);
+  const out = [];
+  linhas.forEach(l => {
+    l = l.trim();
+    if(!l) return;
+    const i = l.indexOf('|');
+    if(i < 0) return;      // linha invalida silenciosa
+    const chavesRaw = l.slice(0, i);
+    const resposta  = l.slice(i+1).trim();
+    const chaves = chavesRaw.split(',').map(x => x.trim()).filter(Boolean);
+    if(chaves.length && resposta) out.push({chaves, resposta});
+  });
+  return out;
 }
 function atualizarOpcoesFallback(meuCodigo){
   const sel = qs('#pFallback');
@@ -812,9 +883,10 @@ async function salvarPasso(){
   const campo = qs('#pCampo').value.trim();
   const mensagem = qs('#pMensagem').value.trim();
   const tipo_resposta = document.querySelector('input[name="pTipoResposta"]:checked')?.value || 'text';
-  const fallback_codigo = qs('#pFallback').value || '';
+  let fallback_codigo = qs('#pFallback').value || '';
   if(!mensagem){ toast('Mensagem obrigatória','warn'); return; }
   let opcoes = [];
+  let entradasKb = [];
   if(tipo_resposta==='buttons' || tipo_resposta==='list'){
     qs('#opcoesLista').querySelectorAll('.opcao-row').forEach(r => {
       const titulo = r.querySelector('.opcao-titulo').value.trim();
@@ -824,11 +896,26 @@ async function salvarPasso(){
       if(titulo) opcoes.push({id, titulo, proximo_codigo, etiqueta});
     });
     if(!opcoes.length){ toast('Adicione pelo menos 1 opção','warn'); return; }
+  } else if(tipo_resposta==='conhecimento'){
+    fallback_codigo = qs('#pFallbackKb').value || '';
+    entradasKb = _kbFromText(qs('#pConhecimento').value);
+    if(!entradasKb.length){ toast('Adicione pelo menos 1 entrada no formato "palavra | resposta"','warn'); return; }
   }
   try{
     const r = await api(URL_PSAVE, {method:'POST', bodyObj:{codigo, triagem_codigo: TRIAGEM_ATUAL || 'default', ordem, campo, mensagem, tipo_resposta, opcoes, fallback_codigo}});
-    if(r.ok){ toast('Passo salvo',''); fecharPasso(); await carregar(); }
-    else toast('Erro: '+(r.erro||'servidor'),'err');
+    if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+    // Se for conhecimento, salva as entradas (bulk-replace)
+    if(tipo_resposta==='conhecimento'){
+      const kr = await api(URL_KB_SAVE, {method:'POST', bodyObj:{
+        passo_codigo: r.codigo,
+        triagem_codigo: TRIAGEM_ATUAL || 'default',
+        entradas: entradasKb
+      }});
+      if(!kr.ok){ toast('Passo salvo, mas erro na base: '+(kr.erro||'servidor'),'err'); fecharPasso(); await carregar(); return; }
+    }
+    toast('Passo salvo','');
+    fecharPasso();
+    await carregar();
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
