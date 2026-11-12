@@ -414,9 +414,29 @@ export default async function acoesRoutes(fastify) {
     const inFila = rows.rows.filter(a => a.na_fila === true);
     const foraFila = rows.rows.filter(a => a.na_fila !== true);
     const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
-    const idxUltimo = inFila.findIndex(a => a.usuario === ultimo);
-    const proximoIdx = inFila.length ? ((idxUltimo + 1) % inFila.length) : -1;
-    const proximo = proximoIdx >= 0 ? inFila[proximoIdx] : null;
+    // Proximo a receber: mesma lógica do chat-fila-proximo (menor carga + desempate por atribuicao mais antiga)
+    let proximo = null;
+    if (inFila.length) {
+      const nextRes = await query(
+        `SELECT LOWER(a.usuario) AS usuario,
+                COALESCE(a.nome, a.usuario) AS nome,
+                COALESCE(a.foto_url,'') AS foto_url,
+                COALESCE(cnt.backlog, 0)::int AS backlog
+         FROM chat_atendentes a
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS backlog, MAX(atribuido_em) AS ultima_em
+           FROM chat_conversa_dono cd
+           WHERE LOWER(cd.atendente) = LOWER(a.usuario)
+             AND COALESCE(cd.finalizada, false) = false
+         ) cnt ON true
+         WHERE COALESCE(a.ativo,true)=true AND COALESCE(a.na_fila,false)=true
+           AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+           AND LOWER(a.usuario) <> 'admin'
+         ORDER BY backlog ASC, cnt.ultima_em ASC NULLS FIRST, a.usuario ASC
+         LIMIT 1`
+      );
+      proximo = nextRes.rows[0] || null;
+    }
     return {
       ok: true,
       ativa: c.ativa !== false,
@@ -445,34 +465,48 @@ export default async function acoesRoutes(fastify) {
   fastify.post('/webhook/chat-fila-config', filaConfig);
 
   // === chat-fila-proximo ===
-  // Devolve o proximo da fila (round-robin). Avanca ultimo_atribuido no DB.
-  // Chamado pelo engine de distribuicao / recebimento de msg nova.
+  // Devolve o proximo da fila com estrategia "menor carga":
+  // 1. Conta conversas ABERTAS (nao finalizadas) de cada consultor na fila
+  // 2. Escolhe o de menor contagem
+  // 3. Desempate: quem recebeu ha mais tempo (MAX(atribuido_em) ASC NULLS FIRST)
+  //    -> quem nunca recebeu entra primeiro; empate real resolve alfabetico
+  // Avanca ultimo_atribuido como historico (nao eh mais usado pra round-robin).
   const filaProximo = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
     const conta_id = String(b.conta_id || '').trim();
     const telefone = String(b.telefone || '').trim();
     await ensureFilaConfigTable();
-    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
-    const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
-    if (c.ativa === false) return { ok: false, sem_fila: true, erro: 'fila desativada' };
+    const cfg = await query(`SELECT ativa FROM chat_fila_config LIMIT 1`);
+    const ativa = cfg.rows[0] ? cfg.rows[0].ativa !== false : true;
+    if (!ativa) return { ok: false, sem_fila: true, erro: 'fila desativada' };
     const rows = await query(
-      `SELECT LOWER(usuario) AS usuario, COALESCE(nome,usuario) AS nome
-       FROM chat_atendentes
-       WHERE COALESCE(ativo,true)=true AND COALESCE(na_fila,false)=true
-         AND LOWER(COALESCE(papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
-         AND LOWER(usuario) <> 'admin'
-       ORDER BY usuario`
+      `SELECT LOWER(a.usuario) AS usuario,
+              COALESCE(a.nome, a.usuario) AS nome,
+              COALESCE(cnt.backlog, 0)::int AS backlog,
+              cnt.ultima_em
+       FROM chat_atendentes a
+       LEFT JOIN LATERAL (
+         SELECT COUNT(*)::int AS backlog, MAX(atribuido_em) AS ultima_em
+         FROM chat_conversa_dono cd
+         WHERE LOWER(cd.atendente) = LOWER(a.usuario)
+           AND COALESCE(cd.finalizada, false) = false
+       ) cnt ON true
+       WHERE COALESCE(a.ativo,true)=true
+         AND COALESCE(a.na_fila,false)=true
+         AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+         AND LOWER(a.usuario) <> 'admin'
+       ORDER BY backlog ASC, ultima_em ASC NULLS FIRST, a.usuario ASC
+       LIMIT 1`
     );
     if (!rows.rows.length) return { ok: false, sem_fila: true, erro: 'nenhum consultor na fila' };
-    const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
-    const idx = rows.rows.findIndex(a => a.usuario === ultimo);
-    const prox = rows.rows[(idx + 1) % rows.rows.length];
+    const prox = rows.rows[0];
     await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW()`, [prox.usuario]);
     return {
       ok: true,
       conta_id, telefone,
       usuario_escolhido: prox.usuario,
       nome_escolhido: prox.nome,
+      backlog_atual: prox.backlog,
     };
   });
   fastify.post('/webhook/chat-fila-proximo', filaProximo);
