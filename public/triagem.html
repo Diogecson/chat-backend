@@ -71,14 +71,43 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
 .toggle-info strong{display:block;font-size:.9rem;color:var(--ink);margin-bottom:2px}
 .toggle-info span{font-size:.78rem;color:var(--muted);line-height:1.4}
 
-.passo{background:#fbfcfe;border:1.5px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
-.passo-ordem{width:32px;height:32px;background:linear-gradient(135deg,var(--purple),#9060ff);color:#fff;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.85rem;flex-shrink:0}
-.passo-body{flex:1;min-width:0}
-.passo-linha1{display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap}
-.passo-campo{background:#eff6ff;color:var(--meta);padding:2px 8px;border-radius:6px;font-size:.72rem;font-weight:700;text-transform:lowercase}
-.passo-mensagem{font-size:.9rem;color:var(--ink);line-height:1.4;white-space:pre-wrap}
-.passo-valida{font-size:.75rem;color:var(--muted);margin-top:6px;font-style:italic;padding-left:8px;border-left:2px solid #d8ddea}
-.passo-actions{display:flex;gap:5px;flex-direction:column;flex-shrink:0}
+/* ===== CANVAS DE PASSOS (estilo flow builder) ===== */
+.canvas-wrap{position:relative;background:#f3f4f8;border:1.5px solid var(--line);border-radius:14px;padding:30px 20px;overflow-x:auto;overflow-y:hidden;min-height:260px;background-image:radial-gradient(#e2e5ee 1px, transparent 1px);background-size:18px 18px}
+.canvas-row{position:relative;display:flex;align-items:center;gap:60px;min-height:200px;padding-bottom:10px}
+.node{position:relative;flex-shrink:0;width:230px;background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(15,27,45,.08);border:1.5px solid #e4e7ef;overflow:hidden;cursor:pointer;transition:.15s;z-index:2}
+.node:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(103,60,255,.18);border-color:#c7b5ff}
+.node-head{padding:8px 12px;display:flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:.72rem;letter-spacing:.3px;text-transform:uppercase}
+.node-head i{font-size:.9rem}
+.node-head.start{background:linear-gradient(135deg,#10b981,#059669)}
+.node-head.end{background:linear-gradient(135deg,#f43f5e,#be123c)}
+.node-head.step-text{background:linear-gradient(135deg,#6366f1,#4f46e5)}
+.node-head.step-buttons{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+.node-head.step-list{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.node-body{padding:10px 12px}
+.node-field{display:inline-block;background:#eef2ff;color:#4338ca;padding:1px 7px;border-radius:5px;font-size:.66rem;font-weight:700;margin-bottom:6px;text-transform:lowercase}
+.node-msg{font-size:.78rem;color:#1a2438;line-height:1.35;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.node-opts{margin-top:8px;padding-top:8px;border-top:1px dashed #e4e7ef;display:flex;flex-direction:column;gap:3px;font-size:.68rem;color:#64748b}
+.node-opts .op{background:#fef3c7;color:#78350f;padding:1px 6px;border-radius:4px;font-weight:700;margin-right:4px}
+.node-ordem{position:absolute;top:-8px;left:-8px;width:24px;height:24px;background:#fff;color:#4f46e5;border:2px solid #4f46e5;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.72rem;z-index:3;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+.node-acts{position:absolute;top:6px;right:6px;display:none;gap:4px;z-index:3}
+.node:hover .node-acts{display:flex}
+.node-acts button{width:24px;height:24px;border:none;border-radius:6px;cursor:pointer;display:grid;place-items:center;font-size:.72rem;background:rgba(255,255,255,.85);color:#4b5563;transition:.15s}
+.node-acts button:hover{background:#fff;color:#4f46e5}
+.node-acts .btn-del:hover{color:#dc2626;background:#fee2e2}
+
+/* Setas entre nós */
+.canvas-arrow{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:1}
+.canvas-arrow path{fill:none;stroke:#94a3b8;stroke-width:2;stroke-linecap:round}
+.canvas-arrow .arrow-head{fill:#94a3b8;stroke:none}
+
+/* Inserir novo passo entre nós */
+.insert-btn{position:absolute;top:50%;transform:translateY(-50%);width:26px;height:26px;background:#fff;border:2px solid #d1d5db;border-radius:50%;cursor:pointer;display:grid;place-items:center;color:#9ca3af;font-size:.95rem;transition:.15s;z-index:4;opacity:0}
+.canvas-row:hover .insert-btn{opacity:1}
+.insert-btn:hover{border-color:#4f46e5;color:#4f46e5;transform:translateY(-50%) scale(1.15)}
+
+/* Nó especial INICIO/FIM */
+.node.start-end{width:150px}
+.node.start-end .node-body{padding:8px 12px;font-size:.72rem;color:#64748b;text-align:center;line-height:1.3}
 
 .chat-toasts-stack{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:8px}
 .chat-toast{display:block !important;background:#fff;border-radius:10px;padding:10px 14px;box-shadow:0 8px 24px rgba(0,0,0,.15);
@@ -233,8 +262,10 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
     <h3 class="card-title"><i class="bi bi-list-ol"></i> Passos da triagem</h3>
     <button class="btn btn-primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
   </div>
-  <div class="card-body" id="passosBody">
-    <div class="empty"><i class="bi bi-inbox"></i>Nenhum passo ainda. Adicione o primeiro.</div>
+  <div class="card-body" id="passosBody" style="padding:14px">
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="empty"><i class="bi bi-inbox"></i>Nenhum passo ainda. Adicione o primeiro.</div>
+    </div>
   </div>
 </div>
 
@@ -490,47 +521,134 @@ async function carregar(){
 }
 
 function renderPassos(){
-  const body = qs('#passosBody');
-  if(!passos.length){
-    body.innerHTML = '<div class="empty"><i class="bi bi-inbox"></i>Nenhum passo ainda. Adicione o primeiro.</div>';
+  const wrap = qs('#canvasWrap');
+  if(!wrap) return;
+  // Ordena por ordem crescente (garantia)
+  const ps = (passos||[]).slice().sort((a,b)=>Number(a.ordem||0)-Number(b.ordem||0));
+  if(!ps.length){
+    wrap.innerHTML = '<div class="empty" style="padding:50px 20px"><i class="bi bi-diagram-3"></i>Nenhum passo ainda.<br><button class="btn btn-primary btn-sm" style="margin-top:12px" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Adicionar primeiro passo</button></div>';
     return;
   }
-  body.innerHTML = passos.map(p => {
-    const tipo = p.tipo_resposta || 'text';
-    const opcoes = Array.isArray(p.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p.opcoes||'[]')}catch(_){return []} })();
-    const tipoLabel = tipo==='buttons'?'BOTÕES':(tipo==='list'?'LISTA':'TEXTO');
-    const opcoesHtml = (tipo==='buttons'||tipo==='list') && opcoes.length ? `
-      <div class="passo-opcoes-preview">
-        ${opcoes.map(o => {
-          let destino;
-          if(o.proximo_codigo === '__end__') destino = '→ Finalizar (consultor)';
+
+  // Node INICIO + passos + FIM
+  const nodes = [
+    {tipo:'start', head:'<i class="bi bi-play-circle-fill"></i> Início', body:'Cliente envia a 1ª mensagem', cls:'start'},
+    ...ps.map(p => {
+      const t = p.tipo_resposta || 'text';
+      const tipoLabel = t==='buttons'?'<i class="bi bi-grid-3x3-gap-fill"></i> Botões' : (t==='list'?'<i class="bi bi-list-ul"></i> Lista' : '<i class="bi bi-chat-text"></i> Texto');
+      const opcoes = Array.isArray(p.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p.opcoes||'[]')}catch(_){return []} })();
+      let opcoesHtml = '';
+      if((t==='buttons'||t==='list') && opcoes.length){
+        opcoesHtml = '<div class="node-opts">' + opcoes.slice(0,4).map(o => {
+          let dest;
+          if(o.proximo_codigo === '__end__') dest = '→ consultor';
           else if(o.proximo_codigo && o.proximo_codigo.startsWith('__close__')){
-            const motCodigo = o.proximo_codigo.replace('__close__','');
-            const mot = (MOTIVOS_CACHE||[]).find(m => m.codigo === motCodigo);
-            destino = '✗ Fechar: ' + escapeHtml(mot ? mot.nome : motCodigo);
+            const mc = o.proximo_codigo.replace('__close__','');
+            const m = (MOTIVOS_CACHE||[]).find(x => x.codigo === mc);
+            dest = '✗ ' + escapeHtml(m ? m.nome : mc);
           }
-          else destino = o.proximo_codigo ? '→ ' + escapeHtml((passos.find(x=>x.codigo===o.proximo_codigo)||{}).campo || o.proximo_codigo) : '→ Próximo por ordem';
-          return `<div><code>${escapeHtml(o.titulo)}</code> ${destino}</div>`;
-        }).join('')}
-      </div>` : '';
-    return `
-    <div class="passo">
-      <div class="passo-ordem">${p.ordem}</div>
-      <div class="passo-body">
-        <div class="passo-linha1">
-          ${p.campo?`<span class="passo-campo">${escapeHtml(p.campo)}</span>`:''}
-          <span class="passo-tipo-badge ${tipo}">${tipoLabel}</span>
+          else dest = o.proximo_codigo ? '→ ' + escapeHtml((ps.find(x=>x.codigo===o.proximo_codigo)||{}).campo || '?') : '→ próximo';
+          return '<div><span class="op">' + escapeHtml(o.titulo||'?') + '</span>' + dest + '</div>';
+        }).join('') + (opcoes.length>4 ? '<div style="opacity:.7">+'+(opcoes.length-4)+' opções</div>' : '') + '</div>';
+      }
+      return {
+        tipo:'step', codigo:p.codigo, ordem:p.ordem, head: tipoLabel, cls: 'step-'+t,
+        body: (p.campo?`<div class="node-field">${escapeHtml(p.campo)}</div>`:'') +
+              `<div class="node-msg">${escapeHtml(p.mensagem||'(sem mensagem)')}</div>` +
+              opcoesHtml,
+      };
+    }),
+    {tipo:'end', head:'<i class="bi bi-person-check-fill"></i> Fim', body:'Chama o consultor humano', cls:'end'},
+  ];
+
+  const row = document.createElement('div');
+  row.className = 'canvas-row';
+  row.id = 'canvasRow';
+
+  nodes.forEach((n, idx) => {
+    const el = document.createElement('div');
+    el.className = 'node' + (n.tipo === 'start' || n.tipo === 'end' ? ' start-end' : '');
+    if(n.tipo === 'step'){
+      el.dataset.codigo = n.codigo;
+      el.onclick = () => editarPasso(n.codigo);
+      el.innerHTML = `
+        <div class="node-ordem">${n.ordem}</div>
+        <div class="node-acts">
+          <button class="btn-del" onclick="event.stopPropagation();deletarPasso('${escapeHtml(n.codigo)}')" title="Excluir"><i class="bi bi-trash"></i></button>
         </div>
-        <div class="passo-mensagem">${escapeHtml(p.mensagem)}</div>
-        ${opcoesHtml}
-      </div>
-      <div class="passo-actions">
-        <button class="btn btn-secondary btn-sm" onclick="editarPasso('${escapeHtml(p.codigo)}')" title="Editar"><i class="bi bi-pencil"></i></button>
-        <button class="btn btn-danger btn-sm" onclick="deletarPasso('${escapeHtml(p.codigo)}')" title="Deletar"><i class="bi bi-trash"></i></button>
-      </div>
-    </div>`;
-  }).join('');
+        <div class="node-head ${n.cls}">${n.head}</div>
+        <div class="node-body">${n.body}</div>`;
+    } else {
+      el.innerHTML = `<div class="node-head ${n.cls}">${n.head}</div><div class="node-body">${escapeHtml(n.body)}</div>`;
+    }
+    row.appendChild(el);
+
+    // Botão "+" entre nós (insere novo passo nessa posição)
+    if(idx < nodes.length - 1){
+      const gap = document.createElement('button');
+      gap.className = 'insert-btn';
+      gap.innerHTML = '<i class="bi bi-plus"></i>';
+      gap.title = 'Inserir passo aqui';
+      // Ordem do novo passo = ordem logo apos o node da esquerda
+      let ordemNovo;
+      if(n.tipo === 'start') ordemNovo = 1;
+      else if(n.tipo === 'step') ordemNovo = Number(n.ordem||0) + 1;
+      else ordemNovo = ps.length + 1;
+      gap.onclick = (e)=>{ e.stopPropagation(); abrirPasso(null, ordemNovo); };
+      row.appendChild(gap);
+    }
+  });
+
+  wrap.innerHTML = '';
+  wrap.appendChild(row);
+
+  // Desenha setas no proximo frame (precisa do layout pronto)
+  requestAnimationFrame(() => desenharSetas(row, wrap));
 }
+
+function desenharSetas(row, wrap){
+  // Remove svg antigo
+  const old = wrap.querySelector('.canvas-arrow');
+  if(old) old.remove();
+
+  const nodes = Array.from(row.querySelectorAll('.node'));
+  if(nodes.length < 2) return;
+
+  const rowRect = row.getBoundingClientRect();
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.classList.add('canvas-arrow');
+  svg.setAttribute('width', row.scrollWidth);
+  svg.setAttribute('height', row.offsetHeight);
+  svg.style.width = row.scrollWidth + 'px';
+  svg.style.height = row.offsetHeight + 'px';
+
+  for(let i = 0; i < nodes.length - 1; i++){
+    const a = nodes[i].getBoundingClientRect();
+    const b = nodes[i+1].getBoundingClientRect();
+    const x1 = a.right - rowRect.left;
+    const y1 = a.top + a.height/2 - rowRect.top;
+    const x2 = b.left - rowRect.left;
+    const y2 = b.top + b.height/2 - rowRect.top;
+    const midX = (x1 + x2) / 2;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2-8} ${y2}`);
+    svg.appendChild(path);
+    // Cabeça da seta
+    const head = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    head.setAttribute('points', `${x2-8},${y2-5} ${x2},${y2} ${x2-8},${y2+5}`);
+    head.classList.add('arrow-head');
+    svg.appendChild(head);
+  }
+  // Prepend pra ficar atras dos cards
+  row.insertBefore(svg, row.firstChild);
+}
+
+// Redesenha setas ao redimensionar
+window.addEventListener('resize', () => {
+  const row = qs('#canvasRow');
+  const wrap = qs('#canvasWrap');
+  if(row && wrap) desenharSetas(row, wrap);
+});
 
 // ======== SALVAR CONFIG ========
 async function salvarConfig(){
@@ -549,11 +667,11 @@ async function salvarConfig(){
 }
 
 // ======== MODAL PASSO ========
-function abrirPasso(codigo){
+function abrirPasso(codigo, ordemPreset){
   const p = codigo ? passos.find(x=>x.codigo===codigo) : null;
   qs('#modalPassoTitulo').textContent = p ? 'Editar passo' : 'Novo passo';
   qs('#pCodigo').value = p?.codigo || '';
-  qs('#pOrdem').value = p?.ordem || (passos.length + 1);
+  qs('#pOrdem').value = p?.ordem || (ordemPreset != null ? ordemPreset : passos.length + 1);
   qs('#pCampo').value = p?.campo || '';
   qs('#pMensagem').value = p?.mensagem || '';
 
