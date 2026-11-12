@@ -2650,7 +2650,7 @@ function _buildConversasQuery(extraOffset){
   if(FILTRO_DATA_DE)                q.push('data_de='          + encodeURIComponent(FILTRO_DATA_DE));
   if(FILTRO_DATA_ATE)               q.push('data_ate='         + encodeURIComponent(FILTRO_DATA_ATE));
   if(FILTRO_ETIQUETA)               q.push('etiqueta='         + encodeURIComponent(FILTRO_ETIQUETA));
-  if(FILTRO_CONSULTOR)              q.push('atendente_filtro=' + encodeURIComponent(FILTRO_CONSULTOR));
+  if(FILTRO_CONSULTOR)              q.push('filtro_dono=' + encodeURIComponent(FILTRO_CONSULTOR));
   return q.join('&');
 }
 

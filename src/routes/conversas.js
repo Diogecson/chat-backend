@@ -192,7 +192,13 @@ export default async function conversasRoutes(fastify) {
       p(req, 'desde', '__all__'),                // $5
       p(req, 'ate', '__all__'),                  // $6
       p(req, 'etiqueta', '__all__'),             // $7
-      p(req, 'filtro_dono', '__all__'),          // $8
+      // alias: aceita filtro_dono OU atendente_filtro (nome legado usado em chat.html)
+      (() => {
+        const v = p(req, 'filtro_dono', '');
+        if (v && v !== '__all__') return v;
+        const alt = p(req, 'atendente_filtro', '');
+        return (alt && alt !== '__all__') ? alt : '__all__';
+      })(),                                       // $8
       parseInt(p(req, 'limit', '50')) || 50,     // $9
       parseInt(p(req, 'offset', '0')) || 0,      // $10
       forceContasPermitidas(p(req, 'contas_permitidas', '__all__')), // $11
