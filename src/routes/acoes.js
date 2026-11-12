@@ -13,12 +13,31 @@ async function withDb(reply, fn) {
 }
 
 export default async function acoesRoutes(fastify) {
+  // === tabela chat_config_global (singleton key-value) ===
+  async function ensureConfigGlobal() {
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_config_global (
+        chave VARCHAR(80) PRIMARY KEY,
+        valor TEXT NOT NULL DEFAULT '',
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+  }
+  async function getConfigValue(chave, def = '') {
+    try {
+      await ensureConfigGlobal();
+      const r = await query(`SELECT valor FROM chat_config_global WHERE chave=$1`, [chave]);
+      return r.rows[0]?.valor ?? def;
+    } catch (_) { return def; }
+  }
+
   // === chat-conversa-finalizar ===
   const conversaFinalizar = async (req, reply) => withDb(reply, async () => {
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
     const motivo = p(req, 'motivo_fechamento');
     const usuario = p(req, 'usuario', 'sistema');
+    const pular_template = p(req, 'pular_template', '') === 'true';
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
     await query(
       `INSERT INTO chat_conversa_dono (conta_id, telefone, atendente, finalizada, finalizada_em, finalizada_por, motivo_fechamento, atribuido_em, atribuido_por)
@@ -27,9 +46,76 @@ export default async function acoesRoutes(fastify) {
          SET finalizada=true, finalizada_em=NOW(), finalizada_por=$3, motivo_fechamento=$4`,
       [conta_id, telefone, usuario, motivo]
     );
-    return { ok: true };
+
+    // Dispara template de encerramento (se configurado e nao foi solicitado pular)
+    let template_enviado = null;
+    if (!pular_template) {
+      try {
+        const [ativo, nome, lang, motivosExcluir] = await Promise.all([
+          getConfigValue('encerramento_ativo', 'false'),
+          getConfigValue('encerramento_template', ''),
+          getConfigValue('encerramento_language', 'pt_BR'),
+          getConfigValue('encerramento_motivos_excluir', ''),
+        ]);
+        const pular = motivosExcluir.split(',').map(s => s.trim()).filter(Boolean).includes(motivo);
+        if (ativo === 'true' && nome && !pular) {
+          const res = await fastify.inject({
+            method: 'POST',
+            url: '/webhook/chat-enviar',
+            headers: { 'Content-Type': 'application/json' },
+            payload: {
+              token: 'ENCERRAMENTO_AUTO', usuario: 'sistema_encerramento',
+              conta_id, telefone,
+              tipo: 'template', template_name: nome, template_language: lang,
+              template_body_vars: [],
+            },
+          });
+          const body = JSON.parse(res.body || '{}');
+          if (body.ok) template_enviado = nome;
+        }
+      } catch (_) { /* nao bloqueia finalizacao */ }
+    }
+    return { ok: true, template_enviado };
   });
   fastify.post('/webhook/chat-conversa-finalizar', conversaFinalizar);
+
+  // === chat-config-encerramento (get/set) ===
+  fastify.get('/webhook/chat-config-encerramento', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const [ativo, nome, lang, motivosExcluir] = await Promise.all([
+      getConfigValue('encerramento_ativo', 'false'),
+      getConfigValue('encerramento_template', ''),
+      getConfigValue('encerramento_language', 'pt_BR'),
+      getConfigValue('encerramento_motivos_excluir', ''),
+    ]);
+    return {
+      ok: true,
+      ativo: ativo === 'true',
+      template: nome,
+      language: lang,
+      motivos_excluir: motivosExcluir.split(',').map(s => s.trim()).filter(Boolean),
+    };
+  });
+  fastify.post('/webhook/chat-config-encerramento', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    await ensureConfigGlobal();
+    const pairs = [
+      ['encerramento_ativo', (b.ativo === true || b.ativo === 'true') ? 'true' : 'false'],
+      ['encerramento_template', String(b.template || '').trim().substring(0, 120)],
+      ['encerramento_language', String(b.language || 'pt_BR').trim().substring(0, 20) || 'pt_BR'],
+      ['encerramento_motivos_excluir', Array.isArray(b.motivos_excluir) ? b.motivos_excluir.join(',') : String(b.motivos_excluir || '')],
+    ];
+    for (const [k, v] of pairs) {
+      await query(
+        `INSERT INTO chat_config_global (chave, valor, atualizado_em)
+         VALUES ($1,$2,NOW())
+         ON CONFLICT (chave) DO UPDATE SET valor=EXCLUDED.valor, atualizado_em=NOW()`,
+        [k, v]
+      );
+    }
+    return { ok: true };
+  });
 
   // === chat-conversa-reabrir ===
   const conversaReabrir = async (req, reply) => withDb(reply, async () => {

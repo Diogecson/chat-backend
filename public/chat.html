@@ -1032,6 +1032,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <a href="#" id="railFila" onclick="event.preventDefault();abrirFila()" title="Fila de distribuição" data-admin><i class="bi bi-shuffle"></i></a>
       <a href="#" id="railMotivos" onclick="event.preventDefault();abrirMotivos()" title="Motivos de fechamento" data-admin><i class="bi bi-tags-fill"></i></a>
       <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-admin data-feat="finalizar_antigas"><i class="bi bi-eraser-fill"></i></a>
+      <a href="#" id="railEncerramento" onclick="event.preventDefault();abrirConfigEncerramento()" title="Template automático ao finalizar conversa" data-admin><i class="bi bi-send-check-fill"></i></a>
       <a href="#" id="railAdminLink" onclick="event.preventDefault();abrirAdminLink()" title="Empurrar atualização (só SUPER)" data-super><i class="bi bi-megaphone-fill"></i></a>
       <a href="#" id="railPermissoes" onclick="event.preventDefault();abrirPermissoes()" title="Permissões (só SUPER)" data-super><i class="bi bi-toggle-on"></i></a>
       <a href="#" id="railContas" onclick="event.preventDefault();abrirContas()" title="Gerenciar contas / números WhatsApp" data-admin><i class="bi bi-gear-fill"></i></a>
@@ -1465,6 +1466,46 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
     </div>
     <div class="dm-foot">
       <button class="dm-btn-cancel" onclick="fecharFinalizarMassa()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CONFIG ENCERRAMENTO AUTOMÁTICO (template HSM ao finalizar) -->
+<div class="dm-back" id="ceBack" onclick="if(event.target===this)fecharConfigEncerramento()">
+  <div class="dm-modal" style="max-width:560px">
+    <div class="dm-head" style="background:linear-gradient(135deg,#0891b2,#06b6d4);color:#fff">
+      <h3><i class="bi bi-send-check-fill"></i> Template automático ao finalizar</h3>
+      <button class="dm-close" onclick="fecharConfigEncerramento()" style="color:#fff"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="dm-body">
+      <div style="margin-bottom:12px;color:#5b6b83;font-size:13px">
+        Quando um atendente finalizar a conversa, o sistema pode disparar um template HSM (ex: "Chat finalizado com sucesso. Qualquer coisa chama a gente de novo!").
+      </div>
+
+      <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;cursor:pointer;padding:10px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:8px">
+        <input type="checkbox" id="ceAtivo" style="width:18px;height:18px">
+        <b style="color:#0e7490">Ativar envio automático</b>
+      </label>
+
+      <label style="display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px">Template HSM (aprovado na Meta)</label>
+      <select id="ceTemplate" style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:12px">
+        <option value="">— Carregando templates —</option>
+      </select>
+
+      <label style="display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px">Idioma do template</label>
+      <input type="text" id="ceLang" value="pt_BR" maxlength="20" style="width:100%;padding:10px 12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;margin-bottom:12px">
+
+      <label style="display:block;font-size:12px;font-weight:700;color:#4b5563;margin-bottom:4px">Motivos de fechamento onde NÃO enviar (opcional)</label>
+      <div id="ceMotivos" style="display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;max-height:200px;overflow-y:auto">
+        <span style="color:#9ca3af;font-size:12px">Carregando motivos...</span>
+      </div>
+      <div style="font-size:11px;color:#6b7280;margin-top:4px">Marque os motivos onde o template NÃO deve ser disparado (ex: "Já é aluno" não precisa de despedida).</div>
+    </div>
+    <div class="dm-foot">
+      <button class="dm-btn-cancel" onclick="fecharConfigEncerramento()">Cancelar</button>
+      <button onclick="salvarConfigEncerramento()" style="background:#0891b2;color:#fff;border:0;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer">
+        <i class="bi bi-check-lg"></i> Salvar
+      </button>
     </div>
   </div>
 </div>
@@ -3826,6 +3867,66 @@ async function executarFinalizarMassa(motivo){
   document.getElementById('btnDistToggle').classList.remove('on');
   document.getElementById('distBar').style.display = 'none';
   await carregarConversas();
+}
+
+/* ===== CONFIG ENCERRAMENTO AUTOMÁTICO (template HSM ao finalizar) ===== */
+async function abrirConfigEncerramento(){
+  document.getElementById('ceBack').classList.add('on');
+  // Carrega config atual
+  let cfg = { ativo:false, template:'', language:'pt_BR', motivos_excluir:[] };
+  try {
+    const r = await safeFetchJson(BASE + '/chat-config-encerramento');
+    if(r && r.ok) cfg = r;
+  } catch(_){}
+  document.getElementById('ceAtivo').checked = !!cfg.ativo;
+  document.getElementById('ceLang').value = cfg.language || 'pt_BR';
+  // Carrega templates aprovados da conta ativa
+  const selTpl = document.getElementById('ceTemplate');
+  selTpl.innerHTML = '<option value="">— Carregando —</option>';
+  try {
+    const conta = (contaAtiva && contaAtiva.id) || '';
+    const r = await safeFetchJson(BASE + '/chat-templates' + (conta ? '?conta_id=' + encodeURIComponent(conta) : ''));
+    const lista = (r && (r.templates || r.data)) || [];
+    const aprovados = lista.filter(t => String(t.status||'').toUpperCase() === 'APPROVED');
+    selTpl.innerHTML = '<option value="">— Nenhum —</option>' + aprovados.map(t =>
+      `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}</option>`
+    ).join('');
+    if(cfg.template) selTpl.value = cfg.template;
+  } catch(_){
+    selTpl.innerHTML = '<option value="">(erro ao carregar)</option>';
+  }
+  // Carrega motivos de fechamento
+  if(!MOTIVOS_CACHE.length) await carregarMotivos();
+  const motBox = document.getElementById('ceMotivos');
+  const excluir = new Set((cfg.motivos_excluir || []).map(x => String(x).trim()));
+  motBox.innerHTML = (MOTIVOS_CACHE||[]).map(m => `
+    <label style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;cursor:pointer;font-size:13px">
+      <input type="checkbox" class="ce-mot" value="${escapeAttr(m.codigo)}" ${excluir.has(m.codigo) ? 'checked' : ''}>
+      ${escapeHtml(m.nome)}
+    </label>
+  `).join('') || '<span style="color:#9ca3af;font-size:12px">Nenhum motivo cadastrado</span>';
+}
+function fecharConfigEncerramento(){
+  document.getElementById('ceBack').classList.remove('on');
+}
+async function salvarConfigEncerramento(){
+  const ativo = document.getElementById('ceAtivo').checked;
+  const template = document.getElementById('ceTemplate').value;
+  const language = document.getElementById('ceLang').value || 'pt_BR';
+  const motivos_excluir = Array.from(document.querySelectorAll('.ce-mot:checked')).map(x => x.value);
+  if(ativo && !template){
+    toast('Escolha um template antes de ativar', 'err');
+    return;
+  }
+  try {
+    const r = await safeFetchJson(BASE + '/chat-config-encerramento', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({ ativo, template, language, motivos_excluir })
+    });
+    if(r && r.ok){ toast('Configuração salva', ''); fecharConfigEncerramento(); }
+    else toast('Erro: ' + (r?.erro || 'servidor'), 'err');
+  } catch(e){ toast('Erro: ' + e.message, 'err'); }
 }
 
 /* ===== FINALIZAR ANTIGAS (limpeza em massa por data) ===== */
