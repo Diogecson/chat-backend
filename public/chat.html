@@ -3077,7 +3077,16 @@ function conversaMatchVisao(c){
 }
 function popularFiltroConsultor(){
   const sel = qs('#fltConsultor'); if(!sel) return;
-  const atd = (ATENDENTES_CACHE||[]).filter(a => (a.ativo !== false) && (a.papel !== 'ADM' && a.papel !== 'admin'));
+  // Lista consultores humanos: exclui bots (super/ia_followup/triagem_ia) e o usuario 'admin'.
+  // ADM eh incluido porque gestores tambem atendem.
+  const EXCLUIR_PAPEIS = new Set(['super','ia_followup','triagem_ia']);
+  const atd = (ATENDENTES_CACHE||[]).filter(a => {
+    if (a.ativo === false) return false;
+    const papel = String(a.papel||'USER').toLowerCase();
+    if (EXCLUIR_PAPEIS.has(papel)) return false;
+    if (String(a.usuario||'').toLowerCase() === 'admin') return false;
+    return true;
+  });
   atd.sort((a,b) => (a.nome||a.usuario||'').localeCompare(b.nome||b.usuario||''));
   const prev = sel.value;
   sel.innerHTML = '<option value="">Todos consultores</option>' + atd.map(a => `<option value="${escapeHtml((a.usuario||'').toLowerCase())}">${escapeHtml(a.nome||a.usuario)}</option>`).join('');
