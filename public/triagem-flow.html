@@ -50,9 +50,13 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
 
 /* ====== CANVAS FULL ====== */
 .canvas{flex:1;background:#f3f4f8;overflow:auto;position:relative;background-image:radial-gradient(#d1d5e0 1px, transparent 1px);background-size:22px 22px}
-.canvas-inner{position:relative;display:inline-flex;align-items:center;gap:90px;padding:80px 60px;min-width:100%;min-height:100%}
-.node{position:relative;flex-shrink:0;width:260px;background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(15,27,45,.08);border:1.5px solid #e4e7ef;overflow:hidden;cursor:pointer;transition:.15s;z-index:2}
-.node:hover{transform:translateY(-3px);box-shadow:0 10px 28px rgba(103,60,255,.2);border-color:#c7b5ff}
+.canvas-inner{position:relative;width:6000px;height:4000px}
+.node{position:absolute;width:260px;background:#fff;border-radius:14px;box-shadow:0 4px 16px rgba(15,27,45,.08);border:1.5px solid #e4e7ef;overflow:hidden;transition:box-shadow .15s, border-color .15s;z-index:2;user-select:none}
+.node:hover{box-shadow:0 10px 28px rgba(103,60,255,.2);border-color:#c7b5ff}
+.node.dragging{cursor:grabbing !important;opacity:.9;box-shadow:0 20px 40px rgba(103,60,255,.35);z-index:50}
+.node .node-head{cursor:grab}
+.node.dragging .node-head{cursor:grabbing}
+.node-body{cursor:pointer}
 .node-head{padding:9px 14px;display:flex;align-items:center;gap:6px;color:#fff;font-weight:700;font-size:.72rem;letter-spacing:.3px;text-transform:uppercase}
 .node-head i{font-size:.95rem}
 .node-head.start{background:linear-gradient(135deg,#10b981,#059669)}
@@ -63,8 +67,11 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
 .node-body{padding:12px 14px}
 .node-field{display:inline-block;background:#eef2ff;color:#4338ca;padding:2px 8px;border-radius:5px;font-size:.68rem;font-weight:700;margin-bottom:6px;text-transform:lowercase}
 .node-msg{font-size:.82rem;color:#1a2438;line-height:1.4;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;min-height:3.2em}
-.node-opts{margin-top:10px;padding-top:10px;border-top:1px dashed #e4e7ef;display:flex;flex-direction:column;gap:4px;font-size:.7rem;color:#64748b}
-.node-opts .op{background:#fef3c7;color:#78350f;padding:1px 7px;border-radius:4px;font-weight:700;margin-right:5px}
+.node-opts{margin-top:10px;padding-top:10px;border-top:1px dashed #e4e7ef;display:flex;flex-direction:column;gap:6px;font-size:.72rem;color:#64748b}
+.node-opts .node-opt-row{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:4px 7px;background:#fafbfc;border:1px solid #eef0f5;border-radius:6px;position:relative}
+.node-opts .op{background:#fef3c7;color:#78350f;padding:1px 7px;border-radius:4px;font-weight:700;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.node-opts .dest{font-size:.66rem;color:#94a3b8;text-align:right;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.node-opts .conn-dot{position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:10px;height:10px;background:#c7d2fe;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #94a3b8;z-index:5}
 .node-ordem{position:absolute;top:-10px;left:-10px;width:28px;height:28px;background:#fff;color:#4f46e5;border:2px solid #4f46e5;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:.78rem;z-index:3;box-shadow:0 2px 6px rgba(0,0,0,.12)}
 .node-acts{position:absolute;top:8px;right:8px;display:none;gap:4px;z-index:3}
 .node:hover .node-acts{display:flex}
@@ -72,16 +79,13 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
 .node-acts button:hover{background:#fff;color:#4f46e5}
 .node-acts .btn-del:hover{color:#dc2626;background:#fee2e2}
 .node.start-end{width:170px}
-.node.start-end .node-body{padding:10px 14px;font-size:.78rem;color:#64748b;text-align:center;line-height:1.35}
+.node.start-end .node-body{padding:10px 14px;font-size:.78rem;color:#64748b;text-align:center;line-height:1.35;cursor:default}
 
 /* Setas */
 .canvas-arrow{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:1}
-.canvas-arrow path{fill:none;stroke:#94a3b8;stroke-width:2.5;stroke-linecap:round}
-.canvas-arrow .arrow-head{fill:#94a3b8;stroke:none}
-
-.insert-btn{position:absolute;top:50%;transform:translateY(-50%);width:30px;height:30px;background:#fff;border:2px solid #d1d5db;border-radius:50%;cursor:pointer;display:grid;place-items:center;color:#9ca3af;font-size:1.05rem;transition:.15s;z-index:4;opacity:0}
-.canvas-inner:hover .insert-btn{opacity:1}
-.insert-btn:hover{border-color:#4f46e5;color:#4f46e5;transform:translateY(-50%) scale(1.18)}
+.canvas-arrow path{fill:none;stroke-width:2.2;stroke-linecap:round;transition:stroke .15s}
+.canvas-arrow .arrow-head{stroke:none}
+.canvas-arrow .arrow-label{font-size:10px;font-weight:700;font-family:'Inter',sans-serif;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round}
 
 .empty-canvas{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;color:#94a3b8;font-size:.9rem}
 .empty-canvas i{font-size:3rem;opacity:.5}
@@ -168,9 +172,10 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
     <div class="empty-canvas"><i class="bi bi-diagram-3"></i><div>Carregando fluxo...</div></div>
   </div>
   <div class="canvas-controls">
+    <button onclick="resetarLayout()" title="Re-organizar cards (auto)"><i class="bi bi-arrow-repeat"></i></button>
     <button onclick="zoomCanvas(0.1)" title="Aumentar"><i class="bi bi-zoom-in"></i></button>
     <button onclick="zoomCanvas(-0.1)" title="Diminuir"><i class="bi bi-zoom-out"></i></button>
-    <button onclick="zoomReset()" title="Resetar"><i class="bi bi-aspect-ratio"></i></button>
+    <button onclick="zoomReset()" title="Zoom 100%"><i class="bi bi-aspect-ratio"></i></button>
   </div>
 </div>
 
@@ -359,7 +364,89 @@ async function carregar(){
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
-// ============ RENDER CANVAS ============
+// ============ RENDER CANVAS (nós flutuantes + ramificações) ============
+const COL_W = 340;      // largura de coluna (card + folga)
+const ROW_H = 180;      // altura entre linhas
+const PAD_X = 60;
+const PAD_Y = 60;
+// cor por ramificação (gira)
+const ARROW_COLORS = ['#4f46e5','#059669','#d97706','#dc2626','#0891b2','#be185d','#7c3aed','#16a34a','#ea580c'];
+
+// Normaliza opcoes de um passo
+function _opcoes(p){
+  if(Array.isArray(p.opcoes)) return p.opcoes;
+  try{ const x = JSON.parse(p.opcoes||'[]'); return Array.isArray(x) ? x : []; }catch(_){ return []; }
+}
+
+// Carrega posições salvas no localStorage (por triagem)
+function _posKey(){ return 'trflow_pos_' + (TRIAGEM_ATUAL||'default'); }
+function _carregarPosicoes(){
+  try{ return JSON.parse(localStorage.getItem(_posKey())||'{}'); }catch(_){ return {}; }
+}
+function _salvarPosicoes(obj){
+  try{ localStorage.setItem(_posKey(), JSON.stringify(obj)); }catch(_){}
+}
+
+// Auto-layout: BFS a partir de START seguindo opcoes.proximo_codigo e ordem
+function _autoLayout(ps, nodeIds){
+  // depth[codigo] = coluna; start=0, end=max+1
+  const depth = {'__start__': 0};
+  const visit = new Set();
+  // Para cada node, calcula sucessores
+  const succ = {};
+  succ['__start__'] = ps.length ? [ps[0].codigo] : ['__end__'];
+  ps.forEach((p, i) => {
+    const opts = _opcoes(p);
+    const lista = [];
+    if(opts.length){
+      opts.forEach(o => {
+        if(!o.proximo_codigo) { const nxt = ps[i+1]; if(nxt) lista.push(nxt.codigo); else lista.push('__end__'); }
+        else if(o.proximo_codigo === '__end__') lista.push('__end__');
+        else if(o.proximo_codigo.startsWith('__close__')) lista.push('__end__');
+        else lista.push(o.proximo_codigo);
+      });
+    } else {
+      const nxt = ps[i+1]; lista.push(nxt ? nxt.codigo : '__end__');
+    }
+    succ[p.codigo] = lista;
+  });
+  succ['__end__'] = [];
+
+  // BFS
+  const queue = ['__start__'];
+  while(queue.length){
+    const cur = queue.shift();
+    if(visit.has(cur)) continue;
+    visit.add(cur);
+    const d = depth[cur] || 0;
+    (succ[cur]||[]).forEach(s => {
+      if(depth[s] == null || depth[s] < d + 1) depth[s] = d + 1;
+      if(!visit.has(s)) queue.push(s);
+    });
+  }
+  // Força __end__ na coluna máxima
+  const maxD = Math.max(...Object.values(depth), 0);
+  depth['__end__'] = Math.max(depth['__end__']||0, maxD);
+
+  // Nodes não alcançáveis: coloca em coluna final (sem ligação)
+  ps.forEach(p => { if(depth[p.codigo] == null) depth[p.codigo] = (depth['__end__']||1); });
+
+  // Agrupa por coluna e distribui Y
+  const porCol = {};
+  nodeIds.forEach(id => {
+    const d = depth[id] != null ? depth[id] : 0;
+    (porCol[d] = porCol[d] || []).push(id);
+  });
+  const pos = {};
+  Object.keys(porCol).forEach(col => {
+    const arr = porCol[col];
+    arr.forEach((id, i) => {
+      pos[id] = { x: PAD_X + col * COL_W, y: PAD_Y + i * ROW_H + (col % 2 ? 20 : 0) };
+    });
+  });
+  return pos;
+}
+
 function renderPassos(){
   const wrap = qs('#canvasInner');
   if(!wrap) return;
@@ -368,102 +455,272 @@ function renderPassos(){
   wrap.style.transform = 'scale(' + zoomLevel + ')';
   wrap.style.transformOrigin = 'top left';
 
-  const nodes = [
-    {tipo:'start', head:'<i class="bi bi-play-circle-fill"></i> Início', body:'Cliente envia a 1ª mensagem', cls:'start'},
-    ...ps.map(p => {
-      const t = p.tipo_resposta || 'text';
-      const tipoLabel = t==='buttons'?'<i class="bi bi-grid-3x3-gap-fill"></i> Botões' : (t==='list'?'<i class="bi bi-list-ul"></i> Lista' : '<i class="bi bi-chat-text"></i> Texto');
-      const opcoes = Array.isArray(p.opcoes) ? p.opcoes : (function(){ try{return JSON.parse(p.opcoes||'[]')}catch(_){return []} })();
-      let opcoesHtml = '';
-      if((t==='buttons'||t==='list') && opcoes.length){
-        opcoesHtml = '<div class="node-opts">' + opcoes.slice(0,5).map(o => {
-          let dest;
-          if(o.proximo_codigo === '__end__') dest = '→ consultor';
-          else if(o.proximo_codigo && o.proximo_codigo.startsWith('__close__')){
-            const mc = o.proximo_codigo.replace('__close__','');
-            const m = (MOTIVOS_CACHE||[]).find(x => x.codigo === mc);
-            dest = '✗ ' + escapeHtml(m ? m.nome : mc);
-          }
-          else dest = o.proximo_codigo ? '→ ' + escapeHtml((ps.find(x=>x.codigo===o.proximo_codigo)||{}).campo || '?') : '→ próximo';
-          return '<div><span class="op">' + escapeHtml(o.titulo||'?') + '</span>' + dest + '</div>';
-        }).join('') + (opcoes.length>5 ? '<div style="opacity:.7">+'+(opcoes.length-5)+' opções</div>' : '') + '</div>';
-      }
-      return {
-        tipo:'step', codigo:p.codigo, ordem:p.ordem, head: tipoLabel, cls: 'step-'+t,
-        body: (p.campo?`<div class="node-field">${escapeHtml(p.campo)}</div>`:'') +
-              `<div class="node-msg">${escapeHtml(p.mensagem||'(sem mensagem)')}</div>` + opcoesHtml,
-      };
-    }),
-    {tipo:'end', head:'<i class="bi bi-person-check-fill"></i> Fim', body:'Chama o consultor humano', cls:'end'},
-  ];
+  if(!ps.length){
+    wrap.innerHTML = '<div class="empty-canvas" style="position:absolute;inset:0"><i class="bi bi-diagram-3"></i><div>Nenhum passo ainda.</div><button class="btn btn-primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Criar primeiro passo</button></div>';
+    return;
+  }
 
-  nodes.forEach((n, idx) => {
-    const el = document.createElement('div');
-    el.className = 'node' + (n.tipo === 'start' || n.tipo === 'end' ? ' start-end' : '');
-    if(n.tipo === 'step'){
-      el.onclick = () => editarPasso(n.codigo);
-      el.innerHTML = `
-        <div class="node-ordem">${n.ordem}</div>
-        <div class="node-acts">
-          <button class="btn-del" onclick="event.stopPropagation();deletarPasso('${escapeHtml(n.codigo)}')" title="Excluir"><i class="bi bi-trash"></i></button>
-        </div>
-        <div class="node-head ${n.cls}">${n.head}</div>
-        <div class="node-body">${n.body}</div>`;
-    } else {
-      el.innerHTML = `<div class="node-head ${n.cls}">${n.head}</div><div class="node-body">${escapeHtml(n.body)}</div>`;
+  const allIds = ['__start__', ...ps.map(p => p.codigo), '__end__'];
+  const posSalvas = _carregarPosicoes();
+  const auto = _autoLayout(ps, allIds);
+  // Mescla: posicao salva tem prioridade
+  const pos = {};
+  allIds.forEach(id => { pos[id] = posSalvas[id] || auto[id] || { x: PAD_X, y: PAD_Y }; });
+
+  // Cria nós
+  const nodeMap = {};  // id -> element
+
+  // START
+  nodeMap['__start__'] = _criarNode({
+    id:'__start__', tipo:'start', cls:'start',
+    head:'<i class="bi bi-play-circle-fill"></i> Início',
+    body:'Cliente envia a 1ª mensagem',
+  }, pos['__start__']);
+  wrap.appendChild(nodeMap['__start__']);
+
+  // PASSOS
+  ps.forEach(p => {
+    const t = p.tipo_resposta || 'text';
+    const tipoLabel = t==='buttons' ? '<i class="bi bi-grid-3x3-gap-fill"></i> Botões'
+                    : t==='list'    ? '<i class="bi bi-list-ul"></i> Lista'
+                                    : '<i class="bi bi-chat-text"></i> Texto';
+    const opcoes = _opcoes(p);
+    let opcoesHtml = '';
+    if((t==='buttons'||t==='list') && opcoes.length){
+      opcoesHtml = '<div class="node-opts">' + opcoes.map((o, i) => {
+        let dest;
+        if(o.proximo_codigo === '__end__') dest = 'consultor';
+        else if(o.proximo_codigo && o.proximo_codigo.startsWith('__close__')){
+          const mc = o.proximo_codigo.replace('__close__','');
+          const m = (MOTIVOS_CACHE||[]).find(x => x.codigo === mc);
+          dest = '✗ ' + escapeHtml(m ? m.nome : mc);
+        } else {
+          dest = o.proximo_codigo ? escapeHtml((ps.find(x=>x.codigo===o.proximo_codigo)||{}).campo || '?') : 'próximo';
+        }
+        return `<div class="node-opt-row" data-opt-idx="${i}">
+          <span class="op">${escapeHtml(o.titulo||'?')}</span>
+          <span class="dest">→ ${dest}</span>
+          <span class="conn-dot"></span>
+        </div>`;
+      }).join('') + '</div>';
     }
-    wrap.appendChild(el);
+    nodeMap[p.codigo] = _criarNode({
+      id:p.codigo, tipo:'step', ordem:p.ordem, cls:'step-'+t,
+      head: tipoLabel,
+      bodyHtml: (p.campo?`<div class="node-field">${escapeHtml(p.campo)}</div>`:'') +
+                `<div class="node-msg">${escapeHtml(p.mensagem||'(sem mensagem)')}</div>` + opcoesHtml,
+    }, pos[p.codigo]);
+    wrap.appendChild(nodeMap[p.codigo]);
+  });
 
-    if(idx < nodes.length - 1){
-      const gap = document.createElement('button');
-      gap.className = 'insert-btn';
-      gap.innerHTML = '<i class="bi bi-plus"></i>';
-      gap.title = 'Inserir passo aqui';
-      let ordemNovo;
-      if(n.tipo === 'start') ordemNovo = 1;
-      else if(n.tipo === 'step') ordemNovo = Number(n.ordem||0) + 1;
-      else ordemNovo = ps.length + 1;
-      gap.onclick = (e)=>{ e.stopPropagation(); abrirPasso(null, ordemNovo); };
-      wrap.appendChild(gap);
+  // FIM
+  nodeMap['__end__'] = _criarNode({
+    id:'__end__', tipo:'end', cls:'end',
+    head:'<i class="bi bi-person-check-fill"></i> Fim',
+    body:'Chama o consultor humano',
+  }, pos['__end__']);
+  wrap.appendChild(nodeMap['__end__']);
+
+  // Setas (uma por opcao; fallback uma por ordem)
+  requestAnimationFrame(() => desenharSetas(nodeMap, ps));
+}
+
+function _criarNode(cfg, pos){
+  const el = document.createElement('div');
+  el.className = 'node' + (cfg.tipo==='start'||cfg.tipo==='end' ? ' start-end' : '');
+  el.dataset.id = cfg.id;
+  el.style.left = (pos.x||0) + 'px';
+  el.style.top = (pos.y||0) + 'px';
+  if(cfg.tipo === 'step'){
+    el.innerHTML = `
+      <div class="node-ordem">${cfg.ordem||'?'}</div>
+      <div class="node-acts">
+        <button class="btn-del" onclick="event.stopPropagation();deletarPasso('${escapeHtml(cfg.id)}')" title="Excluir"><i class="bi bi-trash"></i></button>
+      </div>
+      <div class="node-head ${cfg.cls}">${cfg.head}</div>
+      <div class="node-body">${cfg.bodyHtml}</div>`;
+    // Click no body abre edicao; drag so no header
+    const body = el.querySelector('.node-body');
+    if(body) body.onclick = (e) => {
+      if(_dragMoved) return;    // evita abrir edicao depois de drag
+      editarPasso(cfg.id);
+    };
+  } else {
+    el.innerHTML = `<div class="node-head ${cfg.cls}">${cfg.head}</div><div class="node-body">${escapeHtml(cfg.body||'')}</div>`;
+  }
+  // Drag
+  const head = el.querySelector('.node-head');
+  if(head) head.addEventListener('mousedown', (e) => _iniciarDrag(e, el, cfg.id));
+  return el;
+}
+
+// === Drag ===
+let _dragging = null;
+let _dragOffset = {x:0, y:0};
+let _dragMoved = false;
+function _iniciarDrag(e, el, id){
+  e.preventDefault();
+  _dragging = { el, id };
+  _dragMoved = false;
+  const rect = el.getBoundingClientRect();
+  _dragOffset.x = (e.clientX - rect.left) / zoomLevel;
+  _dragOffset.y = (e.clientY - rect.top)  / zoomLevel;
+  el.classList.add('dragging');
+}
+document.addEventListener('mousemove', (e) => {
+  if(!_dragging) return;
+  const wrap = qs('#canvasInner');
+  const wrapRect = wrap.getBoundingClientRect();
+  const x = Math.max(0, (e.clientX - wrapRect.left) / zoomLevel - _dragOffset.x);
+  const y = Math.max(0, (e.clientY - wrapRect.top)  / zoomLevel - _dragOffset.y);
+  _dragging.el.style.left = x + 'px';
+  _dragging.el.style.top  = y + 'px';
+  _dragMoved = true;
+  // Redesenha setas em tempo real
+  _redesenharApenas();
+});
+document.addEventListener('mouseup', () => {
+  if(!_dragging) return;
+  _dragging.el.classList.remove('dragging');
+  // Salva posicao
+  const posSalvas = _carregarPosicoes();
+  posSalvas[_dragging.id] = {
+    x: parseFloat(_dragging.el.style.left) || 0,
+    y: parseFloat(_dragging.el.style.top)  || 0,
+  };
+  _salvarPosicoes(posSalvas);
+  _dragging = null;
+  setTimeout(() => { _dragMoved = false; }, 50);
+});
+
+let _ultimoNodeMap = null;
+let _ultimosPs = null;
+function _redesenharApenas(){
+  if(!_ultimoNodeMap) return;
+  desenharSetas(_ultimoNodeMap, _ultimosPs, true);
+}
+
+function desenharSetas(nodeMap, ps, isUpdate){
+  _ultimoNodeMap = nodeMap;
+  _ultimosPs = ps;
+  const wrap = qs('#canvasInner');
+  if(!wrap) return;
+  const old = wrap.querySelector('svg.canvas-arrow');
+  if(old) old.remove();
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.classList.add('canvas-arrow');
+  svg.style.width = wrap.scrollWidth + 'px';
+  svg.style.height = wrap.scrollHeight + 'px';
+  svg.setAttribute('width', wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+
+  const wrapRect = wrap.getBoundingClientRect();
+  function posOf(el, tipo){  // tipo: 'right'|'left'|'leftTop'|'rightRowY'
+    const r = el.getBoundingClientRect();
+    return {
+      right: { x: (r.right - wrapRect.left) / zoomLevel, y: (r.top - wrapRect.top + r.height/2) / zoomLevel },
+      left:  { x: (r.left  - wrapRect.left) / zoomLevel, y: (r.top - wrapRect.top + r.height/2) / zoomLevel },
+      top:   r.top - wrapRect.top,
+    };
+  }
+
+  function drawArrow(x1, y1, x2, y2, color, label){
+    const dx = Math.abs(x2 - x1);
+    const c = Math.max(60, dx * 0.5);
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', `M ${x1} ${y1} C ${x1+c} ${y1}, ${x2-c} ${y2}, ${x2-8} ${y2}`);
+    path.setAttribute('stroke', color);
+    svg.appendChild(path);
+    const head = document.createElementNS(svgNS, 'polygon');
+    head.setAttribute('points', `${x2-8},${y2-6} ${x2},${y2} ${x2-8},${y2+6}`);
+    head.setAttribute('fill', color);
+    head.classList.add('arrow-head');
+    svg.appendChild(head);
+    if(label){
+      const mx = (x1+x2)/2, my = (y1+y2)/2 - 4;
+      const t = document.createElementNS(svgNS, 'text');
+      t.setAttribute('x', mx); t.setAttribute('y', my);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('fill', color);
+      t.classList.add('arrow-label');
+      t.textContent = label;
+      svg.appendChild(t);
+    }
+  }
+
+  // __start__ → primeiro passo (se existir) ou __end__
+  const startEl = nodeMap['__start__'];
+  const firstPasso = ps[0];
+  const targetFirst = firstPasso ? nodeMap[firstPasso.codigo] : nodeMap['__end__'];
+  if(startEl && targetFirst){
+    const p1 = posOf(startEl).right;
+    const p2 = posOf(targetFirst).left;
+    drawArrow(p1.x, p1.y, p2.x, p2.y, '#64748b');
+  }
+
+  // Para cada passo: se tem opcoes, uma seta POR OPCAO (do conn-dot).
+  // Senão, uma seta pro próximo por ordem (ou __end__).
+  ps.forEach((p, idx) => {
+    const srcEl = nodeMap[p.codigo];
+    if(!srcEl) return;
+    const opcoes = _opcoes(p);
+    const temOpcoes = (p.tipo_resposta==='buttons' || p.tipo_resposta==='list') && opcoes.length;
+
+    if(temOpcoes){
+      opcoes.forEach((o, i) => {
+        // ponto de origem: conn-dot da linha i
+        const row = srcEl.querySelector(`.node-opt-row[data-opt-idx="${i}"]`);
+        const dot = row && row.querySelector('.conn-dot');
+        let x1, y1;
+        if(dot){
+          const dr = dot.getBoundingClientRect();
+          x1 = (dr.left - wrapRect.left + dr.width/2) / zoomLevel;
+          y1 = (dr.top  - wrapRect.top  + dr.height/2) / zoomLevel;
+        } else {
+          const sr = posOf(srcEl).right; x1 = sr.x; y1 = sr.y;
+        }
+
+        // destino
+        let tgtEl = null, label = o.titulo || '?';
+        if(o.proximo_codigo === '__end__' || (o.proximo_codigo||'').startsWith('__close__') || !o.proximo_codigo){
+          if(o.proximo_codigo === '__end__' || (o.proximo_codigo||'').startsWith('__close__')) tgtEl = nodeMap['__end__'];
+          else { const nxt = ps[idx+1]; tgtEl = nxt ? nodeMap[nxt.codigo] : nodeMap['__end__']; }
+        } else {
+          tgtEl = nodeMap[o.proximo_codigo] || nodeMap['__end__'];
+        }
+        if(!tgtEl) return;
+        const t = tgtEl.getBoundingClientRect();
+        const x2 = (t.left - wrapRect.left) / zoomLevel;
+        const y2 = (t.top  - wrapRect.top + t.height/2) / zoomLevel;
+        const color = ARROW_COLORS[i % ARROW_COLORS.length];
+        drawArrow(x1, y1, x2, y2, color, label);
+      });
+    } else {
+      // sem opcoes: proximo por ordem
+      const nxt = ps[idx+1];
+      const tgtEl = nxt ? nodeMap[nxt.codigo] : nodeMap['__end__'];
+      if(!tgtEl) return;
+      const s = posOf(srcEl).right;
+      const t = tgtEl.getBoundingClientRect();
+      const x2 = (t.left - wrapRect.left) / zoomLevel;
+      const y2 = (t.top  - wrapRect.top + t.height/2) / zoomLevel;
+      drawArrow(s.x, s.y, x2, y2, '#64748b');
     }
   });
 
-  requestAnimationFrame(desenharSetas);
-}
-
-function desenharSetas(){
-  const wrap = qs('#canvasInner');
-  if(!wrap) return;
-  const old = wrap.querySelector('.canvas-arrow');
-  if(old) old.remove();
-  const nodes = Array.from(wrap.querySelectorAll('.node'));
-  if(nodes.length < 2) return;
-  const wrapRect = wrap.getBoundingClientRect();
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.classList.add('canvas-arrow');
-  svg.setAttribute('width', wrap.scrollWidth);
-  svg.setAttribute('height', wrap.scrollHeight);
-  svg.style.width = wrap.scrollWidth + 'px';
-  svg.style.height = wrap.scrollHeight + 'px';
-  for(let i=0; i<nodes.length-1; i++){
-    const a = nodes[i].getBoundingClientRect();
-    const b = nodes[i+1].getBoundingClientRect();
-    const x1 = (a.right - wrapRect.left) / zoomLevel;
-    const y1 = (a.top - wrapRect.top + a.height/2) / zoomLevel;
-    const x2 = (b.left - wrapRect.left) / zoomLevel;
-    const y2 = (b.top - wrapRect.top + b.height/2) / zoomLevel;
-    const midX = (x1+x2)/2;
-    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d', `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2-8} ${y2}`);
-    svg.appendChild(path);
-    const head = document.createElementNS('http://www.w3.org/2000/svg','polygon');
-    head.setAttribute('points', `${x2-8},${y2-5} ${x2},${y2} ${x2-8},${y2+5}`);
-    head.classList.add('arrow-head');
-    svg.appendChild(head);
-  }
   wrap.insertBefore(svg, wrap.firstChild);
 }
-window.addEventListener('resize', desenharSetas);
+
+window.addEventListener('resize', () => _redesenharApenas());
+
+// Botao para resetar posicoes
+function resetarLayout(){
+  try{ localStorage.removeItem(_posKey()); }catch(_){}
+  renderPassos();
+  toast('Layout resetado','');
+}
 
 function zoomCanvas(delta){
   zoomLevel = Math.max(0.5, Math.min(1.6, zoomLevel + delta));
