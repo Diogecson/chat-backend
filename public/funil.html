@@ -202,6 +202,7 @@ if (!usuario) {
 document.getElementById('subLabel').textContent = `${nome} · ${papel === 'SUPER' ? 'Super Admin' : (papel === 'ADM' ? 'Admin' : 'Consultor')}`;
 
 let cacheConversas = { quente: [], morna: [], fria: [] };
+let cacheRanking = []; // vem do backend GROUP BY sem LIMIT; fonte da verdade pros cards
 let cacheMetricas = {}; // { 'nome_atendente': { media_min, mediana_min, total_respostas } }
 let cacheMatriculas = {}; // { 'nome_atendente': matriculas }
 let FILTRO_CONSULTOR = ''; // '' = todos; 'nome' = só esse dono; '__sem__' = só sem dono
@@ -241,6 +242,7 @@ async function carregar() {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || d.erro || 'erro desconhecido');
     cacheConversas = { quente: d.quente || [], morna: d.morna || [], fria: d.fria || [] };
+    cacheRanking = Array.isArray(d.ranking) ? d.ranking : [];
     renderizar();
     // Métricas (não bloqueia a renderização principal)
     carregarMetricas();
@@ -357,7 +359,23 @@ function aplicarFiltroConsultor(list){
 }
 
 function agregarPorConsultor(){
-  // {chaveNorm: {label, quente, morna, fria, sem_dono:bool}}
+  // PREFERE o ranking do backend (contagem exata sem LIMIT).
+  // Fallback: conta a partir de cacheConversas (pode estar truncado em 2000).
+  if(cacheRanking && cacheRanking.length){
+    const arr = cacheRanking.map(r => {
+      const sem = !r.dono;
+      return {
+        label: sem ? 'Sem atendente' : r.dono,
+        quente: Number(r.quentes)||0,
+        morna: Number(r.mornas)||0,
+        fria: Number(r.frias)||0,
+        sem_dono: sem,
+      };
+    });
+    arr.sort((a,b) => (b.quente - a.quente) || (b.morna - a.morna) || a.label.localeCompare(b.label));
+    return arr;
+  }
+  // Fallback: contagem local (legado)
   const mapa = new Map();
   const add = (key, label, kind, sem) => {
     if(!mapa.has(key)) mapa.set(key, {label, quente:0, morna:0, fria:0, sem_dono: !!sem});
@@ -374,7 +392,6 @@ function agregarPorConsultor(){
     }
   }
   const arr = Array.from(mapa.values());
-  // Ordena: quentes desc; sem_dono vai pro final se zero quentes
   arr.sort((a,b) => (b.quente - a.quente) || (b.morna - a.morna) || a.label.localeCompare(b.label));
   return arr;
 }

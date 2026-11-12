@@ -83,7 +83,49 @@ SELECT
   END AS bolinha
 FROM base
 ORDER BY ultima_hora DESC
-LIMIT 800
+LIMIT 2000
+`;
+
+// Query de ranking (sem LIMIT) — conta por consultor e temperatura.
+// Usa a mesma CTE "base" conceitual, mas sem truncar: o front ja soma localmente
+// pros cards de "quentes por consultor".
+const SQL_RANKING = `
+WITH ultimas AS (
+  SELECT DISTINCT ON (conta_id, telefone)
+    conta_id, telefone, texto, tipo, timestamp, direcao, atendente
+  FROM chat_mensagens
+  WHERE ($1 = '__all__' OR conta_id = $1)
+    AND ($6 = '' OR timestamp >= ($6::date AT TIME ZONE 'America/Sao_Paulo'))
+    AND ($7 = '' OR timestamp <  (($7::date + INTERVAL '1 day') AT TIME ZONE 'America/Sao_Paulo'))
+  ORDER BY conta_id, telefone, timestamp DESC
+),
+base AS (
+  SELECT
+    u.conta_id, u.telefone,
+    COALESCE(cd.atendente, '') AS dono,
+    EXTRACT(EPOCH FROM (NOW() - u.timestamp))/3600 AS horas_desde_ultima
+  FROM ultimas u
+  LEFT JOIN chat_conversa_dono cd ON cd.conta_id=u.conta_id AND cd.telefone=u.telefone
+  WHERE COALESCE(cd.finalizada, false) = false
+    AND (
+      $2 = 'SUPER'
+      OR (
+        ($5 = '__all__' OR $5 = '*' OR ($5 <> '__none__' AND $5 <> '' AND u.conta_id = ANY(string_to_array($5, ','))))
+        AND (
+          $2 = 'ADM'
+          OR (cd.atendente <> '' AND LOWER(cd.atendente) = LOWER($3))
+        )
+      )
+    )
+    AND ( $4 = '__all__' OR ($4 = 'minhas' AND LOWER(COALESCE(cd.atendente,'')) = LOWER($3)) )
+)
+SELECT
+  LOWER(dono) AS dono,
+  COUNT(*) FILTER (WHERE horas_desde_ultima < 6)                              AS quentes,
+  COUNT(*) FILTER (WHERE horas_desde_ultima >= 6  AND horas_desde_ultima < 24) AS mornas,
+  COUNT(*) FILTER (WHERE horas_desde_ultima >= 24)                             AS frias
+FROM base
+GROUP BY LOWER(dono)
 `;
 
 export default async function funilRoutes(fastify) {
@@ -99,18 +141,32 @@ export default async function funilRoutes(fastify) {
       p(req, 'data_fim', ''),                                            // $7 (YYYY-MM-DD)
     ];
     try {
-      const r = await query(SQL, params);
+      // Roda lista detalhada (truncada) e ranking (sem limite) em paralelo
+      const [r, rk] = await Promise.all([
+        query(SQL, params),
+        query(SQL_RANKING, params),
+      ]);
       const rows = r.rows || [];
       const agrup = { quente: [], morna: [], fria: [] };
       for (const row of rows) {
         (agrup[row.temperatura] || agrup.fria).push(row);
       }
+      // Normaliza ranking: BIGINT vira int
+      const ranking = (rk.rows || []).map(r => ({
+        dono: r.dono || '',
+        quentes: Number(r.quentes) || 0,
+        mornas: Number(r.mornas) || 0,
+        frias: Number(r.frias) || 0,
+      }));
       return {
         ok: true,
-        total: rows.length,
+        total: rows.length,                                    // qtd retornada (truncada)
+        total_real: ranking.reduce((s, x) => s + x.quentes + x.mornas + x.frias, 0),
+        truncado: rows.length >= 2000,
         quente: agrup.quente,
         morna: agrup.morna,
         fria: agrup.fria,
+        ranking,                                               // SEM LIMITE — usar isso pra cards
         now: new Date().toISOString(),
       };
     } catch (err) {
