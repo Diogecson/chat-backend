@@ -358,6 +358,101 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-fila-toggle', filaToggle);
 
+  // === chat-fila-status / chat-fila-config ===
+  // Migrados do workflow-fila-distribuicao do n8n (que usava Data Table do n8n).
+  // Agora leem de chat_atendentes (na_fila/ativo/papel) + chat_fila_config (singleton).
+  async function ensureFilaConfigTable() {
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_fila_config (
+        id INTEGER PRIMARY KEY DEFAULT 1,
+        ativa BOOLEAN NOT NULL DEFAULT true,
+        ultimo_atribuido VARCHAR(80) NOT NULL DEFAULT '',
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT chat_fila_config_single CHECK (id=1)
+      )
+    `);
+    await query(`INSERT INTO chat_fila_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+  }
+
+  const filaStatus = async (req, reply) => withDb(reply, async () => {
+    await ensureFilaConfigTable();
+    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
+    const rows = await query(
+      `SELECT LOWER(usuario) AS usuario, COALESCE(nome,usuario) AS nome,
+              COALESCE(foto_url,'') AS foto_url, COALESCE(na_fila,false) AS na_fila
+       FROM chat_atendentes
+       WHERE COALESCE(ativo,true)=true
+         AND LOWER(COALESCE(papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+         AND LOWER(usuario) <> 'admin'
+       ORDER BY usuario`
+    );
+    const inFila = rows.rows.filter(a => a.na_fila === true);
+    const foraFila = rows.rows.filter(a => a.na_fila !== true);
+    const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
+    const idxUltimo = inFila.findIndex(a => a.usuario === ultimo);
+    const proximoIdx = inFila.length ? ((idxUltimo + 1) % inFila.length) : -1;
+    const proximo = proximoIdx >= 0 ? inFila[proximoIdx] : null;
+    return {
+      ok: true,
+      ativa: c.ativa !== false,
+      ultimo_atribuido: ultimo,
+      proximo,
+      in_fila: inFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url })),
+      fora_fila: foraFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url })),
+    };
+  });
+  fastify.get('/webhook/chat-fila-status', filaStatus);
+  fastify.post('/webhook/chat-fila-status', filaStatus);
+
+  const filaConfig = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    await ensureFilaConfigTable();
+    const ativa = (b.ativa === true || b.ativa === 'true' || b.ativa === 1);
+    const resetar = (b.resetar === true || b.resetar === 'true' || b.resetar === 1);
+    if (resetar) {
+      await query(`UPDATE chat_fila_config SET ativa=$1, ultimo_atribuido='', atualizado_em=NOW() WHERE id=1`, [ativa]);
+    } else {
+      await query(`UPDATE chat_fila_config SET ativa=$1, atualizado_em=NOW() WHERE id=1`, [ativa]);
+    }
+    const r = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    return { ok: true, ativa: r.rows[0].ativa, ultimo_atribuido: r.rows[0].ultimo_atribuido };
+  });
+  fastify.post('/webhook/chat-fila-config', filaConfig);
+
+  // === chat-fila-proximo ===
+  // Devolve o proximo da fila (round-robin). Avanca ultimo_atribuido no DB.
+  // Chamado pelo engine de distribuicao / recebimento de msg nova.
+  const filaProximo = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    const conta_id = String(b.conta_id || '').trim();
+    const telefone = String(b.telefone || '').trim();
+    await ensureFilaConfigTable();
+    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
+    if (c.ativa === false) return { ok: false, sem_fila: true, erro: 'fila desativada' };
+    const rows = await query(
+      `SELECT LOWER(usuario) AS usuario, COALESCE(nome,usuario) AS nome
+       FROM chat_atendentes
+       WHERE COALESCE(ativo,true)=true AND COALESCE(na_fila,false)=true
+         AND LOWER(COALESCE(papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+         AND LOWER(usuario) <> 'admin'
+       ORDER BY usuario`
+    );
+    if (!rows.rows.length) return { ok: false, sem_fila: true, erro: 'nenhum consultor na fila' };
+    const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
+    const idx = rows.rows.findIndex(a => a.usuario === ultimo);
+    const prox = rows.rows[(idx + 1) % rows.rows.length];
+    await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW() WHERE id=1`, [prox.usuario]);
+    return {
+      ok: true,
+      conta_id, telefone,
+      usuario_escolhido: prox.usuario,
+      nome_escolhido: prox.nome,
+    };
+  });
+  fastify.post('/webhook/chat-fila-proximo', filaProximo);
+
   // === chat-atendente-delete ===
   // Remove um atendente (respostas rapidas e historico ficam, via FK ou nao)
   const atendenteDelete = async (req, reply) => withDb(reply, async () => {
