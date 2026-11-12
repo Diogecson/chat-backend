@@ -381,19 +381,35 @@ export default async function triagemRoutes(fastify) {
     }
   });
 
-  // POST /webhook/chat-triagem-resetar-sessoes — apaga todas as sessoes ativas
-  // (util depois de aplicar um template novo pra ninguem ficar preso na triagem
-  // antiga). Body: {conta_id?} opcional pra filtrar por conta.
+  // POST /webhook/chat-triagem-resetar-sessoes — apaga sessoes de triagem.
+  // Body:
+  //   - conta_id? (opcional) filtra por conta
+  //   - incluir_concluidas (default true) apaga tbm 'concluida' / 'encerrada'
+  //     - quando true: zera o cooldown de 2h que o engine do n8n usa pra nao
+  //       reativar triagem de quem acabou de concluir uma
+  //     - quando false: apaga so 'ativa' (clientes presos no fluxo em andamento)
   fastify.post('/webhook/chat-triagem-resetar-sessoes', async (req, reply) => {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     const conta_id = String(p(req, 'conta_id', '')).trim();
+    const rawInc = req.body ? req.body.incluir_concluidas : undefined;
+    const incluir_concluidas = rawInc === undefined
+      ? true
+      : (rawInc === true || String(rawInc) === 'true' || rawInc === 1);
     try {
-      const sql = conta_id
-        ? `DELETE FROM chat_triagem_sessoes WHERE status='ativa' AND conta_id=$1`
-        : `DELETE FROM chat_triagem_sessoes WHERE status='ativa'`;
-      const args = conta_id ? [conta_id] : [];
+      let sql, args;
+      if (incluir_concluidas) {
+        sql = conta_id
+          ? `DELETE FROM chat_triagem_sessoes WHERE conta_id=$1`
+          : `DELETE FROM chat_triagem_sessoes`;
+        args = conta_id ? [conta_id] : [];
+      } else {
+        sql = conta_id
+          ? `DELETE FROM chat_triagem_sessoes WHERE status='ativa' AND conta_id=$1`
+          : `DELETE FROM chat_triagem_sessoes WHERE status='ativa'`;
+        args = conta_id ? [conta_id] : [];
+      }
       const r = await query(sql, args);
-      return { ok: true, removidas: r.rowCount };
+      return { ok: true, removidas: r.rowCount, incluiu_concluidas: incluir_concluidas };
     } catch (err) {
       reply.code(500);
       return { ok: false, erro: err.message };
@@ -556,10 +572,11 @@ export default async function triagemRoutes(fastify) {
         ativada = true;
       }
 
-      // Zera sessoes ativas (clientes travados no fluxo antigo saem da triagem)
+      // Zera TODAS as sessoes (ativa+concluida+encerrada): destrava clientes presos
+      // no fluxo antigo e tbm zera o cooldown de 2h que impede reativar triagem.
       let sessoes_resetadas = 0;
       if (resetar_sessoes) {
-        const rs = await query(`DELETE FROM chat_triagem_sessoes WHERE status='ativa'`);
+        const rs = await query(`DELETE FROM chat_triagem_sessoes`);
         sessoes_resetadas = rs.rowCount || 0;
       }
 

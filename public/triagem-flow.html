@@ -386,15 +386,18 @@ async function aplicarTemplateBF(){
 
 async function resetarSessoes(){
   const ok = confirm(
-    'ZERAR TODAS as triagens em andamento?\n\n' +
-    'Clientes que estão presos no meio do fluxo (antigo ou atual) vão sair da triagem ' +
-    'e a conversa volta pro consultor humano.\n\n' +
-    'Use isso depois de trocar o fluxo da triagem.\n\n' +
+    'ZERAR TODAS as sessões de triagem?\n\n' +
+    '➤ Clientes presos no meio do fluxo vão sair da triagem\n' +
+    '➤ TAMBÉM apaga sessões já concluídas → remove o cooldown de 2h\n' +
+    '   (sem isso, quem terminou triagem há menos de 2h não dispara de novo\n' +
+    '    por palavra-chave, mesmo digitando a palavra certa)\n\n' +
+    'Use isso depois de trocar o fluxo ou pra testar a triagem com clientes\n' +
+    'que já passaram por ela.\n\n' +
     'Quer continuar?'
   );
   if(!ok) return;
   try{
-    const r = await api(URL_RESET_SESSOES, {method:'POST', bodyObj:{}});
+    const r = await api(URL_RESET_SESSOES, {method:'POST', bodyObj:{incluir_concluidas: true}});
     if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
     toast(`${r.removidas} sessão(ões) resetada(s)`,'');
   }catch(e){ toast('Erro: '+e.message,'err'); }
