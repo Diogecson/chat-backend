@@ -24,6 +24,7 @@ import triagemRoutes from './routes/triagem.js';
 import gestaoRoutes from './routes/gestao.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
+import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -174,6 +175,7 @@ try {
   // Usa fastify.inject pra reaproveitar /webhook/chat-enviar e /webhook/chat-conversa-finalizar.
   if (hasDb()) {
     startTriagemEngine(fastify);
+    startRedistribuicaoFila(fastify);
   }
 
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)

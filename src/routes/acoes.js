@@ -55,7 +55,12 @@ export default async function acoesRoutes(fastify) {
     ).toLowerCase().trim();
     const usuario = p(req, 'usuario', 'sistema');
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
-    // UPDATE primeiro; se nao achou (conversa nunca teve dono), INSERT
+    // Captura dono anterior pra registrar no evento
+    const prev = await query(
+      `SELECT atendente FROM chat_conversa_dono WHERE conta_id=$1 AND telefone=$2`,
+      [conta_id, telefone]
+    );
+    const donoAnterior = (prev.rows[0]?.atendente || '').toLowerCase();
     const upd = await query(
       `UPDATE chat_conversa_dono
        SET atendente=$3, atribuido_em=NOW(), atribuido_por=$4
@@ -69,6 +74,18 @@ export default async function acoesRoutes(fastify) {
         [conta_id, telefone, novo_atendente, 'transfer:' + usuario]
       );
     }
+    // Registra evento interno pra aparecer no histórico do chat.html
+    // Schema real: tipo, ator, alvo, motivo, texto, criado_em (lido pelo frontend como ev.ator/ev.alvo)
+    try {
+      const texto = donoAnterior
+        ? `Transferido de ${donoAnterior} para ${novo_atendente}`
+        : `Atribuído para ${novo_atendente}`;
+      await query(
+        `INSERT INTO chat_conversa_eventos (conta_id, telefone, tipo, ator, alvo, motivo, texto, criado_em)
+         VALUES ($1,$2,'transferencia',$3,$4,'',$5,NOW())`,
+        [conta_id, telefone, usuario, novo_atendente, texto]
+      );
+    } catch (_) { /* sem bloqueio se tabela/schema divergir */ }
     return { ok: true, atendente: novo_atendente };
   });
   fastify.post('/webhook/chat-conversa-transferir', conversaTransferir);
@@ -362,21 +379,28 @@ export default async function acoesRoutes(fastify) {
   // Migrados do workflow-fila-distribuicao do n8n (que usava Data Table do n8n).
   // Agora leem de chat_atendentes (na_fila/ativo/papel) + chat_fila_config (singleton).
   async function ensureFilaConfigTable() {
+    // Idempotente e tolerante a tabela pre-existente (schema antigo do n8n sem coluna id).
     await query(`
       CREATE TABLE IF NOT EXISTS chat_fila_config (
-        id INTEGER PRIMARY KEY DEFAULT 1,
         ativa BOOLEAN NOT NULL DEFAULT true,
         ultimo_atribuido VARCHAR(80) NOT NULL DEFAULT '',
-        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        CONSTRAINT chat_fila_config_single CHECK (id=1)
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
-    await query(`INSERT INTO chat_fila_config (id) VALUES (1) ON CONFLICT (id) DO NOTHING`);
+    // Garante colunas (caso tabela ja existisse com outro schema do n8n)
+    await query(`ALTER TABLE chat_fila_config ADD COLUMN IF NOT EXISTS ativa BOOLEAN NOT NULL DEFAULT true`);
+    await query(`ALTER TABLE chat_fila_config ADD COLUMN IF NOT EXISTS ultimo_atribuido VARCHAR(80) NOT NULL DEFAULT ''`);
+    await query(`ALTER TABLE chat_fila_config ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+    // Garante exatamente 1 linha (singleton)
+    const n = await query(`SELECT COUNT(*)::int AS c FROM chat_fila_config`);
+    if ((n.rows[0]?.c || 0) === 0) {
+      await query(`INSERT INTO chat_fila_config (ativa, ultimo_atribuido) VALUES (true, '')`);
+    }
   }
 
   const filaStatus = async (req, reply) => withDb(reply, async () => {
     await ensureFilaConfigTable();
-    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
     const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
     const rows = await query(
       `SELECT LOWER(usuario) AS usuario, COALESCE(nome,usuario) AS nome,
@@ -411,11 +435,11 @@ export default async function acoesRoutes(fastify) {
     const ativa = (b.ativa === true || b.ativa === 'true' || b.ativa === 1);
     const resetar = (b.resetar === true || b.resetar === 'true' || b.resetar === 1);
     if (resetar) {
-      await query(`UPDATE chat_fila_config SET ativa=$1, ultimo_atribuido='', atualizado_em=NOW() WHERE id=1`, [ativa]);
+      await query(`UPDATE chat_fila_config SET ativa=$1, ultimo_atribuido='', atualizado_em=NOW()`, [ativa]);
     } else {
-      await query(`UPDATE chat_fila_config SET ativa=$1, atualizado_em=NOW() WHERE id=1`, [ativa]);
+      await query(`UPDATE chat_fila_config SET ativa=$1, atualizado_em=NOW()`, [ativa]);
     }
-    const r = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    const r = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
     return { ok: true, ativa: r.rows[0].ativa, ultimo_atribuido: r.rows[0].ultimo_atribuido };
   });
   fastify.post('/webhook/chat-fila-config', filaConfig);
@@ -428,7 +452,7 @@ export default async function acoesRoutes(fastify) {
     const conta_id = String(b.conta_id || '').trim();
     const telefone = String(b.telefone || '').trim();
     await ensureFilaConfigTable();
-    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config WHERE id=1`);
+    const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
     const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
     if (c.ativa === false) return { ok: false, sem_fila: true, erro: 'fila desativada' };
     const rows = await query(
@@ -443,7 +467,7 @@ export default async function acoesRoutes(fastify) {
     const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
     const idx = rows.rows.findIndex(a => a.usuario === ultimo);
     const prox = rows.rows[(idx + 1) % rows.rows.length];
-    await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW() WHERE id=1`, [prox.usuario]);
+    await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW()`, [prox.usuario]);
     return {
       ok: true,
       conta_id, telefone,
