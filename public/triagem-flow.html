@@ -159,6 +159,7 @@ body{background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--i
   <div class="tb-actions">
     <button class="tb-btn primary" onclick="abrirPasso()"><i class="bi bi-plus-lg"></i> Novo passo</button>
     <button class="tb-btn purple" onclick="ativarTriagem()" title="Marcar como ativa"><i class="bi bi-check-circle"></i> Ativar</button>
+    <button class="tb-btn" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff" onclick="aplicarTemplateBF()" title="Aplicar fluxo Black Friday pronto"><i class="bi bi-lightning-charge-fill"></i> Template Black Friday</button>
     <button class="tb-btn" onclick="novaTriagem()"><i class="bi bi-file-earmark-plus"></i> Nova</button>
     <button class="tb-btn" onclick="duplicarTriagem()"><i class="bi bi-files"></i> Duplicar</button>
     <button class="tb-btn" onclick="renomearTriagem()"><i class="bi bi-pencil"></i> Renomear</button>
@@ -256,6 +257,7 @@ const URL_PSAVE    = URL_BASE + '/webhook/chat-triagem-passo-save';
 const URL_PDEL     = URL_BASE + '/webhook/chat-triagem-passo-delete';
 const URL_KB_LIST  = URL_BASE + '/webhook/chat-triagem-conhecimento-list';
 const URL_KB_SAVE  = URL_BASE + '/webhook/chat-triagem-conhecimento-save';
+const URL_TPL      = URL_BASE + '/webhook/chat-triagem-aplicar-template';
 const URL_MOTIVOS  = URL_BASE + '/webhook/chat-motivos-list';
 const URL_TRI_LIST = URL_BASE + '/webhook/chat-triagem-config-list';
 const URL_TRI_NOVA = URL_BASE + '/webhook/chat-triagem-config-nova';
@@ -352,6 +354,28 @@ async function ativarTriagem(){
   toast('Triagem ativada','');
   await carregarListaTriagens(); qs('#triagemSel').value = TRIAGEM_ATUAL; renderBadge(true);
 }
+async function aplicarTemplateBF(){
+  if(!TRIAGEM_ATUAL){ toast('Selecione uma triagem primeiro','warn'); return; }
+  const ok = confirm(
+    'APLICAR TEMPLATE "BLACK FRIDAY 2026" na triagem atual?\n\n' +
+    '➤ Vai criar 5 passos (qualificação → valores → curso → fechar → despedida)\n' +
+    '➤ Vai popular a Base de Conhecimento com 28 entradas sobre a Black Friday\n' +
+    '➤ Vai APAGAR TODOS os passos atuais dessa triagem\n\n' +
+    'Quer continuar?'
+  );
+  if(!ok) return;
+  try{
+    const r = await api(URL_TPL, {method:'POST', bodyObj:{
+      triagem_codigo: TRIAGEM_ATUAL,
+      template: 'black_friday_2026',
+      limpar: true,
+    }});
+    if(!r.ok){ toast('Erro: '+(r.erro||'servidor'),'err'); return; }
+    toast(`Template aplicado: ${r.passos_criados} passos + ${r.kb_entradas} entradas na base`,'');
+    await carregar();
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
 async function excluirTriagem(){
   if(!TRIAGEM_ATUAL) return;
   if(TRIAGEM_ATUAL === 'default'){ toast('Não pode deletar a triagem default','warn'); return; }

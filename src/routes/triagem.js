@@ -361,6 +361,167 @@ export default async function triagemRoutes(fastify) {
     }
   });
 
+  // POST /webhook/chat-triagem-aplicar-template — aplica um fluxo pre-montado
+  // na triagem informada. Body: {triagem_codigo, template, limpar:true|false}
+  // Templates: 'black_friday_2026'
+  fastify.post('/webhook/chat-triagem-aplicar-template', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const b = req.body || {};
+    const triagem_codigo = String(b.triagem_codigo || '').trim();
+    const template = String(b.template || '').trim();
+    const limpar = b.limpar === true || String(b.limpar) === 'true' || b.limpar === 1;
+    if (!triagem_codigo) return reply.code(400).send({ ok: false, erro: 'triagem_codigo obrigatorio' });
+    if (!template) return reply.code(400).send({ ok: false, erro: 'template obrigatorio' });
+
+    const templates = {
+      black_friday_2026: {
+        mensagem_inicial: 'Olá! 👋 Bem-vindo à UniFECAF. Vou fazer algumas perguntas rápidas pra te atender melhor.',
+        mensagem_final: 'Perfeito! Um consultor já vai te atender. 🎓',
+        passos: [
+          {
+            codigo: 'bf_1_qualifica', ordem: 1, campo: 'intencao', tipo_resposta: 'buttons',
+            mensagem: 'Oi! 👋 Sou da UniFECAF — IGC 4 no MEC. Tô com Black Friday ATÉ 30/11 com mensalidades a partir de R$ 149. Como posso te ajudar?',
+            opcoes: [
+              { id: 'q_valores', titulo: '💰 Saber valores', proximo_codigo: 'bf_2_valores', etiqueta: 'BF Valores' },
+              { id: 'q_matric', titulo: '✅ Quero matricular', proximo_codigo: 'bf_3_curso', etiqueta: 'BF Matricular' },
+              { id: 'q_aluno', titulo: '📚 Já sou aluno', proximo_codigo: '__end__', etiqueta: 'Aluno Ativo' },
+            ],
+          },
+          {
+            codigo: 'bf_2_valores', ordem: 2, campo: 'duvida', tipo_resposta: 'conhecimento',
+            mensagem: 'Legal! Me diz: qual curso te interessa? Ou pode perguntar sobre taxa, prazo, pontualidade, modalidade… 👇',
+            fallback_codigo: 'bf_3_curso',
+            opcoes: [],
+          },
+          {
+            codigo: 'bf_3_curso', ordem: 3, campo: 'curso_interesse', tipo_resposta: 'text',
+            mensagem: 'Pra te ajudar melhor, qual curso você pretende cursar?',
+            fallback_codigo: 'bf_4_fechar',
+            opcoes: [],
+          },
+          {
+            codigo: 'bf_4_fechar', ordem: 4, campo: 'aceite', tipo_resposta: 'buttons',
+            mensagem: 'A Black Friday vai até 30/11/2026. Posso te conectar AGORA com um consultor pra garantir sua vaga?',
+            opcoes: [
+              { id: 'f_sim', titulo: '🔥 Sim, quero!', proximo_codigo: '__end__', etiqueta: 'LEAD QUENTE BF' },
+              { id: 'f_pensar', titulo: '🤔 Vou pensar', proximo_codigo: 'bf_5_despedida', etiqueta: 'LEAD MORNO BF' },
+              { id: 'f_nao', titulo: '❌ Não interessa', proximo_codigo: '__end__', etiqueta: 'LEAD FRIO' },
+            ],
+          },
+          {
+            codigo: 'bf_5_despedida', ordem: 5, campo: '', tipo_resposta: 'text',
+            mensagem: 'Beleza! Pra garantir depois: procure o polo mais próximo ou acesse unifecaf.edu.br. Mas atenção: Black Friday vai só até 30/11/2026. Qualquer dúvida, me chama de novo. 😊',
+            fallback_codigo: '__end__',
+            opcoes: [],
+          },
+        ],
+        conhecimento: {
+          bf_2_valores: [
+            { chaves: ['valor', 'preço', 'mensalidade', 'quanto custa', 'quanto é', 'valor curso'], resposta: 'Black Friday: EAD a partir de R$ 149, Semipresencial de R$ 149 a R$ 249 (10% de pontualidade já incluso). Me diz qual curso que eu passo o valor exato.' },
+            { chaves: ['valor administração', 'mensalidade administração', 'administração', 'administracao'], resposta: 'Administração EAD: R$ 149/mês. Administração Semipresencial: R$ 199/mês. Valores com 10% de pontualidade.' },
+            { chaves: ['ads', 'análise desenvolvimento', 'desenvolvimento sistemas', 'programação', 'programar'], resposta: 'ADS (Análise e Desenvolvimento de Sistemas): R$ 199/mês tanto EAD quanto Semipresencial.' },
+            { chaves: ['pedagogia'], resposta: 'Pedagogia Semipresencial: R$ 149/mês.' },
+            { chaves: ['psicopedagogia'], resposta: 'Psicopedagogia Bacharelado Semipresencial: R$ 149/mês.' },
+            { chaves: ['engenharia', 'engenharias', 'civil', 'elétrica', 'eletrica', 'produção', 'producao'], resposta: 'Engenharias Semipresencial: R$ 249/mês (Civil, Elétrica, Produção, Computação).' },
+            { chaves: ['saúde', 'saude', 'biomedicina', 'fisioterapia', 'nutrição', 'nutricao', 'farmácia', 'farmacia', 'radiologia', 'estética', 'estetica', 'educação física', 'educacao fisica', 'terapia ocupacional'], resposta: 'Cursos de Saúde Semipresencial: R$ 249/mês (Biomedicina, Farmácia, Fisioterapia, Nutrição, Radiologia, Estética, Ed. Física, Terapia Ocupacional).' },
+            { chaves: ['arquitetura'], resposta: 'Arquitetura Semipresencial: R$ 249/mês.' },
+            { chaves: ['tech', 'tecnologia', 'ciência de dados', 'dados', 'ia', 'inteligência artificial', 'inteligencia artificial', 'segurança cibernética', 'seguranca cibernetica', 'nuvem', 'sistema informação', 'sistema informacao'], resposta: 'Cursos Tech EAD: R$ 199/mês (ADS, Ciência de Dados, Computação em Nuvem, IA, Segurança Cibernética, Sistema de Informação, Gestão de TI, Creator/Digital Influencer).' },
+            { chaves: ['até quando', 'prazo', 'vigência', 'vigencia', 'deadline', 'última data', 'ultima data'], resposta: 'A Black Friday vai até 30/11/2026, 23h59 (Brasília). Sem prorrogação. A matrícula tem que estar 100% concluída nesse prazo.' },
+            { chaves: ['quando começa', 'quando comeca', 'começou', 'comecou', 'início', 'inicio'], resposta: 'A campanha começou em 03/11/2026.' },
+            { chaves: ['taxa', 'taxa adesão', 'taxa adesao', 'taxa matrícula', 'taxa matricula', 'quanto é a taxa', 'quanto e a taxa'], resposta: 'Taxa de adesão: mínimo R$ 49,99 e máximo o valor de uma mensalidade. A matrícula só é aceita com o comprovante anexado no UniFECAF Polos.' },
+            { chaves: ['pontualidade', 'desconto pontualidade', '10%', 'atrasar', 'atrasei'], resposta: 'Todos os valores já incluem 10% de desconto de pontualidade (vale se pagar até o vencimento). Se atrasar, perde esses 10% daquela parcela + encargos do contrato.' },
+            { chaves: ['reajuste', 'aumento', 'sobe', 'aumenta'], resposta: 'O preço promocional vale pelo curso todo. Só há reajuste anual pelo IGP-M (média recente próxima de 5% ao ano), desde que você esteja em dia ao final de cada semestre.' },
+            { chaves: ['bolsa', 'convênio', 'convenio', 'outros descontos', 'cumulativo', 'acumular'], resposta: 'Os valores da Black Friday não são cumulativos com bolsas, convênios ou outros descontos da instituição.' },
+            { chaves: ['segunda graduação', 'segunda graduacao', 'enem', 'transferência', 'transferencia'], resposta: 'Todas essas formas de ingresso participam: vestibular, ENEM, segunda graduação e transferência.' },
+            { chaves: ['presencial'], resposta: 'Cursos presenciais não entram na Black Friday. Seguem a tabela vigente, inclusive taxa de matrícula.' },
+            { chaves: ['aluno ativo', 'já estudo', 'ja estudo', 'rematrícula', 'rematricula'], resposta: 'A Black Friday é só para novos alunos. Quem tem matrícula ativa ou rematrícula não participa.' },
+            { chaves: ['trancar', 'trancamento', 'cancelar', 'cancelamento', 'reingresso', 'voltar'], resposta: 'Se trancar ou cancelar, o benefício encerra e não volta no reingresso.' },
+            { chaves: ['primeira mensalidade', 'começar pagando', 'comecar pagando', 'plano', 'antecipado', 'postecipado'], resposta: 'Vale para plano antecipado e postecipado — a 1ª mensalidade pode vencer no mês de início do curso ou no mês seguinte.' },
+            { chaves: ['turma não abrir', 'turma nao abrir', 'turma não abriu', 'devolução', 'devolucao'], resposta: 'Se a turma não fechar o mínimo, você pode trocar por outro curso participante ou pedir a devolução do valor pago.' },
+            { chaves: ['vagas', 'vagas limitadas', 'tem vaga'], resposta: 'Vagas limitadas! Garanta o quanto antes no polo mais próximo ou nos canais oficiais.' },
+            { chaves: ['novembro', 'dezembro', 'janeiro', 'turma disponível', 'turma disponivel', 'próxima turma', 'proxima turma'], resposta: 'Turmas participantes: Dezembro/26 e Janeiro/27 (a de Novembro/26 fechou em 05/11). Datas variam por polo.' },
+            { chaves: ['mec', 'igc', 'qualidade', 'nota mec'], resposta: 'A UniFECAF tem IGC 4 no MEC — uma das únicas instituições com essa nota na avaliação oficial.' },
+            { chaves: ['me inscrevi', 'se inscrever e pagar depois'], resposta: 'Não basta se inscrever. A matrícula precisa estar 100% concluída até 30/11/2026: inscrição + aprovação + contrato + taxa paga.' },
+            { chaves: ['como matricular', 'como garantir', 'como faço', 'como faco', 'como contratar'], resposta: 'Procure um polo UniFECAF ou os canais oficiais, leve a documentação e pague a taxa de adesão. Depois é só anexar o comprovante no UniFECAF Polos.' },
+            { chaves: ['diferença ead semi', 'diferenca ead semi', 'modalidade'], resposta: 'EAD = 100% online. Semipresencial = encontros no polo + aulas online. As duas participam da Black Friday, com valores diferentes.' },
+            { chaves: ['documentos', 'documentação', 'documentacao'], resposta: 'Básico: identidade, CPF, comprovante de endereço, histórico escolar e certificado de conclusão. A lista completa você confirma no polo.' },
+          ],
+        },
+      },
+    };
+
+    const tpl = templates[template];
+    if (!tpl) return reply.code(400).send({ ok: false, erro: 'template desconhecido: ' + template });
+
+    try {
+      await ensureKbTable();
+      // Verifica se a triagem existe
+      const cfg = await query(`SELECT codigo FROM chat_triagem_config WHERE codigo=$1 LIMIT 1`, [triagem_codigo]);
+      if (!cfg.rows.length) return reply.code(404).send({ ok: false, erro: 'triagem nao encontrada: ' + triagem_codigo });
+
+      // Limpa passos e conhecimento antigos (opcional)
+      if (limpar) {
+        const old = await query(`SELECT codigo FROM chat_triagem_passos WHERE triagem_codigo=$1`, [triagem_codigo]);
+        for (const row of old.rows) {
+          await query(`DELETE FROM chat_triagem_conhecimento WHERE passo_codigo=$1`, [row.codigo]);
+        }
+        await query(`DELETE FROM chat_triagem_passos WHERE triagem_codigo=$1`, [triagem_codigo]);
+      }
+
+      // Atualiza mensagens inicial/final
+      await query(
+        `UPDATE chat_triagem_config SET mensagem_inicial=$2, mensagem_final=$3, atualizado_em=NOW() WHERE codigo=$1`,
+        [triagem_codigo, tpl.mensagem_inicial || '', tpl.mensagem_final || '']
+      );
+
+      // Insere passos (com upsert, pra reaplicar template sem duplicar)
+      for (const p of tpl.passos) {
+        await query(
+          `INSERT INTO chat_triagem_passos
+             (codigo, triagem_codigo, ordem, campo, mensagem, validacao_prompt,
+              tipo_resposta, opcoes, fallback_codigo, ativo)
+           VALUES ($1,$2,$3,$4,$5,'',$6,$7::jsonb,$8,true)
+           ON CONFLICT (codigo) DO UPDATE SET
+             triagem_codigo=EXCLUDED.triagem_codigo, ordem=EXCLUDED.ordem,
+             campo=EXCLUDED.campo, mensagem=EXCLUDED.mensagem,
+             tipo_resposta=EXCLUDED.tipo_resposta, opcoes=EXCLUDED.opcoes,
+             fallback_codigo=EXCLUDED.fallback_codigo, ativo=true, atualizado_em=NOW()`,
+          [p.codigo, triagem_codigo, p.ordem, p.campo || '', p.mensagem,
+           p.tipo_resposta || 'text', JSON.stringify(p.opcoes || []), p.fallback_codigo || '']
+        );
+      }
+
+      // Insere base de conhecimento (bulk-replace por passo)
+      const kbTotal = { passos: 0, entradas: 0 };
+      for (const [passoCodigo, entradas] of Object.entries(tpl.conhecimento || {})) {
+        await query(`DELETE FROM chat_triagem_conhecimento WHERE passo_codigo=$1`, [passoCodigo]);
+        for (let i = 0; i < entradas.length; i++) {
+          const e = entradas[i];
+          await query(
+            `INSERT INTO chat_triagem_conhecimento (passo_codigo, triagem_codigo, chaves, resposta, ordem, ativo)
+             VALUES ($1,$2,$3::text[],$4,$5,true)`,
+            [passoCodigo, triagem_codigo, e.chaves, e.resposta, i + 1]
+          );
+        }
+        kbTotal.passos++;
+        kbTotal.entradas += entradas.length;
+      }
+
+      return {
+        ok: true,
+        template,
+        triagem_codigo,
+        passos_criados: tpl.passos.length,
+        kb_passos: kbTotal.passos,
+        kb_entradas: kbTotal.entradas,
+        limpou_antigos: limpar,
+      };
+    } catch (err) {
+      reply.code(500);
+      return { ok: false, erro: err.message };
+    }
+  });
+
   // POST /webhook/chat-triagem-conhecimento-match — usado pelo engine em runtime:
   // {passo_codigo, texto} -> {ok, match:true|false, resposta?, entrada_id?}
   fastify.post('/webhook/chat-triagem-conhecimento-match', async (req, reply) => {
