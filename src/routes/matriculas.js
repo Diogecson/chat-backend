@@ -156,10 +156,16 @@ export default async function matriculasRoutes(fastify) {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     await garantirTabela();
     const perm = String(req.query?.contas_permitidas || req.body?.contas_permitidas || '__all__').trim();
+    const dataIni = String(req.query?.data_ini || req.body?.data_ini || '').trim();
+    const dataFim = String(req.query?.data_fim || req.body?.data_fim || '').trim();
     const filtroConta = (perm && perm !== '__all__' && perm !== '*' && perm !== '__none__');
     try {
       const totalRes = await query(`SELECT COUNT(*)::int AS t FROM chat_alunos_matriculados`);
       const atualRes = await query(`SELECT MAX(atualizado_em) AS ultimo FROM chat_alunos_matriculados`);
+      // Base dinamica: filtros por data aplicados em am.atualizado_em
+      const dateWhere = `
+          AND ($2 = '' OR am.atualizado_em >= ($2::date AT TIME ZONE 'America/Sao_Paulo'))
+          AND ($3 = '' OR am.atualizado_em <  (($3::date + INTERVAL '1 day') AT TIME ZONE 'America/Sao_Paulo'))`;
       const consultorRes = await query(
         filtroConta
           ? `SELECT LOWER(cd.atendente) AS atendente,
@@ -169,6 +175,7 @@ export default async function matriculasRoutes(fastify) {
              WHERE cd.atendente <> ''
                AND cd.atendente NOT IN ('triagem_ia','ia_followup','sistema','')
                AND cd.conta_id = ANY(string_to_array($1, ','))
+               ${dateWhere}
              GROUP BY LOWER(cd.atendente)
              ORDER BY matriculas DESC`
           : `SELECT LOWER(cd.atendente) AS atendente,
@@ -177,9 +184,10 @@ export default async function matriculasRoutes(fastify) {
              INNER JOIN chat_conversa_dono cd ON cd.telefone = am.telefone
              WHERE cd.atendente <> ''
                AND cd.atendente NOT IN ('triagem_ia','ia_followup','sistema','')
+               ${dateWhere.replace(/\$2/g,'$1').replace(/\$3/g,'$2')}
              GROUP BY LOWER(cd.atendente)
              ORDER BY matriculas DESC`,
-        filtroConta ? [perm] : []
+        filtroConta ? [perm, dataIni, dataFim] : [dataIni, dataFim]
       );
       return {
         ok: true,

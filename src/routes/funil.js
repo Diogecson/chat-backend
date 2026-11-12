@@ -26,12 +26,16 @@ function forceContasPermitidas(permReq) {
   return permReq || '__all__';
 }
 
+// $6 = data_ini ('' ou 'YYYY-MM-DD'), $7 = data_fim ('' ou 'YYYY-MM-DD')
+// Filtro aplica em ultima msg.timestamp (inclui o dia inteiro em America/Sao_Paulo)
 const SQL = `
 WITH ultimas AS (
   SELECT DISTINCT ON (conta_id, telefone)
     conta_id, telefone, nome_contato, texto, tipo, timestamp, direcao, atendente
   FROM chat_mensagens
   WHERE ($1 = '__all__' OR conta_id = $1)
+    AND ($6 = '' OR timestamp >= ($6::date AT TIME ZONE 'America/Sao_Paulo'))
+    AND ($7 = '' OR timestamp <  (($7::date + INTERVAL '1 day') AT TIME ZONE 'America/Sao_Paulo'))
   ORDER BY conta_id, telefone, timestamp DESC
 ),
 base AS (
@@ -91,6 +95,8 @@ export default async function funilRoutes(fastify) {
       pUsuario(req),                                                     // $3
       p(req, 'visao', '__all__'),                                        // $4 ('__all__' | 'minhas')
       forceContasPermitidas(p(req, 'contas_permitidas', '__all__')),     // $5
+      p(req, 'data_ini', ''),                                            // $6 (YYYY-MM-DD)
+      p(req, 'data_fim', ''),                                            // $7 (YYYY-MM-DD)
     ];
     try {
       const r = await query(SQL, params);
@@ -121,13 +127,22 @@ export default async function funilRoutes(fastify) {
   // Pra cada par (msg_in cliente -> msg_out consultor seguinte) na mesma conversa,
   // calcula o delta. Ignora respostas que demoraram >12h (chat morreu e voltou).
   // $1 = conta_id filtro ('__all__' ou codigo); $2 = contas_permitidas CSV ('__all__' ou lista)
+  // $3 = data_ini ('' ou 'YYYY-MM-DD'); $4 = data_fim. Sem range -> ultimos 7 dias (legado).
   const SQL_METRICAS = `
 WITH msgs AS (
   SELECT conta_id, telefone, direcao, LOWER(COALESCE(atendente,'')) AS atendente, timestamp,
     LAG(direcao) OVER (PARTITION BY conta_id, telefone ORDER BY timestamp) AS prev_dir,
     LAG(timestamp) OVER (PARTITION BY conta_id, telefone ORDER BY timestamp) AS prev_ts
   FROM chat_mensagens
-  WHERE timestamp > NOW() - INTERVAL '7 days'
+  WHERE
+    (
+      ($3 = '' AND $4 = '' AND timestamp > NOW() - INTERVAL '7 days')
+      OR (
+        ($3 <> '' OR $4 <> '')
+        AND ($3 = '' OR timestamp >= ($3::date AT TIME ZONE 'America/Sao_Paulo'))
+        AND ($4 = '' OR timestamp <  (($4::date + INTERVAL '1 day') AT TIME ZONE 'America/Sao_Paulo'))
+      )
+    )
     AND ($1 = '__all__' OR conta_id = $1)
     AND ($2 = '__all__' OR $2 = '*' OR conta_id = ANY(string_to_array($2, ',')))
 ),
@@ -154,11 +169,15 @@ ORDER BY media_min ASC NULLS LAST
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
     const conta = forceConta(p(req, 'conta_id'));
     const perm = forceContasPermitidas(p(req, 'contas_permitidas', '__all__'));
+    const dataIni = p(req, 'data_ini', '');
+    const dataFim = p(req, 'data_fim', '');
     try {
-      const r = await query(SQL_METRICAS, [conta, perm]);
+      const r = await query(SQL_METRICAS, [conta, perm, dataIni, dataFim]);
       return {
         ok: true,
-        janela_dias: 7,
+        janela_dias: (dataIni || dataFim) ? null : 7,
+        data_ini: dataIni || null,
+        data_fim: dataFim || null,
         metricas: r.rows || [],
       };
     } catch (err) {
