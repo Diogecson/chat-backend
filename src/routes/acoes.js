@@ -921,13 +921,19 @@ export default async function acoesRoutes(fastify) {
 
   // === chat-vapo-listar ===
   // Lista leads que estouraram o timeout de primeira resposta e foram realocados.
-  // Params: periodo (dias, default 7), consultor (opcional, filtra por dono_antigo),
-  //         so_fallback (bool, mostra so quem chegou ao supervisor), limit (default 500)
+  // Params: periodo (dias, default 7), consultor (filtra por dono_antigo),
+  //         so_fallback (bool), incluir_resolvidos (bool, default false),
+  //         limit (default 500)
+  //
+  // Default: so' mostra casos AINDA PENDENTES — conversa nao finalizada E
+  // nenhuma msg 'out' humana depois do criado_em do log. Assim o painel
+  // vira "caixa de alerta": chat respondido/finalizado desaparece da lista.
   const vapoListar = async (req, reply) => withDb(reply, async () => {
     const q = req.query || {};
     const periodo = Math.max(1, Math.min(90, parseInt(q.periodo || '7', 10)));
     const consultor = String(q.consultor || '').toLowerCase().trim();
     const soFallback = String(q.so_fallback || '') === 'true';
+    const incluirResolvidos = String(q.incluir_resolvidos || 'false') === 'true';
     const limit = Math.max(1, Math.min(2000, parseInt(q.limit || '500', 10)));
 
     // Garante tabela (sem travar se cron ainda nao rodou)
@@ -946,38 +952,100 @@ export default async function acoesRoutes(fastify) {
       )
     `).catch(() => {});
 
+    // Pega apenas o ultimo log de cada (conta_id, telefone) — se um lead caiu
+    // no VAPO 3x ate ser resolvido, mostra so a ultima entrada.
     const params = [periodo, limit];
-    let where = `criado_em > NOW() - ($1::int || ' days')::interval`;
-    if (consultor) { params.push(consultor); where += ` AND LOWER(dono_antigo) = $${params.length}`; }
-    if (soFallback) where += ` AND fallback = true`;
+    let where = `l.criado_em > NOW() - ($1::int || ' days')::interval`;
+    if (consultor) { params.push(consultor); where += ` AND LOWER(l.dono_antigo) = $${params.length}`; }
+    if (soFallback) where += ` AND l.fallback = true`;
+    if (!incluirResolvidos) {
+      // Resolvido = conversa finalizada OU ja tem msg out humana depois do log
+      where += `
+        AND COALESCE(cd.finalizada, false) = false
+        AND NOT EXISTS (
+          SELECT 1 FROM chat_mensagens m
+          WHERE m.conta_id = l.conta_id
+            AND m.telefone = l.telefone
+            AND m.direcao = 'out'
+            AND m.timestamp >= l.criado_em
+            AND LOWER(COALESCE(m.atendente,'')) NOT IN (
+              'sistema','ia_followup','triagem_ia','triagem','admin',
+              'redistribuicao_auto','sistema_encerramento','encerramento_auto',
+              'vapo_auto','auto_finalizar',''
+            )
+            AND LOWER(COALESCE(m.atendente,'')) NOT LIKE 'disparo%'
+            AND LOWER(COALESCE(m.atendente,'')) NOT LIKE '%_auto'
+        )
+      `;
+    }
 
     const r = await query(
-      `SELECT id, conta_id, telefone, nome_contato,
-              LOWER(dono_antigo) AS dono_antigo,
-              LOWER(dono_novo) AS dono_novo,
-              minutos_sem_resposta, motivo, fallback, criado_em
-       FROM chat_vapo_log
+      `WITH ult AS (
+         SELECT DISTINCT ON (conta_id, telefone) *
+         FROM chat_vapo_log
+         WHERE criado_em > NOW() - ($1::int || ' days')::interval
+         ORDER BY conta_id, telefone, criado_em DESC
+       )
+       SELECT l.id, l.conta_id, l.telefone, l.nome_contato,
+              LOWER(l.dono_antigo) AS dono_antigo,
+              LOWER(l.dono_novo) AS dono_novo,
+              l.minutos_sem_resposta, l.motivo, l.fallback, l.criado_em,
+              COALESCE(cd.finalizada, false) AS conv_finalizada
+       FROM ult l
+       LEFT JOIN chat_conversa_dono cd
+         ON cd.conta_id = l.conta_id AND cd.telefone = l.telefone
        WHERE ${where}
-       ORDER BY criado_em DESC
+       ORDER BY l.criado_em DESC
        LIMIT $2`,
       params
     );
 
-    // Ranking agregado (quem mais perde lead)
+    // Ranking agregado (respeita so_fallback e incluir_resolvidos)
+    const rkParams = [periodo];
+    let rkWhere = `l.criado_em > NOW() - ($1::int || ' days')::interval`;
+    if (soFallback) rkWhere += ` AND l.fallback = true`;
+    if (!incluirResolvidos) {
+      rkWhere += `
+        AND COALESCE(cd.finalizada, false) = false
+        AND NOT EXISTS (
+          SELECT 1 FROM chat_mensagens m
+          WHERE m.conta_id = l.conta_id
+            AND m.telefone = l.telefone
+            AND m.direcao = 'out'
+            AND m.timestamp >= l.criado_em
+            AND LOWER(COALESCE(m.atendente,'')) NOT IN (
+              'sistema','ia_followup','triagem_ia','triagem','admin',
+              'redistribuicao_auto','sistema_encerramento','encerramento_auto',
+              'vapo_auto','auto_finalizar',''
+            )
+            AND LOWER(COALESCE(m.atendente,'')) NOT LIKE 'disparo%'
+            AND LOWER(COALESCE(m.atendente,'')) NOT LIKE '%_auto'
+        )
+      `;
+    }
     const rk = await query(
-      `SELECT LOWER(dono_antigo) AS dono, COUNT(*)::int AS total,
-              SUM(CASE WHEN fallback THEN 1 ELSE 0 END)::int AS para_fallback
-       FROM chat_vapo_log
-       WHERE criado_em > NOW() - ($1::int || ' days')::interval
-       GROUP BY LOWER(dono_antigo)
+      `WITH ult AS (
+         SELECT DISTINCT ON (conta_id, telefone) *
+         FROM chat_vapo_log
+         WHERE criado_em > NOW() - ($1::int || ' days')::interval
+         ORDER BY conta_id, telefone, criado_em DESC
+       )
+       SELECT LOWER(l.dono_antigo) AS dono, COUNT(*)::int AS total,
+              SUM(CASE WHEN l.fallback THEN 1 ELSE 0 END)::int AS para_fallback
+       FROM ult l
+       LEFT JOIN chat_conversa_dono cd
+         ON cd.conta_id = l.conta_id AND cd.telefone = l.telefone
+       WHERE ${rkWhere}
+       GROUP BY LOWER(l.dono_antigo)
        ORDER BY total DESC`,
-      [periodo]
+      rkParams
     );
 
     return {
       ok: true,
       periodo_dias: periodo,
       total: r.rows.length,
+      incluir_resolvidos: incluirResolvidos,
       itens: r.rows,
       ranking_perdedores: rk.rows,
     };

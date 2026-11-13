@@ -135,6 +135,7 @@ table.lst tr:hover td{background:#fafbfd}
         <label>Consultor perdedor:</label>
         <select id="fConsultor" class="inp" style="min-width:180px"><option value="">— Todos —</option></select>
         <label><input id="fFallback" type="checkbox" style="margin-right:4px"> Só os que foram pro supervisor</label>
+        <label><input id="fResolvidos" type="checkbox" style="margin-right:4px"> Mostrar já respondidos/finalizados</label>
         <button class="btn btn-primary" onclick="carregar()"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
       </div>
     </div>
@@ -192,21 +193,22 @@ function fmtData(iso){
   if (isNaN(d)) return iso;
   return d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
 }
-function abrirChat(conta, tel){
-  // chat.html espera ?abrir=conta_id_telefone (mesmo formato do funil.html)
+function urlAbrirChat(conta, tel){
   const token = (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})();
   const alvo = encodeURIComponent(conta + '_' + tel);
   const tk = token ? `&token=${encodeURIComponent(token)}` : '';
-  location.href = `chat.html?abrir=${alvo}${tk}`;
+  return `chat.html?abrir=${alvo}${tk}`;
 }
 
 async function carregar(){
   const periodo = parseInt(document.getElementById('fPeriodo').value || '7', 10);
   const consultor = document.getElementById('fConsultor').value || '';
   const soFb = document.getElementById('fFallback').checked ? 'true' : '';
+  const incRes = document.getElementById('fResolvidos').checked ? 'true' : '';
   const url = `${API}/webhook/chat-vapo-listar?periodo=${periodo}`
             + (consultor ? `&consultor=${encodeURIComponent(consultor)}` : '')
-            + (soFb ? `&so_fallback=${soFb}` : '');
+            + (soFb ? `&so_fallback=${soFb}` : '')
+            + (incRes ? `&incluir_resolvidos=${incRes}` : '');
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -256,7 +258,7 @@ function renderTabela(itens){
       <td><span class="tag ${it.fallback?'fb':'ok'}">${it.dono_novo||'?'}</span></td>
       <td><span class="tag min">${it.minutos_sem_resposta} min</span></td>
       <td>${it.fallback?'<span class="tag fb">supervisor</span>':'<span class="tag ok">realocado</span>'}</td>
-      <td><a class="link-chat" onclick="abrirChat('${it.conta_id}','${it.telefone}')"><i class="bi bi-chat-dots"></i> abrir</a></td>
+      <td><a class="link-chat" href="${urlAbrirChat(it.conta_id, it.telefone)}"><i class="bi bi-chat-dots"></i> abrir</a></td>
     </tr>`).join('');
 }
 
