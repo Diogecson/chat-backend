@@ -25,6 +25,8 @@ import gestaoRoutes from './routes/gestao.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
 import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
+import { startAutoFinalizarInteresse } from './crons/auto-finalizar-interesse.js';
+import { startAutoFilaHorario } from './crons/auto-fila-horario.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -176,6 +178,8 @@ try {
   if (hasDb()) {
     startTriagemEngine(fastify);
     startRedistribuicaoFila(fastify);
+    startAutoFinalizarInteresse(fastify);
+    startAutoFilaHorario(fastify);
   }
 
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
