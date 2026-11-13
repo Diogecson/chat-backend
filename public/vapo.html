@@ -193,9 +193,11 @@ function fmtData(iso){
   return d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
 }
 function abrirChat(conta, tel){
-  // Volta pro chat.html focando essa conversa
-  try { localStorage.setItem('chat_abrir_conta', conta); localStorage.setItem('chat_abrir_telefone', tel); } catch(_){}
-  location.href = `chat.html?conta=${encodeURIComponent(conta)}&telefone=${encodeURIComponent(tel)}`;
+  // chat.html espera ?abrir=conta_id_telefone (mesmo formato do funil.html)
+  const token = (function(){try{return localStorage.getItem('chat_token')||''}catch(_){return ''}})();
+  const alvo = encodeURIComponent(conta + '_' + tel);
+  const tk = token ? `&token=${encodeURIComponent(token)}` : '';
+  location.href = `chat.html?abrir=${alvo}${tk}`;
 }
 
 async function carregar(){
