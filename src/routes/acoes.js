@@ -377,18 +377,29 @@ export default async function acoesRoutes(fastify) {
   fastify.post('/webhook/chat-retorno-concluir', retornoConcluir);
 
   // === chat-triagem-ativar-conversa / desativar ===
+  // Colunas corretas (mesmas usadas pelo engine em src/crons/triagem-engine.js):
+  // triagem_codigo (nao config_codigo), ultima_atualizacao (nao atualizado_em),
+  // iniciada_por (nao iniciado_em).
   const triagemAtivar = async (req, reply) => withDb(reply, async () => {
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
-    const config_codigo = p(req, 'config_codigo', 'default');
+    // Aceita 'triagem_codigo' ou 'config_codigo' (alias legado)
+    const triagem_codigo = String(
+      (req.body?.triagem_codigo ?? req.body?.config_codigo ?? req.query?.triagem_codigo ?? req.query?.config_codigo ?? 'default')
+    ).trim() || 'default';
+    const usuario = p(req, 'usuario', 'manual');
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
+    // Primeiro apaga sessao existente (nao tem UNIQUE constraint confiavel) e insere nova
     await query(
-      `INSERT INTO chat_triagem_sessoes (conta_id, telefone, config_codigo, passo_atual, status, iniciado_em, atualizado_em)
-       VALUES ($1,$2,$3,0,'ativa',NOW(),NOW())
-       ON CONFLICT (conta_id, telefone) DO UPDATE SET status='ativa', passo_atual=0, config_codigo=$3, atualizado_em=NOW()`,
-      [conta_id, telefone, config_codigo]
+      `DELETE FROM chat_triagem_sessoes WHERE conta_id=$1 AND telefone=$2`,
+      [conta_id, telefone]
     );
-    return { ok: true };
+    await query(
+      `INSERT INTO chat_triagem_sessoes (conta_id, telefone, triagem_codigo, passo_atual, status, iniciada_por, ultima_atualizacao)
+       VALUES ($1,$2,$3,0,'ativa',$4,NOW())`,
+      [conta_id, telefone, triagem_codigo, usuario]
+    );
+    return { ok: true, triagem_codigo };
   });
   fastify.post('/webhook/chat-triagem-ativar-conversa', triagemAtivar);
 
@@ -397,7 +408,7 @@ export default async function acoesRoutes(fastify) {
     const telefone = p(req, 'telefone');
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
     await query(
-      `UPDATE chat_triagem_sessoes SET status='encerrada', atualizado_em=NOW() WHERE conta_id=$1 AND telefone=$2`,
+      `UPDATE chat_triagem_sessoes SET status='encerrada', ultima_atualizacao=NOW() WHERE conta_id=$1 AND telefone=$2`,
       [conta_id, telefone]
     );
     return { ok: true };
