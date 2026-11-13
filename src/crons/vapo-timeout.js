@@ -21,7 +21,7 @@ import { hasDb } from '../config.js';
 
 const INTERVAL_MS = parseInt(process.env.VAPO_INTERVAL_MS || '60000', 10); // tick 1min
 const TIMEOUT_MIN = parseInt(process.env.VAPO_TIMEOUT_MIN || '10', 10);
-const FALLBACK = (process.env.VAPO_FALLBACK_USUARIO || 'soares fecaf').toLowerCase();
+const FALLBACK = (process.env.VAPO_FALLBACK_USUARIO || 'soares1').toLowerCase();
 const JANELA_TENTATIVAS_H = parseInt(process.env.VAPO_JANELA_TENTATIVAS_H || '24', 10);
 
 // Usuarios que NAO contam como "resposta humana" (bots e automatismos)
@@ -53,6 +53,8 @@ async function ensureVapoLogTable() {
 
 // Busca conversas atribuidas ha >= TIMEOUT_MIN sem resposta humana do dono atual
 // Retorna: conta_id, telefone, dono atual, atribuido_em, minutos
+// IMPORTANTE: faz JOIN com chat_atendentes pra filtrar por papel (so USER/ADM entram
+// na regra do VAPO). SUPER nao sofre realocacao — ele eh o supervisor/fallback.
 const SQL_CANDIDATAS = `
   SELECT cd.conta_id,
          cd.telefone,
@@ -60,11 +62,14 @@ const SQL_CANDIDATAS = `
          cd.atribuido_em,
          EXTRACT(EPOCH FROM (NOW() - cd.atribuido_em))/60 AS minutos
   FROM chat_conversa_dono cd
+  INNER JOIN chat_atendentes at ON LOWER(at.usuario) = LOWER(cd.atendente)
   WHERE COALESCE(cd.finalizada, false) = false
     AND cd.atendente IS NOT NULL
     AND cd.atendente <> ''
     AND LOWER(cd.atendente) NOT IN ('sistema','ia_followup','triagem_ia','triagem','admin','vapo_auto','redistribuicao_auto','sistema_encerramento','encerramento_auto')
     AND LOWER(cd.atendente) NOT LIKE 'disparo%'
+    AND COALESCE(at.ativo, true) = true
+    AND LOWER(COALESCE(at.papel,'USER')) IN ('user','adm','admin')
     AND cd.atribuido_em < NOW() - ($1::int || ' minutes')::interval
     AND NOT EXISTS (
       SELECT 1 FROM chat_mensagens m
