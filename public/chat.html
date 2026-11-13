@@ -3887,20 +3887,46 @@ async function abrirConfigEncerramento(){
   } catch(_){}
   document.getElementById('ceAtivo').checked = !!cfg.ativo;
   document.getElementById('ceLang').value = cfg.language || 'pt_BR';
-  // Carrega templates aprovados da conta ativa
+  // Carrega templates aprovados — usa contaAtiva OU 1a conta disponível como fallback
   const selTpl = document.getElementById('ceTemplate');
   selTpl.innerHTML = '<option value="">— Carregando —</option>';
   try {
-    const conta = (contaAtiva && contaAtiva.id) || '';
-    const r = await safeFetchJson(BASE + '/chat-templates' + (conta ? '?conta_id=' + encodeURIComponent(conta) : ''));
-    const lista = (r && (r.templates || r.data)) || [];
+    let contaId = (contaAtiva && contaAtiva.id) || '';
+    if(!contaId && Array.isArray(contas) && contas.length){
+      contaId = contas[0].id;
+    }
+    if(!contaId){
+      selTpl.innerHTML = '<option value="">(sem conta ativa — abra uma conversa primeiro)</option>';
+      return;
+    }
+    const r = await safeFetchJson(BASE + '/chat-templates?conta_id=' + encodeURIComponent(contaId));
+    if(!r || !r.ok){
+      selTpl.innerHTML = '<option value="">(erro: ' + escapeHtml((r && r.erro) || 'servidor') + ')</option>';
+      return;
+    }
+    const lista = r.templates || [];
     const aprovados = lista.filter(t => String(t.status||'').toUpperCase() === 'APPROVED');
+    if(!aprovados.length){
+      selTpl.innerHTML = '<option value="">(nenhum template APROVADO na Meta pra essa conta)</option>';
+      return;
+    }
     selTpl.innerHTML = '<option value="">— Nenhum —</option>' + aprovados.map(t =>
-      `<option value="${escapeAttr(t.name)}">${escapeHtml(t.name)}</option>`
+      `<option value="${escapeAttr(t.name)}" data-lang="${escapeAttr(t.language||'pt_BR')}">${escapeHtml(t.name || '(sem nome)')} (${escapeHtml(t.language||'pt_BR')})</option>`
     ).join('');
-    if(cfg.template) selTpl.value = cfg.template;
-  } catch(_){
-    selTpl.innerHTML = '<option value="">(erro ao carregar)</option>';
+    if(cfg.template){
+      // Procura a opcao exata (nome + language se config tem)
+      const match = Array.from(selTpl.options).find(o =>
+        o.value === cfg.template && (!cfg.language || o.dataset.lang === cfg.language)
+      );
+      selTpl.value = match ? match.value : cfg.template;
+    }
+    // Sync automatico: quando trocar o template, preenche o idioma
+    selTpl.onchange = () => {
+      const opt = selTpl.options[selTpl.selectedIndex];
+      if(opt && opt.dataset.lang) document.getElementById('ceLang').value = opt.dataset.lang;
+    };
+  } catch(e){
+    selTpl.innerHTML = '<option value="">(erro: ' + escapeHtml(e.message) + ')</option>';
   }
   // Carrega motivos de fechamento
   if(!MOTIVOS_CACHE.length) await carregarMotivos();
