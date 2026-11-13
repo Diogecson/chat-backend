@@ -121,12 +121,22 @@ export default async function acoesRoutes(fastify) {
   const conversaReabrir = async (req, reply) => withDb(reply, async () => {
     const conta_id = p(req, 'conta_id');
     const telefone = p(req, 'telefone');
+    const usuario = p(req, 'usuario', 'sistema');
     if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatórios' });
+    // motivo_fechamento tem NOT NULL constraint -> usa '' em vez de NULL
     await query(
-      `UPDATE chat_conversa_dono SET finalizada=false, finalizada_em=NULL, motivo_fechamento=NULL
+      `UPDATE chat_conversa_dono SET finalizada=false, finalizada_em=NULL, motivo_fechamento=''
        WHERE conta_id=$1 AND telefone=$2`,
       [conta_id, telefone]
     );
+    // Registra evento (silencioso se tabela nao existir)
+    try {
+      await query(
+        `INSERT INTO chat_conversa_eventos (conta_id, telefone, tipo, ator, alvo, motivo, texto, criado_em)
+         VALUES ($1,$2,'reabertura',$3,'','','Conversa reaberta',NOW())`,
+        [conta_id, telefone, usuario]
+      );
+    } catch (_) { }
     return { ok: true };
   });
   fastify.post('/webhook/chat-conversa-reabrir', conversaReabrir);
