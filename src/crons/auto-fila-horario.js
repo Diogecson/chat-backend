@@ -8,6 +8,10 @@ import { query } from '../services/db.js';
 import { hasDb } from '../config.js';
 
 const INTERVAL_MS = parseInt(process.env.AUTO_FILA_HORARIO_INTERVAL_MS || (5 * 60 * 1000), 10);
+// Fallback global pra atendentes SEM linha em chat_atendentes_horario
+const EXP_INI = parseInt(process.env.EXPEDIENTE_HORA_INI || '8', 10);
+const EXP_FIM = parseInt(process.env.EXPEDIENTE_HORA_FIM || '18', 10);
+const EXP_DIAS = String(process.env.EXPEDIENTE_DIAS || '1,2,3,4,5').split(',').map(x => parseInt(x, 10)).filter(Boolean);
 
 function hhmmToMin(hhmm) {
   if (!hhmm) return null;
@@ -53,37 +57,57 @@ export function startAutoFilaHorario(fastify) {
   }
   let rodando = false;
 
+  function expedienteGlobalAgora(agora) {
+    const dow = agora.getDay();
+    const diaBR = dow === 0 ? 7 : dow;
+    if (!EXP_DIAS.includes(diaBR)) return false;
+    const h = agora.getHours();
+    return h >= EXP_INI && h < EXP_FIM;
+  }
+
   async function tick() {
     if (rodando) return;
     rodando = true;
     try {
+      // Pega TODOS os atendentes ativos (que sao USER/ADM, nao bots/admin)
+      // Faz LEFT JOIN em chat_atendentes_horario pra ter a config se existir.
+      // Regra:
+      // - Se tem horario com modo_fila='auto'   -> calcula pelo horario proprio
+      // - Se tem horario com modo_fila='manual' -> IGNORA (usuario decide)
+      // - Se NAO tem horario                    -> aplica horario global
       const r = await query(
-        `SELECT h.usuario,
+        `SELECT LOWER(a.usuario) AS usuario,
+                COALESCE(a.na_fila, false) AS atual,
+                h.modo_fila,
                 to_char(h.horario_inicio,'HH24:MI') AS ini,
                 to_char(h.horario_fim,'HH24:MI') AS fim,
                 to_char(h.almoco_inicio,'HH24:MI') AS ai,
                 to_char(h.almoco_fim,'HH24:MI') AS af,
                 to_char(h.horario_sab_inicio,'HH24:MI') AS sab_ini,
                 to_char(h.horario_sab_fim,'HH24:MI') AS sab_fim,
-                h.dias_semana, h.sabados_ativos,
-                COALESCE(a.na_fila, false) AS atual
-         FROM chat_atendentes_horario h
-         LEFT JOIN chat_atendentes a ON LOWER(a.usuario) = LOWER(h.usuario)
-         WHERE h.modo_fila = 'auto'`
+                h.dias_semana, h.sabados_ativos
+         FROM chat_atendentes a
+         LEFT JOIN chat_atendentes_horario h ON LOWER(h.usuario) = LOWER(a.usuario)
+         WHERE COALESCE(a.ativo, true) = true
+           AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+           AND LOWER(a.usuario) <> 'admin'`
       ).catch(() => ({ rows: [] }));
       if (!r.rows.length) return;
-      // Hora de SP
+
       const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const globalOn = expedienteGlobalAgora(agora);
       let mudanças = 0;
       for (const h of r.rows) {
-        const deveEstar = calcularNaFila(h, agora);
-        if (deveEstar === !!h.atual) continue; // sem mudanca
+        const temConfig = !!h.modo_fila;
+        if (temConfig && h.modo_fila === 'manual') continue; // respeita decisao manual
+        const deveEstar = temConfig ? calcularNaFila(h, agora) : globalOn;
+        if (deveEstar === !!h.atual) continue;
         await query(
           `UPDATE chat_atendentes SET na_fila=$2 WHERE LOWER(usuario)=LOWER($1)`,
           [h.usuario, deveEstar]
         );
         mudanças++;
-        fastify.log.info(`[auto-fila-horario] ${h.usuario} -> na_fila=${deveEstar}`);
+        fastify.log.info(`[auto-fila-horario] ${h.usuario} -> na_fila=${deveEstar}${temConfig?'':' (global)'}`);
       }
       if (mudanças) fastify.log.info(`[auto-fila-horario] ${mudanças} atualizacoes`);
     } catch (err) {
