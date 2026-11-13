@@ -425,13 +425,15 @@ function render(){
 
 async function toggleFila(usuario, valor){
   try{
-    const r = await api('/chat-fila-toggle', {usuario, na_fila: !!valor});
+    // forcar=true: admin pode ligar fora do horário (não bloqueia como quando o próprio consultor tenta)
+    const r = await api('/chat-fila-toggle', {usuario, na_fila: !!valor, forcar: true});
     if(r && r.ok){
       const a = ATENDENTES.find(x => x.usuario === usuario);
       if(a) a.na_fila = !!valor;
       toast(valor ? 'Adicionado à fila' : 'Removido da fila', '');
     } else {
-      toast('Erro: '+(r && r.erro||'servidor'), 'err');
+      const msg = (r && (r.mensagem || r.erro)) || 'servidor';
+      toast(r && r.erro === 'fora_horario' ? msg : ('Erro: ' + msg), 'err');
       carregar();
     }
   }catch(e){ toast('Erro: '+e.message, 'err'); carregar(); }

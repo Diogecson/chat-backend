@@ -466,6 +466,82 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-atendentes-save', atendentesSave);
 
+  // === chat-horario-get / chat-horario-save ===
+  // CRUD do chat_atendentes_horario (usado em atendentes.html / modal "Editar atendente").
+  async function ensureHorarioTable() {
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_atendentes_horario (
+        usuario VARCHAR(80) PRIMARY KEY,
+        horario_inicio TIME,
+        horario_fim TIME,
+        almoco_inicio TIME,
+        almoco_fim TIME,
+        horario_sab_inicio TIME,
+        horario_sab_fim TIME,
+        dias_semana TEXT DEFAULT '1,2,3,4,5',
+        sabados_ativos TEXT DEFAULT 'todos',
+        modo_fila VARCHAR(20) DEFAULT 'manual',
+        atualizado_em TIMESTAMPTZ DEFAULT NOW()
+      )
+    `).catch(() => {});
+  }
+  const horarioGet = async (req, reply) => withDb(reply, async () => {
+    const usuario = String(p(req, 'usuario', '')).toLowerCase().trim();
+    if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
+    await ensureHorarioTable();
+    const r = await query(
+      `SELECT usuario,
+              to_char(horario_inicio,'HH24:MI') AS horario_inicio,
+              to_char(horario_fim,'HH24:MI')    AS horario_fim,
+              to_char(almoco_inicio,'HH24:MI')  AS almoco_inicio,
+              to_char(almoco_fim,'HH24:MI')     AS almoco_fim,
+              to_char(horario_sab_inicio,'HH24:MI') AS horario_sab_inicio,
+              to_char(horario_sab_fim,'HH24:MI')    AS horario_sab_fim,
+              dias_semana, sabados_ativos, modo_fila
+       FROM chat_atendentes_horario WHERE LOWER(usuario)=LOWER($1)`,
+      [usuario]
+    );
+    if (!r.rows.length) return { ok: true, vazio: true };
+    return { ok: true, ...r.rows[0] };
+  });
+  fastify.get('/webhook/chat-horario-get', horarioGet);
+  fastify.post('/webhook/chat-horario-get', horarioGet);
+
+  const horarioSave = async (req, reply) => withDb(reply, async () => {
+    const b = req.body || {};
+    const usuario = String(b.usuario || '').toLowerCase().trim();
+    if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
+    await ensureHorarioTable();
+    // Normaliza strings de hora vazias pra NULL (campos sao TIME nullable)
+    const nz = (v) => { const s = String(v || '').trim(); return s ? s : null; };
+    const modo = (String(b.modo_fila || 'manual').toLowerCase() === 'auto') ? 'auto' : 'manual';
+    const dias = String(b.dias_semana || '1,2,3,4,5').trim() || '1,2,3,4,5';
+    const sabs = String(b.sabados_ativos ?? 'todos'); // vazio = 'nunca marca' (string vazia)
+    await query(
+      `INSERT INTO chat_atendentes_horario
+         (usuario, horario_inicio, horario_fim, almoco_inicio, almoco_fim,
+          horario_sab_inicio, horario_sab_fim, dias_semana, sabados_ativos, modo_fila, atualizado_em)
+       VALUES ($1,$2::time,$3::time,$4::time,$5::time,$6::time,$7::time,$8,$9,$10,NOW())
+       ON CONFLICT (usuario) DO UPDATE SET
+         horario_inicio=EXCLUDED.horario_inicio,
+         horario_fim=EXCLUDED.horario_fim,
+         almoco_inicio=EXCLUDED.almoco_inicio,
+         almoco_fim=EXCLUDED.almoco_fim,
+         horario_sab_inicio=EXCLUDED.horario_sab_inicio,
+         horario_sab_fim=EXCLUDED.horario_sab_fim,
+         dias_semana=EXCLUDED.dias_semana,
+         sabados_ativos=EXCLUDED.sabados_ativos,
+         modo_fila=EXCLUDED.modo_fila,
+         atualizado_em=NOW()`,
+      [usuario, nz(b.horario_inicio), nz(b.horario_fim),
+        nz(b.almoco_inicio), nz(b.almoco_fim),
+        nz(b.horario_sab_inicio), nz(b.horario_sab_fim),
+        dias, sabs, modo]
+    );
+    return { ok: true, usuario, modo_fila: modo };
+  });
+  fastify.post('/webhook/chat-horario-save', horarioSave);
+
   // === Helpers de expediente ===
   // Horario comercial GLOBAL (usado pra escolher fila principal vs pos-expediente).
   // Pode sobrescrever via env: EXPEDIENTE_HORA_INI=8, EXPEDIENTE_HORA_FIM=18
