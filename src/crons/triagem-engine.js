@@ -160,21 +160,27 @@ const SQL_AUTO_CRIAR = `
   FROM filtrados f
   RETURNING id`;
 
+// DISTINCT ON por (conta_id, telefone) pra garantir UMA sessao por cliente,
+// mesmo se tiver duplicatas no banco (sem UNIQUE constraint hoje). Pega a de maior id.
 const SQL_GET_SESSIONS = `
-  SELECT s.id AS session_id, s.conta_id, s.telefone, s.passo_atual, s.respostas, s.tentativas_ultimo,
-         COALESCE(s.triagem_codigo, 'default') AS triagem_codigo,
-         m.codigo AS msg_codigo, m.texto AS msg_texto, m.timestamp AS msg_ts
-  FROM chat_triagem_sessoes s
-  LEFT JOIN LATERAL (
-    SELECT codigo, texto, timestamp
-    FROM chat_mensagens
-    WHERE conta_id=s.conta_id AND telefone=s.telefone AND direcao='in'
-      AND timestamp > s.ultima_msg_processada_em
-    ORDER BY timestamp ASC LIMIT 1
-  ) m ON true
-  WHERE s.status='ativa'
-    AND (s.passo_atual = 0 OR m.codigo IS NOT NULL)
-  ORDER BY s.id ASC LIMIT 20`;
+  SELECT * FROM (
+    SELECT DISTINCT ON (s.conta_id, s.telefone)
+           s.id AS session_id, s.conta_id, s.telefone, s.passo_atual, s.respostas, s.tentativas_ultimo,
+           COALESCE(s.triagem_codigo, 'default') AS triagem_codigo,
+           m.codigo AS msg_codigo, m.texto AS msg_texto, m.timestamp AS msg_ts
+    FROM chat_triagem_sessoes s
+    LEFT JOIN LATERAL (
+      SELECT codigo, texto, timestamp
+      FROM chat_mensagens
+      WHERE conta_id=s.conta_id AND telefone=s.telefone AND direcao='in'
+        AND timestamp > s.ultima_msg_processada_em
+      ORDER BY timestamp ASC LIMIT 1
+    ) m ON true
+    WHERE s.status='ativa'
+      AND (s.passo_atual = 0 OR m.codigo IS NOT NULL)
+    ORDER BY s.conta_id, s.telefone, s.id DESC
+  ) uniq
+  ORDER BY session_id ASC LIMIT 20`;
 
 const SQL_UPDATE_SESSION = `
   UPDATE chat_triagem_sessoes
@@ -200,16 +206,28 @@ async function processarSessao(fastify, s, cfgByCodigo, passosByCodigo, cfgDefau
   const nowIso = new Date().toISOString();
 
   if (total === 0) {
+    // RESERVA antes de enviar: se outro worker ja marcou, skip
+    const reserva = await query(
+      `UPDATE chat_triagem_sessoes SET status='concluida', concluida_em=NOW(), ultima_atualizacao=NOW()
+       WHERE id=$1 AND status='ativa' AND passo_atual=0 RETURNING id`,
+      [s.session_id]
+    );
+    if (!reserva.rows.length) return; // outro worker pegou
     await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgText(mensagemFinal) });
-    await query(SQL_UPDATE_SESSION, [-1, 'concluida', JSON.stringify(s.respostas || {}), 0, nowIso, s.session_id]);
     return;
   }
 
   if (passoAtual === 0) {
+    // RESERVA antes de enviar (marca passo_atual=1 ANTES do send pra bloquear outro worker)
+    const reserva = await query(
+      `UPDATE chat_triagem_sessoes SET passo_atual=1, ultima_atualizacao=NOW()
+       WHERE id=$1 AND status='ativa' AND passo_atual=0 RETURNING id`,
+      [s.session_id]
+    );
+    if (!reserva.rows.length) return; // outro worker pegou — nao envia de novo
     const p1 = passos[0];
     await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgText(mensagemInicial) });
     await enviarMensagem(fastify, { conta_id: s.conta_id, telefone: s.telefone, msg: msgFromPasso(p1) });
-    await query(SQL_UPDATE_SESSION, [1, 'ativa', JSON.stringify(s.respostas || {}), 0, nowIso, s.session_id]);
     return;
   }
 
