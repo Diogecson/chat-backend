@@ -456,19 +456,101 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-atendentes-save', atendentesSave);
 
+  // === Helpers de expediente ===
+  // Horario comercial GLOBAL (usado pra escolher fila principal vs pos-expediente).
+  // Pode sobrescrever via env: EXPEDIENTE_HORA_INI=8, EXPEDIENTE_HORA_FIM=18
+  const EXP_INI = parseInt(process.env.EXPEDIENTE_HORA_INI || '8', 10);
+  const EXP_FIM = parseInt(process.env.EXPEDIENTE_HORA_FIM || '18', 10);
+  // Dias da semana ativos (1=seg...7=dom). Default seg-sex.
+  const EXP_DIAS = String(process.env.EXPEDIENTE_DIAS || '1,2,3,4,5').split(',').map(x => parseInt(x,10)).filter(Boolean);
+  function agoraEhExpedienteGlobal() {
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const dow = agora.getDay(); const diaBR = dow === 0 ? 7 : dow;
+    if (!EXP_DIAS.includes(diaBR)) return false;
+    const h = agora.getHours();
+    return h >= EXP_INI && h < EXP_FIM;
+  }
+  // Verifica se um atendente especifico esta dentro do SEU horario (chat_atendentes_horario)
+  // Se nao tem linha ou modo!=auto, retorna true (sem restricao).
+  async function atendenteDentroDoHorario(usuario) {
+    try {
+      const r = await query(
+        `SELECT to_char(horario_inicio,'HH24:MI') AS ini, to_char(horario_fim,'HH24:MI') AS fim,
+                to_char(almoco_inicio,'HH24:MI') AS ai, to_char(almoco_fim,'HH24:MI') AS af,
+                to_char(horario_sab_inicio,'HH24:MI') AS sab_ini, to_char(horario_sab_fim,'HH24:MI') AS sab_fim,
+                dias_semana, sabados_ativos, modo_fila
+         FROM chat_atendentes_horario WHERE LOWER(usuario)=LOWER($1)`, [usuario]
+      );
+      if (!r.rows.length) return true;
+      const h = r.rows[0];
+      if (String(h.modo_fila || 'manual') !== 'auto') return true;
+      const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+      const dow = agora.getDay(); const diaBR = dow === 0 ? 7 : dow;
+      const hhmm = (s) => { if (!s) return null; const [a,b] = s.split(':').map(Number); return a*60+(b||0); };
+      const diasOk = String(h.dias_semana || '').split(',').map(Number).includes(diaBR);
+      if (!diasOk) return false;
+      let ini, fim, ai = null, af = null;
+      if (diaBR === 6 && h.sab_ini && h.sab_fim) {
+        // Checa sabado especifico
+        const sab = String(h.sabados_ativos || 'todos').trim();
+        if (sab !== 'todos') {
+          const ordensSab = sab.split(',').map(Number);
+          const ordemSabado = Math.ceil(agora.getDate() / 7);
+          if (!ordensSab.includes(ordemSabado)) return false;
+        }
+        ini = hhmm(h.sab_ini); fim = hhmm(h.sab_fim);
+      } else {
+        ini = hhmm(h.ini); fim = hhmm(h.fim); ai = hhmm(h.ai); af = hhmm(h.af);
+      }
+      const horaMin = agora.getHours() * 60 + agora.getMinutes();
+      if (ini == null || fim == null || horaMin < ini || horaMin >= fim) return false;
+      if (ai != null && af != null && horaMin >= ai && horaMin < af) return false;
+      return true;
+    } catch (_) { return true; }
+  }
+
   // === chat-fila-toggle ===
-  // Liga/desliga a chavinha "na_fila" de um atendente (fila.html e chat.html)
+  // Liga/desliga a chavinha "na_fila" OU "fila_apos_expediente" de um atendente.
+  // body: { usuario, na_fila?, fila_apos_expediente?, forcar? }
+  // Se tentar ativar na_fila=true fora do horario do atendente (modo auto),
+  // retorna 400 com dica — a menos que passe forcar=true.
   const filaToggle = async (req, reply) => withDb(reply, async () => {
     const b = req.body || {};
     const usuario = String(b.usuario || '').toLowerCase().trim();
     if (!usuario) return reply.code(400).send({ ok: false, erro: 'usuario obrigatório' });
+    // Garante coluna fila_apos_expediente
+    await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
+    const temCampoAlt = ('fila_apos_expediente' in b);
+    const forcar = b.forcar === true || b.forcar === 'true';
+
+    if (temCampoAlt) {
+      const val = b.fila_apos_expediente === true || b.fila_apos_expediente === 'true' || b.fila_apos_expediente === 1;
+      const r = await query(
+        `UPDATE chat_atendentes SET fila_apos_expediente=$2 WHERE LOWER(usuario)=LOWER($1) RETURNING usuario, na_fila, fila_apos_expediente`,
+        [usuario, val]
+      );
+      if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'usuario não encontrado' });
+      return { ok: true, usuario: r.rows[0].usuario, na_fila: r.rows[0].na_fila, fila_apos_expediente: r.rows[0].fila_apos_expediente };
+    }
+
     const na_fila = b.na_fila === true || b.na_fila === 'true' || b.na_fila === 1;
+    // Se tenta ativar fora do horario e nao forcou, bloqueia
+    if (na_fila && !forcar) {
+      const dentro = await atendenteDentroDoHorario(usuario);
+      if (!dentro) {
+        return reply.code(400).send({
+          ok: false,
+          erro: 'fora_horario',
+          mensagem: 'Você está fora do seu horário de atendimento. Entre na "Fila pós-expediente" ou aguarde seu expediente iniciar.',
+        });
+      }
+    }
     const r = await query(
-      `UPDATE chat_atendentes SET na_fila=$2 WHERE LOWER(usuario)=LOWER($1) RETURNING usuario, na_fila`,
+      `UPDATE chat_atendentes SET na_fila=$2 WHERE LOWER(usuario)=LOWER($1) RETURNING usuario, na_fila, COALESCE(fila_apos_expediente,false) AS fila_apos_expediente`,
       [usuario, na_fila]
     );
     if (!r.rows.length) return reply.code(404).send({ ok: false, erro: 'usuario não encontrado' });
-    return { ok: true, usuario: r.rows[0].usuario, na_fila: r.rows[0].na_fila };
+    return { ok: true, usuario: r.rows[0].usuario, na_fila: r.rows[0].na_fila, fila_apos_expediente: r.rows[0].fila_apos_expediente };
   });
   fastify.post('/webhook/chat-fila-toggle', filaToggle);
 
@@ -499,11 +581,13 @@ export default async function acoesRoutes(fastify) {
     await ensureFilaConfigTable();
     const cfg = await query(`SELECT ativa, ultimo_atribuido FROM chat_fila_config LIMIT 1`);
     const c = cfg.rows[0] || { ativa: true, ultimo_atribuido: '' };
+    await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
     const rows = await query(
       `SELECT LOWER(a.usuario) AS usuario,
               COALESCE(a.nome, a.usuario) AS nome,
               COALESCE(a.foto_url,'') AS foto_url,
               COALESCE(a.na_fila,false) AS na_fila,
+              COALESCE(a.fila_apos_expediente,false) AS fila_apos_expediente,
               COALESCE(cnt.backlog, 0)::int AS backlog
        FROM chat_atendentes a
        LEFT JOIN LATERAL (
@@ -519,7 +603,10 @@ export default async function acoesRoutes(fastify) {
     );
     const inFila = rows.rows.filter(a => a.na_fila === true);
     const foraFila = rows.rows.filter(a => a.na_fila !== true);
+    const inFilaPos = rows.rows.filter(a => a.fila_apos_expediente === true);
+    const foraFilaPos = rows.rows.filter(a => a.fila_apos_expediente !== true);
     const ultimo = String(c.ultimo_atribuido || '').toLowerCase();
+    const expedienteAgora = agoraEhExpedienteGlobal();
     // Proximo a receber: mesma lógica do chat-fila-proximo (menor carga + desempate por atribuicao mais antiga)
     let proximo = null;
     if (inFila.length) {
@@ -548,8 +635,12 @@ export default async function acoesRoutes(fastify) {
       ativa: c.ativa !== false,
       ultimo_atribuido: ultimo,
       proximo,
+      expediente_agora: expedienteAgora,
+      expediente: { hora_ini: EXP_INI, hora_fim: EXP_FIM, dias: EXP_DIAS },
       in_fila: inFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
       fora_fila: foraFila.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
+      in_fila_pos: inFilaPos.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
+      fora_fila_pos: foraFilaPos.map(a => ({ usuario: a.usuario, nome: a.nome, foto_url: a.foto_url, backlog: a.backlog })),
     };
   });
   fastify.get('/webhook/chat-fila-status', filaStatus);
@@ -585,6 +676,11 @@ export default async function acoesRoutes(fastify) {
     const cfg = await query(`SELECT ativa FROM chat_fila_config LIMIT 1`);
     const ativa = cfg.rows[0] ? cfg.rows[0].ativa !== false : true;
     if (!ativa) return { ok: false, sem_fila: true, erro: 'fila desativada' };
+    await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
+    // Dentro do expediente -> fila principal (na_fila)
+    // Fora do expediente   -> fila pos-expediente (fila_apos_expediente)
+    const expedienteAgora = agoraEhExpedienteGlobal();
+    const colFila = expedienteAgora ? 'a.na_fila' : 'a.fila_apos_expediente';
     const rows = await query(
       `SELECT LOWER(a.usuario) AS usuario,
               COALESCE(a.nome, a.usuario) AS nome,
@@ -598,13 +694,16 @@ export default async function acoesRoutes(fastify) {
            AND COALESCE(cd.finalizada, false) = false
        ) cnt ON true
        WHERE COALESCE(a.ativo,true)=true
-         AND COALESCE(a.na_fila,false)=true
+         AND COALESCE(${colFila},false)=true
          AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
          AND LOWER(a.usuario) <> 'admin'
        ORDER BY backlog ASC, ultima_em ASC NULLS FIRST, a.usuario ASC
        LIMIT 1`
     );
-    if (!rows.rows.length) return { ok: false, sem_fila: true, erro: 'nenhum consultor na fila' };
+    if (!rows.rows.length) {
+      const nomeFila = expedienteAgora ? 'principal' : 'pós-expediente';
+      return { ok: false, sem_fila: true, erro: `nenhum consultor na fila ${nomeFila}`, expediente_agora: expedienteAgora };
+    }
     const prox = rows.rows[0];
     await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW()`, [prox.usuario]);
     return {
@@ -613,6 +712,7 @@ export default async function acoesRoutes(fastify) {
       usuario_escolhido: prox.usuario,
       nome_escolhido: prox.nome,
       backlog_atual: prox.backlog,
+      fila_usada: expedienteAgora ? 'principal' : 'pos_expediente',
     };
   });
   fastify.post('/webhook/chat-fila-proximo', filaProximo);

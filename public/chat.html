@@ -3237,7 +3237,14 @@ async function toggleMinhaFila(){
       usuario: USUARIO,
       na_fila: novoValor,
     }});
-    if(!r || !r.ok){ toast('Erro: '+((r&&r.erro)||'servidor'), 'err'); return; }
+    if(!r || !r.ok){
+      if(r && r.erro === 'fora_horario'){
+        toast(r.mensagem || 'Você está fora do seu horário de atendimento.', 'warn');
+      } else {
+        toast('Erro: '+((r&&(r.mensagem||r.erro))||'servidor'), 'err');
+      }
+      return;
+    }
     // Atualiza cache local sem precisar recarregar tudo
     me.na_fila = r.na_fila;
     atualizarBotaoStatusFila();

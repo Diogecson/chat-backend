@@ -160,10 +160,20 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
     </div>
   </div>
 
-  <!-- Card 2: Consultores na fila -->
+  <!-- Tabs: fila principal vs pos-expediente -->
+  <div class="card">
+    <div class="card-body" style="padding:10px 14px;display:flex;gap:8px;align-items:center">
+      <button id="tabPrincipal" onclick="setAba('principal')" class="btn btn-primary btn-sm" style="font-weight:700"><i class="bi bi-sun-fill"></i> Fila principal <span id="hintExpediente" style="font-size:.7rem;opacity:.75;margin-left:4px"></span></button>
+      <button id="tabPos" onclick="setAba('pos_expediente')" class="btn btn-secondary btn-sm" style="font-weight:700"><i class="bi bi-moon-stars-fill"></i> Fila pós-expediente</button>
+      <span style="flex:1"></span>
+      <span id="badgeAtiva" style="font-size:.72rem;color:var(--muted);font-weight:600"></span>
+    </div>
+  </div>
+
+  <!-- Card 2: Consultores na fila (principal ou pos, dependendo da aba) -->
   <div class="card">
     <div class="card-head">
-      <h3 class="card-title"><i class="bi bi-people-fill"></i> Consultores na fila <span id="countFila" style="background:var(--ok);color:#fff;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px">0</span></h3>
+      <h3 class="card-title"><i class="bi bi-people-fill"></i> <span id="tituloFila">Consultores na fila</span> <span id="countFila" style="background:var(--ok);color:#fff;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px">0</span></h3>
     </div>
     <div class="card-body" id="listaFila">
       <div class="empty"><span class="spinner"></span></div>
@@ -297,14 +307,31 @@ function aplicarFiltroConta(){
   const sel = document.getElementById('filtroConta');
   _CONTA_FILTRO = sel ? sel.value : '';
   if(_ESTADO_RAW){
+    const in_src  = (ABA === 'pos_expediente') ? (_ESTADO_RAW.in_fila_pos || []) : (_ESTADO_RAW.in_fila || []);
+    const out_src = (ABA === 'pos_expediente') ? (_ESTADO_RAW.fora_fila_pos || []) : (_ESTADO_RAW.fora_fila || []);
     ESTADO = Object.assign({}, _ESTADO_RAW, {
-      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(_ESTADO_RAW.in_fila || [])),
-      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(_ESTADO_RAW.fora_fila || []))
+      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(in_src)),
+      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(out_src)),
+      _aba: ABA,
     });
     renderStatus();
     renderFila();
     renderFora();
   }
+}
+
+let ABA = (function(){ try { return localStorage.getItem('fila_aba') || 'principal'; } catch(_){ return 'principal'; } })();
+function setAba(a){
+  ABA = (a === 'pos_expediente') ? 'pos_expediente' : 'principal';
+  try { localStorage.setItem('fila_aba', ABA); } catch(_){}
+  // Visual: toggle das classes dos botoes
+  const tp = qs('#tabPrincipal'), tP = qs('#tabPos');
+  if(tp && tP){
+    tp.className = 'btn btn-sm ' + (ABA === 'principal' ? 'btn-primary' : 'btn-secondary');
+    tP.className = 'btn btn-sm ' + (ABA === 'pos_expediente' ? 'btn-primary' : 'btn-secondary');
+  }
+  qs('#tituloFila').textContent = (ABA === 'principal') ? 'Consultores na fila' : 'Consultores na fila pós-expediente';
+  aplicarFiltroConta();
 }
 
 async function carregar(){
@@ -314,11 +341,25 @@ async function carregar(){
     const r = await api(URL_STATUS);
     if(!r.ok){ toast('Erro ao carregar', 'err'); return; }
     _ESTADO_RAW = r;
-    // Filtra fila + fora_fila pelas contas permitidas + filtro do dropdown
+    // Escolhe dataset conforme a aba
+    const in_src  = (ABA === 'pos_expediente') ? (r.in_fila_pos || []) : (r.in_fila || []);
+    const out_src = (ABA === 'pos_expediente') ? (r.fora_fila_pos || []) : (r.fora_fila || []);
     ESTADO = Object.assign({}, r, {
-      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(r.in_fila || [])),
-      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(r.fora_fila || []))
+      in_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(in_src)),
+      fora_fila: _filtrarPorContaSelecionada(_filtrarConsultoresPorConta(out_src)),
+      _aba: ABA,
     });
+    // Hint de expediente
+    const exp = r.expediente || {};
+    const hint = qs('#hintExpediente');
+    if(hint) hint.textContent = exp.hora_ini != null ? `(${String(exp.hora_ini).padStart(2,'0')}h-${String(exp.hora_fim).padStart(2,'0')}h)` : '';
+    const badge = qs('#badgeAtiva');
+    if(badge){
+      const atual = r.expediente_agora ? 'principal' : 'pós-expediente';
+      badge.textContent = `Agora: fila ${atual} está atendendo`;
+      badge.style.color = r.expediente_agora ? '#16a34a' : '#f59e0b';
+    }
+    setAba(ABA); // garante CSS dos botoes
     renderStatus();
     renderFila();
     renderFora();
@@ -422,17 +463,24 @@ async function resetar(){
 }
 
 async function adicionarFila(usuario){
+  // Decide qual flag mandar conforme a aba atual
+  const body = (ABA === 'pos_expediente')
+    ? { usuario, fila_apos_expediente: true }
+    : { usuario, na_fila: true, forcar: true }; // admin que adiciona manualmente força mesmo fora do horário
   try {
-    const r = await api(URL_TOGGLE, {method:'POST', bodyObj:{usuario, na_fila:true}});
+    const r = await api(URL_TOGGLE, {method:'POST', bodyObj: body});
     if(r.ok){ toast('Adicionado à fila','',); carregar(); }
-    else toast('Erro','err');
+    else toast('Erro: '+(r.mensagem || r.erro || 'servidor'),'err');
   } catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
 async function removerFila(usuario){
   if(!confirm('Remover '+usuario+' da fila?')) return;
+  const body = (ABA === 'pos_expediente')
+    ? { usuario, fila_apos_expediente: false }
+    : { usuario, na_fila: false, forcar: true };
   try {
-    const r = await api(URL_TOGGLE, {method:'POST', bodyObj:{usuario, na_fila:false}});
+    const r = await api(URL_TOGGLE, {method:'POST', bodyObj: body});
     if(r.ok){ toast('Removido da fila',''); carregar(); }
     else toast('Erro','err');
   } catch(e){ toast('Erro: '+e.message,'err'); }
