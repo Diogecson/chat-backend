@@ -919,6 +919,72 @@ export default async function acoesRoutes(fastify) {
   });
   fastify.post('/webhook/chat-finalizar-antigas', finalizarAntigas);
 
+  // === chat-vapo-listar ===
+  // Lista leads que estouraram o timeout de primeira resposta e foram realocados.
+  // Params: periodo (dias, default 7), consultor (opcional, filtra por dono_antigo),
+  //         so_fallback (bool, mostra so quem chegou ao supervisor), limit (default 500)
+  const vapoListar = async (req, reply) => withDb(reply, async () => {
+    const q = req.query || {};
+    const periodo = Math.max(1, Math.min(90, parseInt(q.periodo || '7', 10)));
+    const consultor = String(q.consultor || '').toLowerCase().trim();
+    const soFallback = String(q.so_fallback || '') === 'true';
+    const limit = Math.max(1, Math.min(2000, parseInt(q.limit || '500', 10)));
+
+    // Garante tabela (sem travar se cron ainda nao rodou)
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_vapo_log (
+        id BIGSERIAL PRIMARY KEY,
+        conta_id VARCHAR(80) NOT NULL,
+        telefone VARCHAR(40) NOT NULL,
+        nome_contato VARCHAR(200) DEFAULT '',
+        dono_antigo VARCHAR(80) DEFAULT '',
+        dono_novo VARCHAR(80) DEFAULT '',
+        minutos_sem_resposta INT DEFAULT 0,
+        motivo VARCHAR(40) DEFAULT 'timeout_primeira',
+        fallback BOOLEAN DEFAULT false,
+        criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `).catch(() => {});
+
+    const params = [periodo, limit];
+    let where = `criado_em > NOW() - ($1::int || ' days')::interval`;
+    if (consultor) { params.push(consultor); where += ` AND LOWER(dono_antigo) = $${params.length}`; }
+    if (soFallback) where += ` AND fallback = true`;
+
+    const r = await query(
+      `SELECT id, conta_id, telefone, nome_contato,
+              LOWER(dono_antigo) AS dono_antigo,
+              LOWER(dono_novo) AS dono_novo,
+              minutos_sem_resposta, motivo, fallback, criado_em
+       FROM chat_vapo_log
+       WHERE ${where}
+       ORDER BY criado_em DESC
+       LIMIT $2`,
+      params
+    );
+
+    // Ranking agregado (quem mais perde lead)
+    const rk = await query(
+      `SELECT LOWER(dono_antigo) AS dono, COUNT(*)::int AS total,
+              SUM(CASE WHEN fallback THEN 1 ELSE 0 END)::int AS para_fallback
+       FROM chat_vapo_log
+       WHERE criado_em > NOW() - ($1::int || ' days')::interval
+       GROUP BY LOWER(dono_antigo)
+       ORDER BY total DESC`,
+      [periodo]
+    );
+
+    return {
+      ok: true,
+      periodo_dias: periodo,
+      total: r.rows.length,
+      itens: r.rows,
+      ranking_perdedores: rk.rows,
+    };
+  });
+  fastify.get('/webhook/chat-vapo-listar', vapoListar);
+  fastify.post('/webhook/chat-vapo-listar', vapoListar);
+
   // === chat-atendente-delete ===
   // Remove um atendente (respostas rapidas e historico ficam, via FK ou nao)
   const atendenteDelete = async (req, reply) => withDb(reply, async () => {

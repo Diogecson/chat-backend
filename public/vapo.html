@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23dc2626'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='13' font-weight='bold'>V!</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · VAPO (leads sem resposta)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--red:#dc2626;--red-700:#b91c1c;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28);flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--red),#ff3b3b);font-weight:800;font-size:14px;box-shadow:0 6px 16px rgba(220,38,38,.45);color:#fff}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+
+.filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filtros label{font-size:.78rem;color:var(--muted);font-weight:700;margin-right:4px}
+.inp{border:1.5px solid var(--line);background:#fff;padding:7px 11px;border-radius:9px;font-size:.85rem;color:var(--ink);font-family:inherit;outline:none;transition:.15s}
+.inp:focus{border-color:var(--blue)}
+.btn{border:none;padding:8px 14px;border-radius:10px;font-weight:700;font-size:.82rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--red),var(--red-700));color:#fff;box-shadow:0 4px 12px rgba(220,38,38,.25)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+
+/* Cards resumo */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow-sm)}
+.kpi-lbl{font-size:.68rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--ink);font-size:1.6rem;line-height:1}
+.kpi.red .kpi-val{color:var(--red)}
+.kpi.ok  .kpi-val{color:var(--ok)}
+
+/* Ranking */
+.rk-list{display:flex;flex-direction:column;gap:6px}
+.rk-item{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:9px;background:#fbfcfe;border:1px solid var(--line)}
+.rk-pos{width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--ink);display:grid;place-items:center;font-weight:800;font-size:.8rem;flex-shrink:0}
+.rk-pos.p1{background:#fef3c7;color:#92400e}
+.rk-nome{flex:1;font-weight:700;color:var(--ink);font-size:.9rem}
+.rk-total{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--red);font-size:1.1rem}
+.rk-fb{font-size:.7rem;color:var(--muted);margin-left:8px}
+
+/* Tabela */
+table.lst{width:100%;border-collapse:collapse;font-size:.86rem}
+table.lst th{text-align:left;padding:10px 12px;font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--line);background:#fbfcfe;position:sticky;top:0;z-index:1}
+table.lst td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.lst tr:hover td{background:#fafbfd}
+.tag{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px}
+.tag.ok{background:#e6f9ee;color:var(--ok)}
+.tag.fb{background:#fde8e8;color:var(--red)}
+.tag.min{background:#fef3c7;color:#92400e}
+.link-chat{color:var(--blue);font-weight:700;text-decoration:none;cursor:pointer}
+.link-chat:hover{text-decoration:underline}
+.muted{color:var(--muted);font-style:italic}
+.tbl-wrap{max-height:70vh;overflow:auto}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);font-style:italic}
+
+@media (max-width:640px){
+  .wrap{padding:0 12px 30px}
+  table.lst{font-size:.78rem}
+  table.lst th, table.lst td{padding:7px 8px}
+  .filtros{gap:6px}
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">V!</div>
+    <div>
+      <div class="brand-title">VAPO · Leads sem resposta</div>
+      <div class="brand-sub">Timeout de primeira resposta → realocados</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="chat.html" class="btn-nav"><i class="bi bi-chat-dots"></i> Voltar ao chat</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="kpis">
+    <div class="kpi red">
+      <div class="kpi-lbl">Total no período</div>
+      <div class="kpi-val" id="kTotal">—</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-lbl">Foram pro supervisor</div>
+      <div class="kpi-val" id="kFallback">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Consultores afetados</div>
+      <div class="kpi-val" id="kConsultores">—</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Média de minutos</div>
+      <div class="kpi-val" id="kMedia">—</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-funnel"></i> Filtros</h3>
+    </div>
+    <div class="card-body">
+      <div class="filtros">
+        <label>Período (dias):</label>
+        <input id="fPeriodo" type="number" min="1" max="90" value="7" class="inp" style="width:80px">
+        <label>Consultor perdedor:</label>
+        <select id="fConsultor" class="inp" style="min-width:180px"><option value="">— Todos —</option></select>
+        <label><input id="fFallback" type="checkbox" style="margin-right:4px"> Só os que foram pro supervisor</label>
+        <button class="btn btn-primary" onclick="carregar()"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-trophy"></i> Ranking de perdedores (quem mais perde lead)</h3>
+    </div>
+    <div class="card-body">
+      <div id="rkWrap" class="rk-list"><div class="muted">Carregando...</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h3 class="card-title"><i class="bi bi-list-ul"></i> Leads realocados</h3>
+      <span id="lblTotal" style="font-size:.78rem;color:var(--muted);font-weight:700"></span>
+    </div>
+    <div class="tbl-wrap">
+      <table class="lst" id="tbl">
+        <thead>
+          <tr>
+            <th>Data / Hora</th>
+            <th>Telefone</th>
+            <th>Contato</th>
+            <th>Perdeu</th>
+            <th>Foi para</th>
+            <th>Min.</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tb"><tr><td colspan="8" class="empty">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = location.origin;
+
+function fmtTel(t){
+  if(!t) return '';
+  const s = String(t).replace(/\D/g,'');
+  if (s.length === 13) return `+${s.slice(0,2)} (${s.slice(2,4)}) ${s.slice(4,9)}-${s.slice(9)}`;
+  if (s.length === 12) return `+${s.slice(0,2)} (${s.slice(2,4)}) ${s.slice(4,8)}-${s.slice(8)}`;
+  if (s.length === 11) return `(${s.slice(0,2)}) ${s.slice(2,7)}-${s.slice(7)}`;
+  return t;
+}
+function fmtData(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  return d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+}
+function abrirChat(conta, tel){
+  // Volta pro chat.html focando essa conversa
+  try { localStorage.setItem('chat_abrir_conta', conta); localStorage.setItem('chat_abrir_telefone', tel); } catch(_){}
+  location.href = `chat.html?conta=${encodeURIComponent(conta)}&telefone=${encodeURIComponent(tel)}`;
+}
+
+async function carregar(){
+  const periodo = parseInt(document.getElementById('fPeriodo').value || '7', 10);
+  const consultor = document.getElementById('fConsultor').value || '';
+  const soFb = document.getElementById('fFallback').checked ? 'true' : '';
+  const url = `${API}/webhook/chat-vapo-listar?periodo=${periodo}`
+            + (consultor ? `&consultor=${encodeURIComponent(consultor)}` : '')
+            + (soFb ? `&so_fallback=${soFb}` : '');
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.erro || 'falha');
+    renderKpis(data);
+    renderRanking(data.ranking_perdedores || []);
+    renderTabela(data.itens || []);
+    popularConsultorSelect(data.ranking_perdedores || [], consultor);
+  } catch (err) {
+    document.getElementById('tb').innerHTML = `<tr><td colspan="8" class="empty" style="color:var(--err)">Erro: ${err.message}</td></tr>`;
+  }
+}
+
+function renderKpis(data){
+  const itens = data.itens || [];
+  const rk = data.ranking_perdedores || [];
+  document.getElementById('kTotal').textContent = itens.length;
+  const fb = itens.filter(x => x.fallback).length;
+  document.getElementById('kFallback').textContent = fb;
+  document.getElementById('kConsultores').textContent = rk.length;
+  const soma = itens.reduce((a,b) => a + (b.minutos_sem_resposta || 0), 0);
+  document.getElementById('kMedia').textContent = itens.length ? (soma/itens.length).toFixed(1) + ' min' : '—';
+}
+
+function renderRanking(rk){
+  const w = document.getElementById('rkWrap');
+  if (!rk.length) { w.innerHTML = '<div class="muted">Nenhum consultor perdeu lead no período. 🎉</div>'; return; }
+  w.innerHTML = rk.map((r,i) => `
+    <div class="rk-item">
+      <div class="rk-pos ${i===0?'p1':''}">${i+1}</div>
+      <div class="rk-nome">${r.dono || '(sem dono)'}</div>
+      <div class="rk-total">${r.total}</div>
+      <div class="rk-fb">${r.para_fallback||0} → supervisor</div>
+    </div>`).join('');
+}
+
+function renderTabela(itens){
+  const tb = document.getElementById('tb');
+  document.getElementById('lblTotal').textContent = itens.length + ' registros';
+  if (!itens.length) { tb.innerHTML = '<tr><td colspan="8" class="empty">Nada por aqui. Ninguém deixou lead passar. 👏</td></tr>'; return; }
+  tb.innerHTML = itens.map(it => `
+    <tr>
+      <td>${fmtData(it.criado_em)}</td>
+      <td style="font-family:monospace">${fmtTel(it.telefone)}</td>
+      <td>${it.nome_contato || '<span class="muted">—</span>'}</td>
+      <td><span class="tag fb">${it.dono_antigo||'?'}</span></td>
+      <td><span class="tag ${it.fallback?'fb':'ok'}">${it.dono_novo||'?'}</span></td>
+      <td><span class="tag min">${it.minutos_sem_resposta} min</span></td>
+      <td>${it.fallback?'<span class="tag fb">supervisor</span>':'<span class="tag ok">realocado</span>'}</td>
+      <td><a class="link-chat" onclick="abrirChat('${it.conta_id}','${it.telefone}')"><i class="bi bi-chat-dots"></i> abrir</a></td>
+    </tr>`).join('');
+}
+
+function popularConsultorSelect(rk, atual){
+  const sel = document.getElementById('fConsultor');
+  const anterior = atual || sel.value;
+  sel.innerHTML = '<option value="">— Todos —</option>' + rk.map(r =>
+    `<option value="${r.dono||''}" ${anterior===r.dono?'selected':''}>${r.dono||'(sem dono)'} — ${r.total}</option>`
+  ).join('');
+}
+
+carregar();
+</script>
+</body>
+</html>
