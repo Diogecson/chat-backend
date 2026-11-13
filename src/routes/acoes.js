@@ -59,6 +59,23 @@ export default async function acoesRoutes(fastify) {
         ]);
         const pular = motivosExcluir.split(',').map(s => s.trim()).filter(Boolean).includes(motivo);
         if (ativo === 'true' && nome && !pular) {
+          // Busca o BODY do template na Meta pra gravar o texto real em chat_mensagens
+          // (senao aparece "[template: nome]" na UI)
+          let bodyText = '';
+          try {
+            const tpls = await fastify.inject({
+              method: 'GET',
+              url: '/webhook/chat-templates?conta_id=' + encodeURIComponent(conta_id),
+            });
+            const tplData = JSON.parse(tpls.body || '{}');
+            const match = (tplData.templates || []).find(t =>
+              t.name === nome && (!lang || t.language === lang)
+            ) || (tplData.templates || []).find(t => t.name === nome);
+            if (match) {
+              const comp = (match.components || []).find(c => c.type === 'BODY');
+              if (comp && comp.text) bodyText = comp.text;
+            }
+          } catch (_) { }
           const res = await fastify.inject({
             method: 'POST',
             url: '/webhook/chat-enviar',
@@ -67,7 +84,8 @@ export default async function acoesRoutes(fastify) {
               token: 'ENCERRAMENTO_AUTO', usuario: 'sistema_encerramento',
               conta_id, telefone,
               tipo: 'template', template_name: nome, template_language: lang,
-              template_body_vars: [],
+              template_body_text: bodyText,  // texto cru com placeholders {{1}} etc
+              template_body_vars: [],         // nenhuma var — template eh estatico
             },
           });
           const body = JSON.parse(res.body || '{}');
