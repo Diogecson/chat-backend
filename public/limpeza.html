@@ -84,6 +84,19 @@ table.lst td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align
 .msg-err{background:#fde8e8;color:var(--red);padding:12px 16px;border-radius:10px;margin-top:14px;display:none;border:1px solid #fca5a5}
 .msg-err.ativo{display:block}
 
+/* Progress box (fake progress durante a execucao do delete) */
+.progress-box{display:none;margin-top:14px;padding:18px;background:#fff;border:2px solid var(--blue);border-radius:12px;box-shadow:0 6px 20px rgba(0,40,85,.12)}
+.progress-box.ativo{display:block}
+.progress-head{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.progress-spinner{width:44px;height:44px;border:4px solid #e2e8f0;border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.progress-body{flex:1;min-width:0}
+.progress-txt{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--ink);font-size:.98rem;margin-bottom:4px;transition:opacity .3s}
+.progress-sub{font-size:.78rem;color:var(--muted)}
+.progress-bar{height:8px;background:#e2e8f0;border-radius:6px;overflow:hidden;margin-top:12px}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--blue),var(--red));border-radius:6px;transition:width 1s ease-out;width:0%}
+.progress-elapsed{font-size:.72rem;color:var(--muted);margin-top:8px;text-align:right;font-variant-numeric:tabular-nums}
+
 @media (max-width:640px){
   .wrap{padding:0 12px 30px}
   .filtros{flex-direction:column;align-items:stretch;gap:10px}
@@ -169,6 +182,18 @@ table.lst td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align
           </button>
           <button class="btn btn-secondary" onclick="cancelarConfirmacao()">Cancelar</button>
         </div>
+      </div>
+
+      <div class="progress-box" id="progressBox">
+        <div class="progress-head">
+          <div class="progress-spinner"></div>
+          <div class="progress-body">
+            <div class="progress-txt" id="progressTxt">Preparando...</div>
+            <div class="progress-sub">Nao feche essa pagina. Operacao em andamento no banco.</div>
+          </div>
+        </div>
+        <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+        <div class="progress-elapsed" id="progressElapsed">0s</div>
       </div>
 
       <div class="msg-ok" id="msgOk"></div>
@@ -305,6 +330,74 @@ function cancelarConfirmacao(){
   document.getElementById('confirmInput').value = '';
 }
 
+// Fases do progresso (fake: baseado em estimativa, nao em dados reais do backend).
+// Duracoes sao ajustadas conforme o volume estimado da limpeza.
+// Cada fase avanca o pct ate seu valor e para; se o backend demorar mais que o
+// previsto, a ultima fase fica rodando ate a resposta chegar.
+let progressTimer = null;
+let progressT0 = 0;
+let progressElapsedTimer = null;
+
+function fasesPraVolume(msgs){
+  // Escala duracoes pelo volume. Baseline = 14k msgs em 22s (teste real).
+  // Dividimos nas fases: selecionar(10%) msgs(45%) etiquetas(10%) vacuum(35%)
+  const base = Math.max(14000, msgs); // usa 14k como piso pra operacoes pequenas
+  const totalMs = Math.round(22000 * (base / 14000));
+  return [
+    { pct: 10, dur: Math.round(totalMs * 0.08), txt: 'Selecionando conversas antigas...' },
+    { pct: 55, dur: Math.round(totalMs * 0.42), txt: 'Apagando mensagens (fase mais pesada)...' },
+    { pct: 70, dur: Math.round(totalMs * 0.12), txt: 'Apagando etiquetas e logs do VAPO...' },
+    { pct: 95, dur: Math.round(totalMs * 0.35), txt: 'Rodando VACUUM pra liberar espaco no disco...' },
+    { pct: 99, dur: 999999,                    txt: 'Finalizando e gravando historico...' },
+  ];
+}
+
+function startProgress(msgsEstimadas){
+  const box = document.getElementById('progressBox');
+  const txt = document.getElementById('progressTxt');
+  const fill = document.getElementById('progressFill');
+  const elapsed = document.getElementById('progressElapsed');
+  box.classList.add('ativo');
+  progressT0 = Date.now();
+
+  // Timer de tempo decorrido (atualiza a cada 100ms)
+  progressElapsedTimer = setInterval(() => {
+    const s = ((Date.now() - progressT0) / 1000).toFixed(1);
+    elapsed.textContent = s + 's';
+  }, 100);
+
+  const fases = fasesPraVolume(msgsEstimadas || 14000);
+  let idx = 0;
+
+  function aplicarFase(){
+    const f = fases[idx];
+    txt.style.opacity = 0;
+    setTimeout(() => {
+      txt.textContent = f.txt;
+      txt.style.opacity = 1;
+      fill.style.width = f.pct + '%';
+    }, 200);
+    if (idx < fases.length - 1) {
+      progressTimer = setTimeout(() => { idx++; aplicarFase(); }, f.dur);
+    }
+  }
+  aplicarFase();
+}
+
+function stopProgress(sucesso){
+  if (progressTimer) { clearTimeout(progressTimer); progressTimer = null; }
+  if (progressElapsedTimer) { clearInterval(progressElapsedTimer); progressElapsedTimer = null; }
+  const box = document.getElementById('progressBox');
+  const fill = document.getElementById('progressFill');
+  if (sucesso) {
+    fill.style.width = '100%';
+    document.getElementById('progressTxt').textContent = 'Pronto!';
+    setTimeout(() => box.classList.remove('ativo'), 800);
+  } else {
+    box.classList.remove('ativo');
+  }
+}
+
 async function executarDelete(){
   const txt = document.getElementById('confirmInput').value.trim().toUpperCase();
   if(txt !== 'DELETAR'){
@@ -318,6 +411,8 @@ async function executarDelete(){
   const btn = document.querySelector('#confirmBox .btn-danger');
   btn.disabled = true;
   btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Apagando...';
+  document.getElementById('confirmBox').classList.remove('ativo');
+  startProgress(previewAtual.mensagens || 0);
 
   try{
     const body = {
@@ -334,12 +429,14 @@ async function executarDelete(){
     });
     const d = await r.json();
     if(!d.ok){ throw new Error(d.erro || 'erro'); }
+    stopProgress(true);
     const ap = d.apagadas || {};
     msgOk(`Pronto! Apaguei <b>${fmtNum(ap.conversas)}</b> conversas, <b>${fmtNum(ap.mensagens)}</b> mensagens, <b>${fmtNum(ap.etiquetas)}</b> etiquetas em ${(d.duracao_ms/1000).toFixed(1)}s. ${d.vacuum_ok?'VACUUM OK.':'(VACUUM falhou — espaco so volta no proximo vacuum automatico)'}`);
     resetarUI();
     carregarStats();
     carregarHistorico();
   }catch(err){
+    stopProgress(false);
     msgErr('Falhou: ' + err.message);
   } finally {
     btn.disabled = false;
