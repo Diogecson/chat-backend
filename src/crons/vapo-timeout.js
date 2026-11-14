@@ -21,7 +21,7 @@ import { hasDb } from '../config.js';
 
 const INTERVAL_MS = parseInt(process.env.VAPO_INTERVAL_MS || '60000', 10); // tick 1min
 const TIMEOUT_MIN = parseInt(process.env.VAPO_TIMEOUT_MIN || '10', 10);
-const FALLBACK = (process.env.VAPO_FALLBACK_USUARIO || 'soares1').toLowerCase();
+const FALLBACK = (process.env.VAPO_FALLBACK_USUARIO || 'admin').toLowerCase();
 const JANELA_TENTATIVAS_H = parseInt(process.env.VAPO_JANELA_TENTATIVAS_H || '24', 10);
 
 // Usuarios que NAO contam como "resposta humana" (bots e automatismos)

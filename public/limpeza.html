@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel !== 'SUPER'){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Apenas usuarios SUPER podem acessar a limpeza em massa. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23b91c1c'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='18'>🗑</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · Limpeza do banco</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--red:#dc2626;--red-700:#b91c1c;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--red-700),var(--red));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(220,38,38,.3);flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.18);font-weight:800;font-size:18px;color:#fff}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.75;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1000px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:18px}
+
+.alerta{background:#fef3c7;border:1.5px solid #fcd34d;color:#78350f;padding:12px 16px;border-radius:12px;margin-bottom:18px;font-size:.85rem;display:flex;gap:10px;align-items:flex-start}
+.alerta i{font-size:1.2rem;flex-shrink:0;margin-top:2px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:#fbfcfe;border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi-lbl{font-size:.68rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.kpi-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--ink);font-size:1.3rem;line-height:1}
+.kpi.red .kpi-val{color:var(--red)}
+.kpi.warn .kpi-val{color:var(--warn)}
+.kpi.muted .kpi-val{color:var(--muted);font-size:1.1rem}
+
+.filtros{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+.campo{display:flex;flex-direction:column;gap:5px}
+.campo label{font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+.inp{border:1.5px solid var(--line);background:#fff;padding:9px 12px;border-radius:9px;font-size:.9rem;color:var(--ink);font-family:inherit;outline:none;transition:.15s;min-width:120px}
+.inp:focus{border-color:var(--red)}
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--blue-700));color:#fff;box-shadow:0 4px 12px rgba(0,40,85,.2)}
+.btn-danger{background:linear-gradient(135deg,var(--red),var(--red-700));color:#fff;box-shadow:0 4px 12px rgba(220,38,38,.3)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+.preview-box{background:#f8fafc;border:1.5px dashed #cbd5e1;border-radius:12px;padding:16px;margin-top:14px;display:none}
+.preview-box.ativo{display:block}
+.preview-box.perigoso{background:#fef2f2;border-color:#fca5a5}
+.preview-stats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:10px}
+.preview-stat{font-size:.85rem;color:var(--ink)}
+.preview-stat b{color:var(--red);font-size:1rem;font-family:'Plus Jakarta Sans',sans-serif}
+
+.confirm-box{margin-top:14px;padding:12px;background:#fff;border:2px solid var(--red);border-radius:10px;display:none}
+.confirm-box.ativo{display:block}
+.confirm-box p{margin:0 0 10px;font-size:.88rem;color:var(--ink)}
+.confirm-box input{border:1.5px solid var(--red);padding:9px 12px;border-radius:9px;width:100%;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+
+/* Historico */
+table.lst{width:100%;border-collapse:collapse;font-size:.85rem}
+table.lst th{text-align:left;padding:9px 12px;font-size:.72rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.4px;border-bottom:1.5px solid var(--line);background:#fbfcfe}
+table.lst td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+.empty{padding:40px 20px;text-align:center;color:var(--muted);font-style:italic}
+.msg-ok{background:#e6f9ee;color:#065f46;padding:12px 16px;border-radius:10px;margin-top:14px;display:none;border:1px solid #6ee7b7}
+.msg-ok.ativo{display:block}
+.msg-err{background:#fde8e8;color:var(--red);padding:12px 16px;border-radius:10px;margin-top:14px;display:none;border:1px solid #fca5a5}
+.msg-err.ativo{display:block}
+
+@media (max-width:640px){
+  .wrap{padding:0 12px 30px}
+  .filtros{flex-direction:column;align-items:stretch;gap:10px}
+  .inp{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">🗑</div>
+    <div>
+      <div class="brand-title">Limpeza do banco</div>
+      <div class="brand-sub">Conversas finalizadas antigas</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="chat.html" class="btn-nav"><i class="bi bi-arrow-left"></i> Voltar ao chat</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="alerta">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div>
+      <b>Atencao:</b> a limpeza apaga DEFINITIVAMENTE mensagens, etiquetas e donos de conversas finalizadas.
+      Nao da pra desfazer. Antes de apagar, sempre rode a <b>Simulacao</b> pra ver quantas conversas cairiam.
+      O criterio e <b>finalizada=true</b> E sem atividade ha mais de X dias.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-database-fill-gear"></i> Estado atual do banco</h2>
+      <button class="btn btn-secondary" onclick="carregarStats()"><i class="bi bi-arrow-clockwise"></i> Atualizar</button>
+    </div>
+    <div class="card-body">
+      <div class="kpis" id="kpisStats">
+        <div class="kpi muted"><div class="kpi-lbl">carregando...</div><div class="kpi-val">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-funnel-fill"></i> Novo expurgo</h2>
+    </div>
+    <div class="card-body">
+      <div class="filtros">
+        <div class="campo">
+          <label>Dias minimos (sem atividade)</label>
+          <input type="number" id="diasMin" class="inp" value="30" min="7" step="1" style="width:130px">
+        </div>
+        <div class="campo">
+          <label>Conta</label>
+          <select id="contaId" class="inp">
+            <option value="__all__">Todas as contas</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button class="btn btn-primary" onclick="simular()">
+            <i class="bi bi-eye"></i> Simular
+          </button>
+        </div>
+      </div>
+
+      <div class="preview-box" id="previewBox">
+        <div class="preview-stats" id="previewStats"></div>
+        <button class="btn btn-danger" id="btnExcluir" onclick="abrirConfirmacao()" style="display:none">
+          <i class="bi bi-trash3-fill"></i> Excluir definitivamente
+        </button>
+      </div>
+
+      <div class="confirm-box" id="confirmBox">
+        <p>
+          <b>Essa acao e IRREVERSIVEL.</b> Pra confirmar, digite <b>DELETAR</b> em maiusculas no campo abaixo.
+        </p>
+        <input type="text" id="confirmInput" placeholder="DELETAR" autocomplete="off">
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn btn-danger" onclick="executarDelete()">
+            <i class="bi bi-trash3-fill"></i> Confirmar exclusao
+          </button>
+          <button class="btn btn-secondary" onclick="cancelarConfirmacao()">Cancelar</button>
+        </div>
+      </div>
+
+      <div class="msg-ok" id="msgOk"></div>
+      <div class="msg-err" id="msgErr"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-clock-history"></i> Historico (ultimas 50 limpezas)</h2>
+    </div>
+    <div class="card-body">
+      <div id="histBox"><div class="empty">Carregando...</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BASE = '';
+const usuario = (localStorage.getItem('chat_usuario')||'').toLowerCase();
+const papel = (localStorage.getItem('chat_papel')||'USER').toUpperCase();
+const token = localStorage.getItem('chat_token')||'';
+let previewAtual = null; // {dias_min, conta_id, conversas, mensagens, etiquetas}
+
+function fmtNum(n){
+  if(n == null) return '—';
+  return new Intl.NumberFormat('pt-BR').format(n);
+}
+function fmtData(iso){
+  if(!iso) return '—';
+  try{
+    const d = new Date(iso);
+    return d.toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }catch(_){ return iso; }
+}
+function msgOk(txt){
+  const el = document.getElementById('msgOk');
+  el.innerHTML = '<i class="bi bi-check-circle-fill"></i> ' + txt;
+  el.classList.add('ativo');
+  document.getElementById('msgErr').classList.remove('ativo');
+  setTimeout(() => el.classList.remove('ativo'), 10000);
+}
+function msgErr(txt){
+  const el = document.getElementById('msgErr');
+  el.innerHTML = '<i class="bi bi-x-circle-fill"></i> ' + txt;
+  el.classList.add('ativo');
+  document.getElementById('msgOk').classList.remove('ativo');
+}
+
+async function carregarStats(){
+  try{
+    const r = await fetch(BASE + '/webhook/chat-limpeza-stats');
+    const d = await r.json();
+    if(!d.ok){ throw new Error(d.erro || 'erro'); }
+    const kpis = document.getElementById('kpisStats');
+    kpis.innerHTML = `
+      <div class="kpi"><div class="kpi-lbl">Tamanho do banco</div><div class="kpi-val">${d.tamanho_db||'—'}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Tabela mensagens</div><div class="kpi-val">${d.tamanho_msgs||'—'}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Total mensagens</div><div class="kpi-val">${fmtNum(d.total_msgs)}</div></div>
+      <div class="kpi red"><div class="kpi-lbl">Conversas finalizadas</div><div class="kpi-val">${fmtNum(d.total_finalizadas)}</div></div>
+      <div class="kpi"><div class="kpi-lbl">Conversas abertas</div><div class="kpi-val">${fmtNum(d.total_abertas)}</div></div>
+      <div class="kpi warn"><div class="kpi-lbl">Finalizadas >7d</div><div class="kpi-val">${fmtNum(d.fin_mais_7d)}</div></div>
+      <div class="kpi warn"><div class="kpi-lbl">Finalizadas >30d</div><div class="kpi-val">${fmtNum(d.fin_mais_30d)}</div></div>
+      <div class="kpi warn"><div class="kpi-lbl">Finalizadas >60d</div><div class="kpi-val">${fmtNum(d.fin_mais_60d)}</div></div>
+      <div class="kpi warn"><div class="kpi-lbl">Finalizadas >90d</div><div class="kpi-val">${fmtNum(d.fin_mais_90d)}</div></div>
+    `;
+  }catch(err){
+    document.getElementById('kpisStats').innerHTML = '<div class="empty">Erro: '+err.message+'</div>';
+  }
+}
+
+async function carregarContas(){
+  try{
+    const r = await fetch(BASE + '/api/contas');
+    const d = await r.json();
+    const sel = document.getElementById('contaId');
+    (d.contas || d.itens || []).forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id || c.conta_id || c.codigo;
+      o.textContent = c.nome || c.label || o.value;
+      sel.appendChild(o);
+    });
+  }catch(_){}
+}
+
+async function simular(){
+  resetarUI();
+  const dias = parseInt(document.getElementById('diasMin').value, 10);
+  const conta = document.getElementById('contaId').value;
+  if(isNaN(dias) || dias < 7){
+    msgErr('Dias minimos precisa ser pelo menos 7');
+    return;
+  }
+  try{
+    const body = { usuario, papel, dias_min: dias, conta_id: conta, dry_run: true };
+    const r = await fetch(BASE + '/webhook/chat-limpar-finalizados', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!d.ok){ throw new Error(d.erro || 'erro'); }
+    previewAtual = { dias_min: dias, conta_id: conta, ...d };
+
+    const box = document.getElementById('previewBox');
+    const stats = document.getElementById('previewStats');
+    stats.innerHTML = `
+      <div class="preview-stat">Conversas: <b>${fmtNum(d.conversas)}</b></div>
+      <div class="preview-stat">Mensagens: <b>${fmtNum(d.mensagens)}</b></div>
+      <div class="preview-stat">Etiquetas: <b>${fmtNum(d.etiquetas)}</b></div>
+    `;
+    box.classList.add('ativo');
+    if(d.conversas > 0){
+      box.classList.add('perigoso');
+      document.getElementById('btnExcluir').style.display = 'inline-flex';
+    } else {
+      box.classList.remove('perigoso');
+      document.getElementById('btnExcluir').style.display = 'none';
+      stats.innerHTML += '<div class="preview-stat muted">Nada pra apagar com esse filtro.</div>';
+    }
+  }catch(err){
+    msgErr('Erro na simulacao: ' + err.message);
+  }
+}
+
+function abrirConfirmacao(){
+  document.getElementById('confirmBox').classList.add('ativo');
+  document.getElementById('confirmInput').value = '';
+  document.getElementById('confirmInput').focus();
+}
+function cancelarConfirmacao(){
+  document.getElementById('confirmBox').classList.remove('ativo');
+  document.getElementById('confirmInput').value = '';
+}
+
+async function executarDelete(){
+  const txt = document.getElementById('confirmInput').value.trim().toUpperCase();
+  if(txt !== 'DELETAR'){
+    msgErr('Digite exatamente DELETAR pra confirmar');
+    return;
+  }
+  if(!previewAtual){
+    msgErr('Rode a simulacao primeiro');
+    return;
+  }
+  const btn = document.querySelector('#confirmBox .btn-danger');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Apagando...';
+
+  try{
+    const body = {
+      usuario, papel,
+      dias_min: previewAtual.dias_min,
+      conta_id: previewAtual.conta_id,
+      dry_run: false,
+      vacuum: true,
+    };
+    const r = await fetch(BASE + '/webhook/chat-limpar-finalizados', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if(!d.ok){ throw new Error(d.erro || 'erro'); }
+    const ap = d.apagadas || {};
+    msgOk(`Pronto! Apaguei <b>${fmtNum(ap.conversas)}</b> conversas, <b>${fmtNum(ap.mensagens)}</b> mensagens, <b>${fmtNum(ap.etiquetas)}</b> etiquetas em ${(d.duracao_ms/1000).toFixed(1)}s. ${d.vacuum_ok?'VACUUM OK.':'(VACUUM falhou — espaco so volta no proximo vacuum automatico)'}`);
+    resetarUI();
+    carregarStats();
+    carregarHistorico();
+  }catch(err){
+    msgErr('Falhou: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-trash3-fill"></i> Confirmar exclusao';
+  }
+}
+
+function resetarUI(){
+  previewAtual = null;
+  document.getElementById('previewBox').classList.remove('ativo','perigoso');
+  document.getElementById('previewBox').querySelector('#previewStats').innerHTML = '';
+  document.getElementById('btnExcluir').style.display = 'none';
+  document.getElementById('confirmBox').classList.remove('ativo');
+  document.getElementById('msgOk').classList.remove('ativo');
+  document.getElementById('msgErr').classList.remove('ativo');
+}
+
+async function carregarHistorico(){
+  try{
+    const r = await fetch(BASE + '/webhook/chat-limpeza-historico');
+    const d = await r.json();
+    const el = document.getElementById('histBox');
+    if(!d.ok || !d.itens || !d.itens.length){
+      el.innerHTML = '<div class="empty">Nenhuma limpeza registrada ainda.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <table class="lst">
+        <thead>
+          <tr>
+            <th>Quando</th>
+            <th>Quem</th>
+            <th>Conta</th>
+            <th>Dias</th>
+            <th style="text-align:right">Conversas</th>
+            <th style="text-align:right">Mensagens</th>
+            <th>Duracao</th>
+            <th>VACUUM</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${d.itens.map(i => `
+            <tr>
+              <td>${fmtData(i.criado_em)}</td>
+              <td>${i.usuario}</td>
+              <td>${i.conta_id==='__all__'?'todas':i.conta_id}</td>
+              <td>${i.dias_min}d</td>
+              <td style="text-align:right"><b>${fmtNum(i.conversas_apagadas)}</b></td>
+              <td style="text-align:right">${fmtNum(i.mensagens_apagadas)}</td>
+              <td>${(i.duracao_ms/1000).toFixed(1)}s</td>
+              <td>${i.vacuum_ok ? '<span style="color:var(--ok)">OK</span>' : '<span style="color:var(--muted)">—</span>'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }catch(_){
+    document.getElementById('histBox').innerHTML = '<div class="empty">Erro ao carregar historico.</div>';
+  }
+}
+
+// Boot
+carregarStats();
+carregarContas();
+carregarHistorico();
+</script>
+</body>
+</html>

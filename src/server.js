@@ -22,6 +22,7 @@ import templatesRoutes from './routes/templates.js';
 import matriculasRoutes from './routes/matriculas.js';
 import triagemRoutes from './routes/triagem.js';
 import gestaoRoutes from './routes/gestao.js';
+import limpezaRoutes from './routes/limpeza.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
 import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
@@ -74,6 +75,7 @@ await fastify.register(templatesRoutes);
 await fastify.register(matriculasRoutes);
 await fastify.register(triagemRoutes);
 await fastify.register(gestaoRoutes);
+await fastify.register(limpezaRoutes);
 
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({
