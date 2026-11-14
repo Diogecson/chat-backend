@@ -782,31 +782,52 @@ export default async function acoesRoutes(fastify) {
     if (!ativa) return { ok: false, sem_fila: true, erro: 'fila desativada' };
     await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
     // Dentro do expediente -> fila principal (na_fila)
-    // Fora do expediente   -> fila pos-expediente (fila_apos_expediente)
+    // Fora do expediente   -> fila pos-expediente (fila_apos_expediente), com fallback
+    //                         pra na_fila se ninguem marcou pos-expediente (evita trava
+    //                         quando o horario individual por atendente ainda esta valido)
     const expedienteAgora = agoraEhExpedienteGlobal();
-    const colFila = expedienteAgora ? 'a.na_fila' : 'a.fila_apos_expediente';
-    const rows = await query(
-      `SELECT LOWER(a.usuario) AS usuario,
-              COALESCE(a.nome, a.usuario) AS nome,
-              COALESCE(cnt.backlog, 0)::int AS backlog,
-              cnt.ultima_em
-       FROM chat_atendentes a
-       LEFT JOIN LATERAL (
-         SELECT COUNT(*)::int AS backlog, MAX(atribuido_em) AS ultima_em
-         FROM chat_conversa_dono cd
-         WHERE LOWER(cd.atendente) = LOWER(a.usuario)
-           AND COALESCE(cd.finalizada, false) = false
-       ) cnt ON true
-       WHERE COALESCE(a.ativo,true)=true
-         AND COALESCE(${colFila},false)=true
-         AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
-         AND LOWER(a.usuario) <> 'admin'
-       ORDER BY backlog ASC, ultima_em ASC NULLS FIRST, a.usuario ASC
-       LIMIT 1`
-    );
+
+    async function buscarProx(colFila){
+      return await query(
+        `SELECT LOWER(a.usuario) AS usuario,
+                COALESCE(a.nome, a.usuario) AS nome,
+                COALESCE(cnt.backlog, 0)::int AS backlog,
+                cnt.ultima_em
+         FROM chat_atendentes a
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS backlog, MAX(atribuido_em) AS ultima_em
+           FROM chat_conversa_dono cd
+           WHERE LOWER(cd.atendente) = LOWER(a.usuario)
+             AND COALESCE(cd.finalizada, false) = false
+         ) cnt ON true
+         WHERE COALESCE(a.ativo,true)=true
+           AND COALESCE(${colFila},false)=true
+           AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
+           AND LOWER(a.usuario) <> 'admin'
+         ORDER BY backlog ASC, ultima_em ASC NULLS FIRST, a.usuario ASC
+         LIMIT 1`
+      );
+    }
+
+    let rows, filaUsada;
+    if (expedienteAgora) {
+      rows = await buscarProx('a.na_fila');
+      filaUsada = 'principal';
+    } else {
+      // Fora do expediente: tenta primeiro quem esta marcado como plantao noturno
+      rows = await buscarProx('a.fila_apos_expediente');
+      filaUsada = 'pos_expediente';
+      // Fallback: se ninguem marcou fila_apos_expediente, usa na_fila
+      // (quem esta em na_fila so entra se auto-fila-horario deixou ligado — ou seja,
+      //  esta dentro do horario individual dele)
+      if (!rows.rows.length) {
+        rows = await buscarProx('a.na_fila');
+        filaUsada = 'fallback_na_fila';
+      }
+    }
     if (!rows.rows.length) {
-      const nomeFila = expedienteAgora ? 'principal' : 'pós-expediente';
-      return { ok: false, sem_fila: true, erro: `nenhum consultor na fila ${nomeFila}`, expediente_agora: expedienteAgora };
+      const nomeFila = expedienteAgora ? 'principal' : 'pós-expediente (nem fallback)';
+      return { ok: false, sem_fila: true, erro: `nenhum consultor disponivel (${nomeFila})`, expediente_agora: expedienteAgora };
     }
     const prox = rows.rows[0];
     await query(`UPDATE chat_fila_config SET ultimo_atribuido=$1, atualizado_em=NOW()`, [prox.usuario]);
@@ -816,7 +837,8 @@ export default async function acoesRoutes(fastify) {
       usuario_escolhido: prox.usuario,
       nome_escolhido: prox.nome,
       backlog_atual: prox.backlog,
-      fila_usada: expedienteAgora ? 'principal' : 'pos_expediente',
+      fila_usada: filaUsada,
+      expediente_agora: expedienteAgora,
     };
   });
   fastify.post('/webhook/chat-fila-proximo', filaProximo);
