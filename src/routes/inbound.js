@@ -5,6 +5,7 @@
 // pesado (download de midia) roda APOS a resposta (fire-and-forget).
 import { query } from '../services/db.js';
 import { hasDb, config } from '../config.js';
+import { processarInboundIa } from './ia-auto.js';
 
 const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'unifecaf';
 
@@ -195,6 +196,21 @@ export default async function inboundRoutes(fastify) {
         const mediaRows = rows.filter(r => r.is_media && r.raw_media_id);
         if (mediaRows.length) {
           setImmediate(() => processarMidiasAsync(mediaRows));
+        }
+
+        // IA automatica: pra cada msg de texto IN, se telefone esta na lista, chama IA
+        // Fire-and-forget pra nao atrasar a resposta pra Meta (5s limite)
+        for (const r of rows) {
+          if (r.direcao === 'in' && r.tipo === 'text' && r.texto) {
+            setImmediate(() => {
+              processarInboundIa(fastify, {
+                conta_id: r.conta_id,
+                telefone: r.telefone,
+                texto: r.texto,
+                tipo: r.tipo,
+              }).catch(err => console.error('[inbound->ia-auto]', err.message));
+            });
+          }
         }
       }
     } catch (err) {

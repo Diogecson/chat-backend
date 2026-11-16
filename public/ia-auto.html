@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  var permitidos = ['SUPER','ADM','ADMIN'];
+  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23059669'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='13' font-weight='bold'>IA!</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>try{if(window.top!==window.self)window.top.location.replace(window.location.href);}catch(e){}</script>
+<title>UniFECAF · IA Automatica (clientes reais)</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--green:#059669;--green-700:#047857;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;
+  --err:#dc2626;--ok:#16a34a;--warn:#f59e0b;
+  --radius:14px;--shadow-sm:0 2px 10px rgba(7,28,60,.05)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28);flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--green),var(--green-700));font-weight:800;font-size:13px;box-shadow:0 6px 16px rgba(5,150,105,.4);color:#fff}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;line-height:1}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow-sm);border:1px solid var(--line);overflow:hidden;margin-bottom:18px}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe;flex-wrap:wrap;gap:10px}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+
+.alerta{background:#dcfce7;border:1px solid #86efac;padding:12px 16px;border-radius:12px;font-size:.84rem;color:#14532d}
+.alerta.warn{background:#fef3c7;border-color:#fcd34d;color:#92400e}
+.alerta b{font-weight:700}
+
+.filtros{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.filtros label{font-size:.78rem;color:var(--muted);font-weight:700;margin-right:4px}
+.inp{border:1.5px solid var(--line);background:#fff;padding:8px 12px;border-radius:10px;font-size:.88rem;color:var(--ink);font-family:inherit;outline:none;transition:.15s;min-width:0}
+.inp:focus{border-color:var(--green)}
+.btn{border:none;padding:9px 16px;border-radius:10px;font-weight:700;font-size:.84rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.btn-primary{background:linear-gradient(135deg,var(--green),var(--green-700));color:#fff;box-shadow:0 4px 12px rgba(5,150,105,.25)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-secondary{background:#f0f2f7;color:var(--ink)}
+.btn-danger{background:#fee2e2;color:#991b1b}
+.btn-off{background:#fef3c7;color:#92400e}
+
+table{width:100%;border-collapse:collapse;font-size:.87rem}
+th{background:#f8fafc;color:var(--muted);font-weight:700;padding:10px 12px;text-align:left;font-size:.72rem;letter-spacing:.4px;text-transform:uppercase;border-bottom:1px solid var(--line)}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover{background:#fbfcfe}
+.tel{font-family:monospace;font-weight:700;color:var(--ink)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:.7rem;font-weight:800;letter-spacing:.3px}
+.badge-on{background:#dcfce7;color:#14532d}
+.badge-off{background:#f1f5f9;color:#64748b}
+.acoes{display:flex;gap:6px;flex-wrap:wrap}
+.vazio{text-align:center;padding:40px 20px;color:var(--muted);font-weight:600}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow-sm)}
+.kpi-lbl{font-size:.68rem;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.kpi-val{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--ink);font-size:1.6rem;line-height:1}
+.kpi.ok .kpi-val{color:var(--ok)}
+.kpi.warn .kpi-val{color:var(--warn)}
+
+.add-form{display:grid;grid-template-columns:2fr 2fr 3fr auto;gap:10px;align-items:end}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:.72rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px}
+@media(max-width:800px){ .add-form{grid-template-columns:1fr} }
+
+.modal-bg{position:fixed;inset:0;background:rgba(15,27,45,.6);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;max-width:700px;width:100%;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.modal-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.modal-body{padding:14px 18px;overflow-y:auto;flex:1}
+.log-item{padding:8px 10px;border-bottom:1px dashed var(--line);font-size:.82rem}
+.log-item .dir{font-weight:800;font-size:.68rem;letter-spacing:.5px;padding:2px 6px;border-radius:5px;margin-right:6px}
+.log-item.in .dir{background:#dbeafe;color:#1e3a8a}
+.log-item.out .dir{background:#dcfce7;color:#14532d}
+.log-item.encaminhado .dir{background:#fef3c7;color:#92400e}
+.log-item.erro .dir{background:#fee2e2;color:#991b1b}
+.log-item .txt{color:var(--ink);white-space:pre-wrap;word-wrap:break-word}
+.log-item .meta{font-size:.68rem;color:var(--muted);margin-top:3px}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">IA</div>
+    <div>
+      <div class="brand-title">IA Automatica — Clientes reais</div>
+      <div class="brand-sub">UniFECAF · Black Friday</div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="ia-teste.html" class="btn-nav"><i class="bi bi-robot"></i> IA de Teste</a>
+    <a href="chat.html" class="btn-nav"><i class="bi bi-arrow-left"></i> Voltar</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="alerta">
+    <b>Como funciona:</b> todo telefone na lista abaixo, com "Ativo", tera cada mensagem IN tratada pela IA Black Friday automaticamente. A IA desliga sozinha quando:
+    (1) ela decidir encaminhar pro consultor (tag <code>[ENCAMINHAR_CONSULTOR]</code>) ou
+    (2) voce (ou qualquer humano) mandar mensagem no chat.html pra esse telefone.
+  </div>
+
+  <div class="kpis">
+    <div class="kpi ok"><div class="kpi-lbl">Ativos</div><div class="kpi-val" id="kpiAtivos">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Desligados</div><div class="kpi-val" id="kpiDesligados">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Total cadastrados</div><div class="kpi-val" id="kpiTotal">0</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-plus-circle-fill"></i> Adicionar telefone</h2>
+    </div>
+    <div class="card-body">
+      <div class="add-form">
+        <div class="fg">
+          <label>Conta WhatsApp</label>
+          <select class="inp" id="addConta"><option value="">Carregando...</option></select>
+        </div>
+        <div class="fg">
+          <label>Telefone (so numeros, com DDD)</label>
+          <input class="inp" id="addTel" placeholder="5511999999999" inputmode="numeric">
+        </div>
+        <div class="fg">
+          <label>Observacao (opcional)</label>
+          <input class="inp" id="addObs" placeholder="Ex: Lead do anuncio ADS EAD">
+        </div>
+        <button class="btn btn-primary" onclick="adicionar()"><i class="bi bi-check-lg"></i> Ativar IA</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 class="card-title"><i class="bi bi-cpu-fill"></i> Telefones</h2>
+      <div class="filtros">
+        <label>Filtro</label>
+        <select class="inp" id="filtroConta" onchange="carregar()" style="min-width:180px">
+          <option value="">Todas contas</option>
+        </select>
+        <button class="btn btn-secondary" onclick="carregar()"><i class="bi bi-arrow-clockwise"></i></button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Status</th><th>Telefone</th><th>Nome</th><th>Conta</th>
+            <th>Observacao</th><th>Criado</th><th>Ultima resposta</th><th>Acoes</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"><tr><td colspan="8" class="vazio">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal log -->
+<div class="modal-bg" id="modalLog" onclick="if(event.target===this)fecharLog()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;font-family:'Plus Jakarta Sans';font-weight:800;font-size:.95rem">
+        Historico da IA · <span id="logTel" style="font-family:monospace"></span>
+      </h3>
+      <button class="btn btn-secondary" onclick="fecharLog()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="modal-body" id="logBody">Carregando...</div>
+  </div>
+</div>
+
+<script>
+const _u = localStorage.getItem('chat_usuario') || 'admin';
+let contas = [];
+
+function fmtTel(t){
+  const s = String(t).replace(/\D/g,'');
+  if(s.length === 13) return '+'+s.slice(0,2)+' ('+s.slice(2,4)+') '+s.slice(4,9)+'-'+s.slice(9);
+  if(s.length === 12) return '+'+s.slice(0,2)+' ('+s.slice(2,4)+') '+s.slice(4,8)+'-'+s.slice(8);
+  return s;
+}
+function fmtData(s){
+  if(!s) return '—';
+  const d = new Date(s);
+  return d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+}
+
+async function carregarContas(){
+  try{
+    const r = await fetch('/api/contas',{headers:{'x-usuario':_u}});
+    const j = await r.json();
+    contas = Array.isArray(j) ? j : (j.rows || []);
+  }catch(_){ contas = []; }
+  const selAdd = document.getElementById('addConta');
+  const selFil = document.getElementById('filtroConta');
+  selAdd.innerHTML = '';
+  selFil.innerHTML = '<option value="">Todas contas</option>';
+  for(const c of contas){
+    const id = c.codigo || c.conta_id || c.id;
+    const nome = c.nome || c.label || id;
+    selAdd.innerHTML += `<option value="${id}">${nome}</option>`;
+    selFil.innerHTML += `<option value="${id}">${nome}</option>`;
+  }
+  // Pre-selecionar "Sede" se existir
+  const sede = contas.find(c => /sede/i.test(c.nome||'') || /sede/i.test(c.codigo||''));
+  if(sede) selAdd.value = sede.codigo || sede.id;
+}
+
+async function carregar(){
+  const conta = document.getElementById('filtroConta').value;
+  const url = '/webhook/chat-ia-auto-list' + (conta ? '?conta_id='+encodeURIComponent(conta) : '');
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '<tr><td colspan="8" class="vazio">Carregando...</td></tr>';
+  try{
+    const r = await fetch(url);
+    const j = await r.json();
+    const rows = j.rows || [];
+    const ativos = rows.filter(r => r.ativo).length;
+    document.getElementById('kpiAtivos').textContent = ativos;
+    document.getElementById('kpiDesligados').textContent = rows.length - ativos;
+    document.getElementById('kpiTotal').textContent = rows.length;
+    if(!rows.length){
+      tbody.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum telefone cadastrado. Adicione o primeiro acima.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => {
+      const contaNome = (contas.find(c => (c.codigo||c.id) === r.conta_id)||{}).nome || r.conta_id;
+      return `
+        <tr>
+          <td>${r.ativo ? '<span class="badge badge-on"><i class="bi bi-circle-fill" style="font-size:7px"></i> ATIVO</span>' : '<span class="badge badge-off">DESLIGADO</span>'}</td>
+          <td class="tel">${fmtTel(r.telefone)}</td>
+          <td>${r.nome || '—'}</td>
+          <td style="font-size:.78rem;color:var(--muted)">${contaNome}</td>
+          <td style="max-width:200px;font-size:.8rem">${(r.observacao||'').substring(0,80)}</td>
+          <td style="font-size:.76rem;color:var(--muted)">${fmtData(r.criado_em)}</td>
+          <td style="font-size:.76rem;color:var(--muted)">${fmtData(r.ultima_resp)}</td>
+          <td class="acoes">
+            <button class="btn btn-secondary" onclick="verLog('${r.conta_id}','${r.telefone}')" title="Historico"><i class="bi bi-list-ul"></i></button>
+            ${r.ativo
+              ? `<button class="btn btn-off" onclick="desligar('${r.conta_id}','${r.telefone}')" title="Desligar IA"><i class="bi bi-pause-fill"></i></button>`
+              : `<button class="btn btn-primary" onclick="religar('${r.conta_id}','${r.telefone}')" title="Religar IA"><i class="bi bi-play-fill"></i></button>`}
+            <button class="btn btn-danger" onclick="apagar('${r.conta_id}','${r.telefone}')" title="Remover do cadastro"><i class="bi bi-trash"></i></button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }catch(err){
+    tbody.innerHTML = `<tr><td colspan="8" class="vazio" style="color:var(--err)">Erro: ${err.message}</td></tr>`;
+  }
+}
+
+async function adicionar(){
+  const conta_id = document.getElementById('addConta').value;
+  const tel = document.getElementById('addTel').value.replace(/\D/g,'');
+  const obs = document.getElementById('addObs').value.trim();
+  if(!conta_id){ alert('Escolha uma conta'); return; }
+  if(!tel || tel.length < 10){ alert('Telefone invalido. Use DDD+numero, so digitos.'); return; }
+  try{
+    const r = await fetch('/webhook/chat-ia-auto-add',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({conta_id, telefone: tel, usuario: _u, observacao: obs})
+    });
+    const j = await r.json();
+    if(!j.ok){ alert('Erro: '+ (j.erro||'desconhecido')); return; }
+    document.getElementById('addTel').value = '';
+    document.getElementById('addObs').value = '';
+    carregar();
+  }catch(err){ alert('Falha: '+err.message); }
+}
+
+async function desligar(conta_id, telefone){
+  if(!confirm('Desligar IA pra esse telefone? O proximo atendimento sera humano.')) return;
+  await fetch('/webhook/chat-ia-auto-remove',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({conta_id, telefone, hard:false})
+  });
+  carregar();
+}
+async function religar(conta_id, telefone){
+  await fetch('/webhook/chat-ia-auto-add',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({conta_id, telefone, usuario: _u})
+  });
+  carregar();
+}
+async function apagar(conta_id, telefone){
+  if(!confirm('Remover do cadastro definitivamente? (o historico de log fica)')) return;
+  await fetch('/webhook/chat-ia-auto-remove',{
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({conta_id, telefone, hard:true})
+  });
+  carregar();
+}
+
+async function verLog(conta_id, telefone){
+  document.getElementById('logTel').textContent = fmtTel(telefone);
+  document.getElementById('modalLog').classList.add('show');
+  const body = document.getElementById('logBody');
+  body.innerHTML = 'Carregando...';
+  try{
+    const r = await fetch(`/webhook/chat-ia-auto-log?conta_id=${encodeURIComponent(conta_id)}&telefone=${encodeURIComponent(telefone)}`);
+    const j = await r.json();
+    const rows = j.rows || [];
+    if(!rows.length){ body.innerHTML = '<div class="vazio">Sem historico ainda.</div>'; return; }
+    body.innerHTML = rows.map(r => `
+      <div class="log-item ${r.direcao}">
+        <div><span class="dir">${(r.direcao||'').toUpperCase()}</span><span class="txt">${(r.texto||'').replace(/</g,'&lt;')}</span></div>
+        <div class="meta">${fmtData(r.criado_em)}${r.duracao_ms ? ' · ' + r.duracao_ms + 'ms' : ''}</div>
+      </div>
+    `).join('');
+  }catch(err){ body.innerHTML = '<div class="vazio" style="color:var(--err)">Erro: '+err.message+'</div>'; }
+}
+function fecharLog(){ document.getElementById('modalLog').classList.remove('show'); }
+
+(async () => {
+  await carregarContas();
+  carregar();
+  setInterval(carregar, 30000);
+})();
+</script>
+</body>
+</html>

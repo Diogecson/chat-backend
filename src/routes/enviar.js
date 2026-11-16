@@ -3,6 +3,7 @@
 // Audio/media/interactive/evolution continuam passando pelo proxy pro n8n antigo até migrar.
 import { query, getPool } from '../services/db.js';
 import { hasDb, config } from '../config.js';
+import { desligarSeHumano } from './ia-auto.js';
 import ffmpegStatic from 'ffmpeg-static';
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'node:fs';
@@ -356,6 +357,12 @@ export default async function enviarRoutes(fastify) {
     } catch (err) {
       return { ok: true, erro_gravacao: err.message, mensagem: { external_id } };
     }
+
+    // Hook IA auto: se humano assumiu, desliga IA automatica pra esse telefone
+    // (nao bloqueia resposta — fire-and-forget)
+    setImmediate(() => {
+      desligarSeHumano(conta_id, telefone, usuario).catch(err => console.error('[enviar->ia-auto]', err.message));
+    });
 
     return { ok: true, mensagem: row, api: res.raw };
   }
