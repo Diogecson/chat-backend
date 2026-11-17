@@ -8151,7 +8151,15 @@ async function alternarIaAuto(){
       // reflete na lista tbm (pra badge/contador)
       const na = conversas.find(x => x.id === conversaAtiva.id);
       if(na) na.ia_ativa = !ativa;
-      toast(ativa ? 'IA desativada nessa conversa' : 'IA ativada! Vai responder a proxima msg do cliente', ativa ? '' : 'ok');
+      let msgOk;
+      if(ativa){
+        msgOk = 'IA desativada nessa conversa';
+      } else if(r.respondeu_agora){
+        msgOk = 'IA ativada e ja respondendo a ultima msg do cliente ⚡';
+      } else {
+        msgOk = 'IA ativada! Vai responder quando o cliente mandar a proxima msg';
+      }
+      toast(msgOk, ativa ? '' : 'ok');
       atualizarBotaoIaAuto();
       if(typeof renderConversas === 'function') renderConversas(qs('#busca')?.value?.toLowerCase()?.trim()||'');
     } else {

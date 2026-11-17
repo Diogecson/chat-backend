@@ -43,6 +43,14 @@ export async function ensureTable() {
       )
     `);
     await query(`CREATE INDEX IF NOT EXISTS ix_ia_auto_log_tel ON chat_ia_auto_log(conta_id, telefone, criado_em DESC)`);
+    // Tabela de claim (uma linha por msg ja processada) — compartilhada com o cron de polling.
+    // Garantida aqui tbm porque chat-ia-auto-add usa pra reivindicar a ultima msg.
+    await query(`
+      CREATE TABLE IF NOT EXISTS chat_ia_auto_processadas (
+        mensagem_id BIGINT PRIMARY KEY,
+        processado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
   } catch (err) {
     console.error('[ia-auto] ensureTable', err.message);
   }
@@ -241,7 +249,45 @@ export default async function iaAutoRoutes(fastify) {
          ON CONFLICT (conta_id, telefone) DO UPDATE SET ativo=true, observacao=EXCLUDED.observacao`,
         [conta_id, telefone, usuario, observacao]
       );
-      return { ok: true };
+
+      // Dispara imediato se a ULTIMA msg da conversa for do cliente (IN text)
+      // e ainda nao tiver resposta posterior. Isso cobre o caso "consultor
+      // ativou depois do cliente ja ter mandado msg" — sem isso, o polling
+      // so responderia a PROXIMA msg (por causa do checkpoint timestamp).
+      let dispararAgora = false;
+      try {
+        const u = await query(
+          `SELECT id, direcao, tipo, texto, timestamp
+           FROM chat_mensagens
+           WHERE conta_id=$1 AND telefone=$2
+           ORDER BY timestamp DESC LIMIT 1`,
+          [conta_id, telefone]
+        );
+        const m = u.rows[0];
+        if (m && m.direcao === 'in' && m.tipo === 'text' && String(m.texto||'').trim()) {
+          // Reivindica a msg pra evitar o polling tambem pegar
+          const claim = await query(
+            `INSERT INTO chat_ia_auto_processadas (mensagem_id)
+             VALUES ($1) ON CONFLICT (mensagem_id) DO NOTHING RETURNING mensagem_id`,
+            [m.id]
+          );
+          if (claim.rows.length) {
+            dispararAgora = true;
+            setImmediate(() => {
+              processarInboundIa(fastify, {
+                conta_id,
+                telefone,
+                texto: m.texto,
+                tipo: 'text',
+              }).catch(err => console.error('[ia-auto-add->processar]', err.message));
+            });
+          }
+        }
+      } catch (errImed) {
+        console.error('[ia-auto-add imediato]', errImed.message);
+      }
+
+      return { ok: true, respondeu_agora: dispararAgora };
     } catch (err) {
       return { ok: false, erro: err.message };
     }
