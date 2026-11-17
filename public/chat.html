@@ -1265,6 +1265,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
             <button class="composer-ia btn-composer-mobile" onclick="abrirStickers()" title="Figurinhas" style="background:linear-gradient(135deg,#f59e0b,#f97316)"><i class="bi bi-stickies"></i></button>
             <button class="composer-ia" id="btnIA" onclick="pedirAjudaIA()" title="Ajuda da IA — sugere resposta baseada na conversa" data-feat="ajuda_ia"><i class="bi bi-stars"></i></button>
             <button class="composer-ia" id="btnIAPrev" onclick="previewIAAtendimento()" title="Preview: o que a IA de Atendimento responderia AGORA" style="background:linear-gradient(135deg,#10b981,#059669)"><i class="bi bi-robot"></i></button>
+            <button class="composer-ia" id="btnIaAuto" onclick="alternarIaAuto()" title="Ativar IA Black Friday nessa conversa (ela passa a responder o cliente automaticamente)" data-feat="ia_auto" style="background:linear-gradient(135deg,#6366f1,#4338ca);position:relative"><i class="bi bi-cpu"></i></button>
             <button class="composer-mn" id="btnMn" onclick="abrirManual()" title="Manual do Consultor — script guiado por perfil" data-feat="manual"><i class="bi bi-book-fill"></i></button>
             <button class="composer-tk" id="btnTk" onclick="abrirTarefas()" title="Tarefas do consultor — checklist da venda" style="display:none" data-feat="tarefas"><i class="bi bi-check2-square"></i><span class="tk-badge" id="tkBadge">0/9</span></button>
             <button class="composer-tri" id="btnTri" onclick="alternarTriagem()" title="Ativar/desativar triagem IA nessa conversa" data-feat="triagem"><i class="bi bi-funnel-fill"></i></button>
@@ -4592,6 +4593,7 @@ async function abrirConversa(id){
   }
   if(typeof atualizarBadgeBotaoRetorno === 'function') atualizarBadgeBotaoRetorno();
   if(typeof atualizarBotaoTriagem === 'function') atualizarBotaoTriagem();
+  if(typeof atualizarBotaoIaAuto === 'function') atualizarBotaoIaAuto();
   ultimoRenderCount=0; mensagensNaoLidasScroll=0; atualizarBadgeDescer();
   renderConversas(qs('#busca').value.toLowerCase().trim());
   qs('#panelEmpty').style.display='none';
@@ -8101,6 +8103,66 @@ function atualizarBotaoTriagem(){
   btn.title = tem
     ? 'Triagem IA ATIVA — clique pra desativar e assumir a conversa'
     : 'Ativar triagem IA nessa conversa (IA faz as perguntas antes de você atender)';
+}
+
+// === IA Auto Black Friday — ativar/desativar na conversa atual ===
+function atualizarBotaoIaAuto(){
+  const b = document.getElementById('btnIaAuto');
+  if(!b) return;
+  const ativa = !!(conversaAtiva && conversaAtiva.ia_ativa);
+  if(ativa){
+    b.style.background = 'linear-gradient(135deg,#dc2626,#991b1b)';
+    b.title = 'IA ATIVA nessa conversa — clique para desativar';
+    b.innerHTML = '<i class="bi bi-cpu-fill"></i><span style="position:absolute;top:2px;right:2px;width:9px;height:9px;background:#10b981;border-radius:50%;border:2px solid #fff;animation:pulseGreen 1.6s infinite"></span>';
+  } else {
+    b.style.background = 'linear-gradient(135deg,#6366f1,#4338ca)';
+    b.title = 'Ativar IA Black Friday nessa conversa (ela passa a responder o cliente automaticamente)';
+    b.innerHTML = '<i class="bi bi-cpu"></i>';
+  }
+}
+// Injeta keyframe pro ponto verde pulsar (uma vez só)
+(function(){
+  if(document.getElementById('kfIaAutoPulse')) return;
+  const s = document.createElement('style');
+  s.id = 'kfIaAutoPulse';
+  s.textContent = '@keyframes pulseGreen{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.6)}50%{box-shadow:0 0 0 5px rgba(16,185,129,0)}}';
+  document.head.appendChild(s);
+})();
+async function alternarIaAuto(){
+  if(!conversaAtiva){ toast('Selecione uma conversa primeiro','warn'); return; }
+  const ativa = !!conversaAtiva.ia_ativa;
+  const url = ativa ? '/webhook/chat-ia-auto-remove' : '/webhook/chat-ia-auto-add';
+  const msgConfirm = ativa
+    ? 'Desativar a IA Black Friday nessa conversa? O cliente deixa de receber resposta automatica.'
+    : 'Ativar a IA Black Friday nessa conversa? A partir da proxima mensagem do cliente, a IA responde sozinha. Quando ela encaminhar pro consultor ou alguem assumir, ela desliga sozinha.';
+  if(!confirm(msgConfirm)) return;
+  const btn = document.getElementById('btnIaAuto');
+  const htmlAntes = btn ? btn.innerHTML : '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat" style="animation:sp-rot .8s linear infinite"></i>'; }
+  try {
+    const usuario = (typeof USUARIO!=='undefined' ? USUARIO : '') || localStorage.getItem('chat_usuario') || '';
+    const r = await api(url, {method:'POST', bodyObj:{
+      conta_id: conversaAtiva.conta_id,
+      telefone: conversaAtiva.telefone,
+      usuario
+    }});
+    if(r && r.ok){
+      conversaAtiva.ia_ativa = !ativa;
+      // reflete na lista tbm (pra badge/contador)
+      const na = conversas.find(x => x.id === conversaAtiva.id);
+      if(na) na.ia_ativa = !ativa;
+      toast(ativa ? 'IA desativada nessa conversa' : 'IA ativada! Vai responder a proxima msg do cliente', ativa ? '' : 'ok');
+      atualizarBotaoIaAuto();
+      if(typeof renderConversas === 'function') renderConversas(qs('#busca')?.value?.toLowerCase()?.trim()||'');
+    } else {
+      toast('Erro: ' + ((r&&r.erro)||'servidor'), 'err');
+    }
+  } catch(e){
+    toast('Erro: ' + e.message, 'err');
+  } finally {
+    if(btn){ btn.disabled = false; }
+    atualizarBotaoIaAuto();
+  }
 }
 
 async function alternarTriagem(){
