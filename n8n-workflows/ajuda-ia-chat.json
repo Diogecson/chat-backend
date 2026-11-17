@@ -1,0 +1,130 @@
+{
+  "name": "Ajuda IA Chat (coach de vendas)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ajuda-ia-chat",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "ac1f6124-597e-4ce6-9610-87f85509f4b1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-928, 48],
+      "webhookId": "ajuda-ia-chat"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "historico",
+              "name": "historico",
+              "value": "={{ $json.body.historico }}",
+              "type": "string"
+            },
+            {
+              "id": "nomeLead",
+              "name": "nomeLead",
+              "value": "={{ $json.body.nomeLead || 'desconhecido' }}",
+              "type": "string"
+            },
+            {
+              "id": "prompt_extra",
+              "name": "prompt_extra",
+              "value": "={{ $json.body.prompt_extra || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14d18ce1-516d-4f14-bcc8-c5bdd1022764",
+      "name": "Variaveis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-704, 48]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Lead: {{ $json.nomeLead }}\n\nHistorico da conversa (mais antigo primeiro):\n---\n{{ $json.historico }}\n---\n\n{{ $json.prompt_extra ? 'Instrucao adicional do consultor: ' + $json.prompt_extra + '\\n\\n' : '' }}Qual deve ser a PROXIMA mensagem do consultor? Responda APENAS no formato estruturado abaixo, nada mais.",
+        "options": {
+          "systemMessage": "Voce e um COACH DE VENDAS senior da UniFECAF, universidade de Sao Paulo focada em EAD (Ensino a Distancia) e cursos semi-presenciais.\n\nSeu trabalho: ajudar o consultor comercial a decidir a PROXIMA mensagem a enviar no WhatsApp pro candidato/lead, baseado no historico da conversa.\n\nREGRAS:\n- Responda SEMPRE em portugues do Brasil, tom natural de WhatsApp (nao formal demais, nao de atendimento de call center).\n- Seja direto: entre 1 e 3 paragrafos curtos na mensagem sugerida.\n- Nao use emojis em excesso (no maximo 1-2 quando fizer sentido).\n- Nao prometa valores/descontos especificos sem base — se o consultor nao disse ainda, sugira \"Quero te passar uma condicao especial agora, posso te ligar?\".\n- Objetivos tipicos: entender o curso de interesse, qualificar (ja tem 2o grau? ja fez ENEM?), convidar para visita ao polo OU para matricula online.\n- Se o lead parou de responder, sugira uma mensagem leve de reengajamento (nao cobrar).\n- Se o lead ja disse que nao quer ou pediu pra parar, NAO insista — a sugestao deve ser educada de encerramento.\n- Se faltam informacoes criticas (curso, polo, idade), a sugestao deve PERGUNTAR.\n- Nunca mencione preco de concorrente, nem invente dados da UniFECAF.\n\nFORMATO DE RESPOSTA — siga exatamente, sem adicionar nem remover secoes:\n\nSITUACAO: <1 ou 2 frases curtas descrevendo o momento da conversa, o que o lead ja disse, o que ainda falta>\n\nPROXIMA MENSAGEM SUGERIDA:\n<o texto exato da mensagem a enviar, pronto pra copiar e colar, em tom de WhatsApp, sem aspas>\n\nDICAS:\n1. <dica curta pro consultor>\n2. <outra dica curta>\n3. <mais uma dica se fizer sentido>\n\nNao use bold/markdown tipo **. Nao escreva separadores como ==== ou ----. Nao invente secoes extras."
+        }
+      },
+      "id": "74a5b979-ed9a-4984-983f-4cf7df81bb4c",
+      "name": "Coach IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [-464, 48]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.3
+        }
+      },
+      "id": "767ea87f-3f7b-4a08-b8cd-35905efeedb1",
+      "name": "OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [-544, 272],
+      "credentials": {
+        "openAiApi": {
+          "id": "NK9ttQkECOReZ71h",
+          "name": "GPT DG PAGO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"sugestao\": {{ JSON.stringify($json.output) }} }",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-240, 48]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Variaveis", "type": "main", "index": 0 }]]
+    },
+    "Variaveis": {
+      "main": [[{ "node": "Coach IA", "type": "main", "index": 0 }]]
+    },
+    "OpenAI": {
+      "ai_languageModel": [[{ "node": "Coach IA", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Coach IA": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
