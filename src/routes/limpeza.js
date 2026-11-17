@@ -43,25 +43,41 @@ async function ensureLimpezaLog() {
 }
 
 // CTE que seleciona as conversas candidatas (usada pelo preview e pelo delete)
-// $1 = dias_min (int), $2 = conta_id ('__all__' ou codigo), $3 = data_limite (timestamptz) ou NULL
-// Se $3 veio preenchido, o criterio e "ate essa data" e $1 e ignorado.
-// Se $3 veio NULL, o criterio e "> $1 dias sem atividade".
+// $1 = dias_min (int)
+// $2 = conta_id ('__all__' ou codigo)
+// $3 = data_limite (timestamptz) ou NULL
+//      - se preenchido: criterio e "ate essa data" (ignora dias_min)
+//      - se NULL: criterio e "> dias_min dias sem atividade"
+// $4 = incluir_livres (boolean)
+//      - false (padrao): so apaga conversas finalizadas (com linha em chat_conversa_dono)
+//      - true: apaga tambem conversas SEM dono (nunca passaram pelo fluxo normal:
+//              dono vazio ou sem linha em chat_conversa_dono)
 const SQL_CANDIDATAS = `
   WITH ult AS (
     SELECT conta_id, telefone, MAX(timestamp) AS ultima_msg_ts
     FROM chat_mensagens
     GROUP BY conta_id, telefone
   )
-  SELECT cd.conta_id, cd.telefone, cd.finalizada_em, u.ultima_msg_ts,
+  SELECT u.conta_id, u.telefone, cd.finalizada_em, u.ultima_msg_ts,
          COALESCE(cd.finalizada_em, u.ultima_msg_ts) AS criterio_ts
-  FROM chat_conversa_dono cd
-  LEFT JOIN ult u ON u.conta_id = cd.conta_id AND u.telefone = cd.telefone
-  WHERE cd.finalizada = true
-    AND ($2 = '__all__' OR cd.conta_id = $2)
+  FROM ult u
+  LEFT JOIN chat_conversa_dono cd ON cd.conta_id = u.conta_id AND cd.telefone = u.telefone
+  WHERE ($2 = '__all__' OR u.conta_id = $2)
     AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) IS NOT NULL
     AND (
       ($3::timestamptz IS NOT NULL AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) < $3::timestamptz)
       OR ($3::timestamptz IS NULL AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) < NOW() - ($1::int || ' days')::interval)
+    )
+    AND (
+      -- padrao: so finalizadas
+      ($4::boolean = false AND cd.finalizada = true)
+      OR
+      -- com "incluir livres": finalizadas OU conversas sem dono (dono NULL/vazio)
+      ($4::boolean = true AND (
+        cd.finalizada = true
+        OR cd.atendente IS NULL
+        OR cd.atendente = ''
+      ))
     )
 `;
 
@@ -76,6 +92,7 @@ export default async function limpezaRoutes(fastify) {
     const dry_run_raw = p(req, 'dry_run', 'true');
     const dry_run = dry_run_raw === 'true' || dry_run_raw === true || dry_run_raw === '1';
     const rodar_vacuum = String(p(req, 'vacuum', 'true')).toLowerCase() === 'true';
+    const incluir_livres = String(p(req, 'incluir_livres', 'false')).toLowerCase() === 'true';
 
     // Modo alternativo: data_limite (apaga tudo com atividade antes dessa data).
     // Se vier, substitui o criterio de dias_min. Aceita yyyy-mm-dd ou ISO.
@@ -117,19 +134,21 @@ export default async function limpezaRoutes(fastify) {
           (SELECT COUNT(*) FROM chat_conversa_etiquetas e
              WHERE EXISTS (SELECT 1 FROM cand c WHERE c.conta_id=e.conta_id AND c.telefone=e.telefone))::int AS etiquetas
       `;
-      const pv = await query(sqlPreview, [dias_min, conta_id, data_limite]);
+      const pv = await query(sqlPreview, [dias_min, conta_id, data_limite, incluir_livres]);
       const prev = pv.rows[0] || { conversas: 0, mensagens: 0, etiquetas: 0 };
 
       if (dry_run) {
+        const quais = incluir_livres ? 'finalizadas e livres (sem dono)' : 'finalizadas';
         const criterio = data_limite
-          ? `finalizada=true e com ultima atividade antes de ${data_limite.substring(0, 10)}`
-          : `finalizada=true e >${dias_min} dias sem atividade`;
+          ? `${quais} com ultima atividade antes de ${data_limite.substring(0, 10)}`
+          : `${quais} com >${dias_min} dias sem atividade`;
         return {
           ok: true,
           dry_run: true,
           criterio,
           conta_id,
           data_limite,
+          incluir_livres,
           conversas: prev.conversas,
           mensagens: prev.mensagens,
           etiquetas: prev.etiquetas,
@@ -149,7 +168,7 @@ export default async function limpezaRoutes(fastify) {
         await client.query('BEGIN');
 
         // 1) Marca pra apagar
-        await client.query(`CREATE TEMP TABLE _cand ON COMMIT DROP AS ${SQL_CANDIDATAS}`, [dias_min, conta_id, data_limite]);
+        await client.query(`CREATE TEMP TABLE _cand ON COMMIT DROP AS ${SQL_CANDIDATAS}`, [dias_min, conta_id, data_limite, incluir_livres]);
 
         // 2) Apaga mensagens (maior volume)
         const rMsg = await client.query(`
