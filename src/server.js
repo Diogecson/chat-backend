@@ -30,6 +30,7 @@ import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
 import { startAutoFinalizarInteresse } from './crons/auto-finalizar-interesse.js';
 import { startAutoFilaHorario } from './crons/auto-fila-horario.js';
 import { startVapoTimeout } from './crons/vapo-timeout.js';
+import { startIaAutoPolling } from './crons/ia-auto-polling.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -148,7 +149,7 @@ try {
   if (hasDb()) {
     const rodarCron = async () => {
       try {
-        await fastify.inject({ method: 'POST', url: '/health' }).catch(() => {}); // keepalive
+        await fastify.inject({ method: 'GET', url: '/health' }).catch(() => {}); // keepalive
         const { query } = await import('./services/db.js');
         await query(`
           UPDATE chat_disparos_msgs
@@ -186,6 +187,7 @@ try {
     startAutoFinalizarInteresse(fastify);
     startAutoFilaHorario(fastify);
     startVapoTimeout(fastify);
+    startIaAutoPolling(fastify);
   }
 
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
