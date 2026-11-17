@@ -19,13 +19,30 @@ import { processarInboundIa } from '../routes/ia-auto.js';
 const INTERVAL_MS = parseInt(process.env.IA_AUTO_POLLING_MS || '5000', 10);
 
 async function ensureState() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS chat_ia_auto_polling_state (
-      chave text PRIMARY KEY,
-      valor_ts timestamptz,
-      atualizado_em timestamptz NOT NULL DEFAULT NOW()
-    )
-  `);
+  // CREATE TABLE IF NOT EXISTS pode colidir no indice de tipos do Postgres
+  // quando varios processos sobem juntos. Tentamos, se falhar por isso,
+  // esperamos um pouco e checamos se a tabela ja existe (outro boot criou).
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS chat_ia_auto_polling_state (
+          chave text PRIMARY KEY,
+          valor_ts timestamptz,
+          atualizado_em timestamptz NOT NULL DEFAULT NOW()
+        )
+      `);
+      break;
+    } catch (err) {
+      const msg = String(err.message || '');
+      const corrida = msg.includes('pg_type_typname_nsp_index')
+                   || msg.includes('duplicate key')
+                   || msg.includes('already exists');
+      if (!corrida) throw err;
+      await new Promise(r => setTimeout(r, 500));
+      const existe = await query(`SELECT to_regclass('public.chat_ia_auto_polling_state') AS t`);
+      if (existe.rows[0]?.t) break;
+    }
+  }
   await query(`
     INSERT INTO chat_ia_auto_polling_state (chave, valor_ts)
     VALUES ('last_ts', NOW())
