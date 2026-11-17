@@ -90,7 +90,8 @@ export function startAutoFilaHorario(fastify) {
          LEFT JOIN chat_atendentes_horario h ON LOWER(h.usuario) = LOWER(a.usuario)
          WHERE COALESCE(a.ativo, true) = true
            AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
-           AND LOWER(a.usuario) <> 'admin'`
+           AND LOWER(a.usuario) <> 'admin'
+           AND LOWER(a.usuario) <> 'ia_blackfriday'`
       ).catch(() => ({ rows: [] }));
       if (!r.rows.length) return;
 
