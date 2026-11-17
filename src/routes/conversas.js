@@ -67,9 +67,10 @@ base AS (
   )
 ),
 base_ia AS (
-  SELECT b.*, COALESCE(ias.ativa, false) AS ia_ativa
+  SELECT b.*, (COALESCE(ias.ativa, false) OR COALESCE(iaa.ativo, false)) AS ia_ativa
   FROM base b
   LEFT JOIN chat_ia_atendimento_state ias ON ias.conta_id=b.conta_id AND ias.telefone=b.telefone
+  LEFT JOIN chat_ia_auto iaa ON iaa.conta_id=b.conta_id AND iaa.telefone=b.telefone AND iaa.ativo=true
 ),
 filtrada AS (
   SELECT * FROM base_ia
@@ -140,7 +141,12 @@ SELECT json_build_object(
   'atendimentos',(SELECT COUNT(*) FROM conv_base WHERE finalizada = false AND dono <> '' AND LOWER(dono) NOT IN ('sistema','ia_followup','triagem_ia')),
   'finalizadas', (SELECT COUNT(*) FROM conv_base WHERE finalizada = true),
   'matriculas',  (SELECT COUNT(*) FROM conv_base cb JOIN chat_motivos_fechamento mf ON mf.codigo = cb.motivo_fechamento WHERE cb.finalizada = true AND mf.tipo = 'ganho'),
-  'ia_ativa',    (SELECT COUNT(*) FROM conv_base cb JOIN chat_ia_atendimento_state ias ON ias.conta_id = cb.conta_id AND ias.telefone = cb.telefone WHERE ias.ativa = true AND cb.finalizada = false),
+  'ia_ativa',    (SELECT COUNT(*) FROM conv_base cb
+                   WHERE cb.finalizada = false
+                     AND (
+                       EXISTS (SELECT 1 FROM chat_ia_atendimento_state ias WHERE ias.conta_id = cb.conta_id AND ias.telefone = cb.telefone AND ias.ativa = true)
+                       OR EXISTS (SELECT 1 FROM chat_ia_auto iaa WHERE iaa.conta_id = cb.conta_id AND iaa.telefone = cb.telefone AND iaa.ativo = true)
+                     )),
   'triagem',     (SELECT COUNT(*) FROM conv_base cb JOIN triagem_ativas ta ON ta.conta_id = cb.conta_id AND ta.telefone = cb.telefone WHERE cb.finalizada = false),
   'aplicou_filtro_dono', (SELECT filtro_dono_f <> '' FROM filtros),
   'minhas_por_dono', (SELECT COUNT(*) FROM conv_base cb, filtros f WHERE cb.finalizada = false AND f.filtro_dono_f <> '' AND LOWER(cb.dono) = f.filtro_dono_f)
@@ -299,7 +305,7 @@ export default async function conversasRoutes(fastify) {
         mf.tipo AS motivo_tipo, mf.nome AS motivo_nome, mf.cor AS motivo_cor,
         COALESCE(ea.etiquetas, '{}') AS etiquetas,
         (ta.conta_id IS NOT NULL) AS em_triagem,
-        COALESCE(ias.ativa, false) AS ia_ativa
+        (COALESCE(ias.ativa, false) OR COALESCE(iaa.ativo, false)) AS ia_ativa
       FROM ultimas u
       LEFT JOIN janelas j ON j.conta_id=u.conta_id AND j.telefone=u.telefone
       LEFT JOIN chat_contatos_custom cc ON cc.conta_id=u.conta_id AND cc.telefone=u.telefone
@@ -308,6 +314,7 @@ export default async function conversasRoutes(fastify) {
       LEFT JOIN etiquetas_agg ea ON ea.conta_id=u.conta_id AND ea.telefone=u.telefone
       LEFT JOIN triagem_ativa ta ON ta.conta_id=u.conta_id AND ta.telefone=u.telefone
       LEFT JOIN chat_ia_atendimento_state ias ON ias.conta_id=u.conta_id AND ias.telefone=u.telefone
+      LEFT JOIN chat_ia_auto iaa ON iaa.conta_id=u.conta_id AND iaa.telefone=u.telefone AND iaa.ativo=true
       WHERE (
         $2 = 'SUPER'
         OR ( ($5 = '__all__' OR $5 = '*' OR ($5 <> '__none__' AND $5 <> '' AND u.conta_id = ANY(string_to_array($5, ','))))
