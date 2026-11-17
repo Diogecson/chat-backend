@@ -2,14 +2,39 @@
 <html lang="pt-br">
 <head>
 <script>
+// Esconde a pagina ate o guard decidir
+try { document.documentElement.style.visibility='hidden'; } catch(_){}
 (function(){
   var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
-  var permitidos = ['SUPER','ADM','ADMIN'];
-  if(!permitidos.indexOf || permitidos.indexOf(papel) < 0){
-    try { document.documentElement.style.visibility='hidden'; } catch(_){}
-    alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
-    location.href = 'chat.html';
+  var usuario = String(localStorage.getItem('chat_usuario')||'').toLowerCase().trim();
+  var admins = ['SUPER','ADM','ADMIN'];
+  // SUPER/ADMIN entram direto
+  if(admins.indexOf(papel) >= 0){
+    document.documentElement.style.visibility='';
+    return;
   }
+  // User comum: checa permissao granular no backend
+  if(!usuario){
+    alert('Faca login primeiro. Voltando pro chat.');
+    location.href = 'chat.html';
+    return;
+  }
+  fetch('/webhook/chat-permissoes-list?usuario=' + encodeURIComponent(usuario))
+    .then(function(r){ return r.json(); })
+    .then(function(j){
+      var perms = (j && j.permissoes) || {};
+      if(perms['ia_teste_retencao'] === false){
+        alert('Voce nao tem permissao pra acessar essa pagina. Volte pelo chat.');
+        location.href = 'chat.html';
+        return;
+      }
+      document.documentElement.style.visibility='';
+    })
+    .catch(function(){
+      // Em caso de falha, bloqueia por seguranca
+      alert('Nao consegui verificar permissao. Volte pelo chat.');
+      location.href = 'chat.html';
+    });
 })();
 </script>
 <meta charset="UTF-8">
