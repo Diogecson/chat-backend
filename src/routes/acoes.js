@@ -200,6 +200,21 @@ export default async function acoesRoutes(fastify) {
         [conta_id, telefone, usuario, novo_atendente, texto]
       );
     } catch (_) { /* sem bloqueio se tabela/schema divergir */ }
+
+    // Se a transferencia foi PRA a IA, ja liga o chat_ia_auto e dispara
+    // a ultima msg (se tiver cliente aguardando). Fica tudo no mesmo
+    // mecanismo do /webhook/chat-ia-auto-add.
+    if (novo_atendente === 'ia_blackfriday') {
+      try {
+        fastify.inject({
+          method: 'POST',
+          url: '/webhook/chat-ia-auto-add',
+          headers: { 'Content-Type': 'application/json' },
+          payload: { conta_id, telefone, usuario: 'fila', observacao: 'ativada via fila' },
+        }).catch(() => {});
+      } catch (_) { /* nao bloqueia */ }
+    }
+
     return { ok: true, atendente: novo_atendente };
   });
   fastify.post('/webhook/chat-conversa-transferir', conversaTransferir);
@@ -776,6 +791,11 @@ export default async function acoesRoutes(fastify) {
     const b = req.body || {};
     const conta_id = String(b.conta_id || '').trim();
     const telefone = String(b.telefone || '').trim();
+    // Lista de usuarios a excluir desta rodada (ex: IA mandando pra humano)
+    const excluirRaw = b.excluir_usuario ?? b.excluir_usuarios ?? '';
+    const excluir = Array.isArray(excluirRaw)
+      ? excluirRaw.map(x => String(x||'').toLowerCase().trim()).filter(Boolean)
+      : String(excluirRaw||'').split(',').map(x => x.toLowerCase().trim()).filter(Boolean);
     await ensureFilaConfigTable();
     const cfg = await query(`SELECT ativa FROM chat_fila_config LIMIT 1`);
     const ativa = cfg.rows[0] ? cfg.rows[0].ativa !== false : true;
@@ -804,8 +824,10 @@ export default async function acoesRoutes(fastify) {
            AND COALESCE(${colFila},false)=true
            AND LOWER(COALESCE(a.papel,'USER')) NOT IN ('super','ia_followup','triagem_ia')
            AND LOWER(a.usuario) <> 'admin'
+           AND ($1::text[] IS NULL OR LOWER(a.usuario) <> ALL($1::text[]))
          ORDER BY backlog ASC, ultima_em ASC NULLS FIRST, a.usuario ASC
-         LIMIT 1`
+         LIMIT 1`,
+        [excluir.length ? excluir : null]
       );
     }
 

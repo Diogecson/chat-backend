@@ -182,7 +182,7 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
         method: 'POST',
         url: '/webhook/chat-fila-proximo',
         headers: { 'Content-Type': 'application/json' },
-        payload: { conta_id, telefone }
+        payload: { conta_id, telefone, excluir_usuario: USUARIO_IA }
       });
       const body = JSON.parse(prox.body || '{}');
       if (body.ok && body.usuario_escolhido) {
@@ -344,6 +344,55 @@ export default async function iaAutoRoutes(fastify) {
         [conta_id, telefone]
       );
       return { ok: true, apagados: r.rowCount || 0 };
+    } catch (err) {
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // Liga/desliga a IA como "atendente virtual" na fila de distribuicao.
+  // Garante que o usuario ia_blackfriday existe em chat_atendentes.
+  // Quando na_fila=true, o chat-fila-proximo pode escolher ela como
+  // qualquer outro consultor; quando ela "ganha" uma transferencia, o
+  // chat-conversa-transferir ativa automaticamente o chat_ia_auto pro
+  // telefone (hook em acoes.js).
+  fastify.post('/webhook/chat-ia-fila-toggle', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem db' });
+    const b = req.body || {};
+    const na_fila = !!(b.na_fila === true || b.na_fila === 'true' || b.na_fila === 1);
+    const pos = !!(b.fila_apos_expediente === true || b.fila_apos_expediente === 'true' || b.fila_apos_expediente === 1);
+    try {
+      await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
+      // UPSERT do atendente IA
+      await query(
+        `INSERT INTO chat_atendentes (usuario, nome, papel, ativo, na_fila, fila_apos_expediente)
+         VALUES ($1, $2, 'USER', true, $3, $4)
+         ON CONFLICT (usuario) DO UPDATE SET
+           nome = EXCLUDED.nome,
+           papel = 'USER',
+           ativo = true,
+           na_fila = EXCLUDED.na_fila,
+           fila_apos_expediente = EXCLUDED.fila_apos_expediente`,
+        [USUARIO_IA, '🤖 IA Black Friday', na_fila, pos]
+      );
+      return { ok: true, usuario: USUARIO_IA, na_fila, fila_apos_expediente: pos };
+    } catch (err) {
+      return { ok: false, erro: err.message };
+    }
+  });
+
+  // Status rapido (pra UI)
+  fastify.get('/webhook/chat-ia-fila-status', async () => {
+    if (!hasDb()) return { ok: false };
+    try {
+      const r = await query(
+        `SELECT COALESCE(na_fila,false) AS na_fila,
+                COALESCE(fila_apos_expediente,false) AS fila_apos_expediente,
+                COALESCE(ativo,false) AS ativo
+         FROM chat_atendentes WHERE usuario=$1 LIMIT 1`,
+        [USUARIO_IA]
+      );
+      const row = r.rows[0] || { na_fila: false, fila_apos_expediente: false, ativo: false, cadastrada: false };
+      return { ok: true, usuario: USUARIO_IA, cadastrada: !!r.rows[0], ...row };
     } catch (err) {
       return { ok: false, erro: err.message };
     }
