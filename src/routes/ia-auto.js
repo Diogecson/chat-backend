@@ -368,8 +368,8 @@ export default async function iaAutoRoutes(fastify) {
       // NULL que eu nao sei, o ON CONFLICT nunca vai cair no INSERT
       // original depois do primeiro sucesso.
       await query(
-        `INSERT INTO chat_atendentes (usuario, nome, senha, papel, ativo, na_fila, fila_apos_expediente)
-         VALUES ($1, $2, '!ia_nao_loga!', 'USER', true, $3, $4)
+        `INSERT INTO chat_atendentes (usuario, nome, senha, papel, ativo, foto_url, contas_permitidas, na_fila, fila_apos_expediente)
+         VALUES ($1, $2, '!ia_nao_loga!', 'USER', true, '', ARRAY['*']::text[], $3, $4)
          ON CONFLICT (usuario) DO UPDATE SET
            nome = EXCLUDED.nome,
            papel = 'USER',
