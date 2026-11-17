@@ -285,6 +285,24 @@ export default async function iaAutoRoutes(fastify) {
     }
   });
 
+  // Limpar historico de log (so dessa conta/telefone)
+  fastify.post('/webhook/chat-ia-auto-log-limpar', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem db' });
+    const b = req.body || {};
+    const conta_id = String(b.conta_id || '').trim();
+    const telefone = String(b.telefone || '').replace(/\D/g, '');
+    if (!conta_id || !telefone) return reply.code(400).send({ ok: false, erro: 'conta_id e telefone obrigatorios' });
+    try {
+      const r = await query(
+        `DELETE FROM chat_ia_auto_log WHERE conta_id=$1 AND telefone=$2`,
+        [conta_id, telefone]
+      );
+      return { ok: true, apagados: r.rowCount || 0 };
+    } catch (err) {
+      return { ok: false, erro: err.message };
+    }
+  });
+
   // Teste manual: simula receber uma msg
   fastify.post('/webhook/chat-ia-auto-teste', async (req, reply) => {
     const b = req.body || {};

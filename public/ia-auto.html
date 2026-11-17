@@ -178,7 +178,10 @@ tr:hover{background:#fbfcfe}
       <h3 style="margin:0;font-family:'Plus Jakarta Sans';font-weight:800;font-size:.95rem">
         Historico da IA · <span id="logTel" style="font-family:monospace"></span>
       </h3>
-      <button class="btn btn-secondary" onclick="fecharLog()"><i class="bi bi-x-lg"></i></button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-danger" id="btnLimparLog" onclick="limparLog()" title="Apagar historico"><i class="bi bi-trash"></i> Limpar</button>
+        <button class="btn btn-secondary" onclick="fecharLog()"><i class="bi bi-x-lg"></i></button>
+      </div>
     </div>
     <div class="modal-body" id="logBody">Carregando...</div>
   </div>
@@ -187,6 +190,8 @@ tr:hover{background:#fbfcfe}
 <script>
 const _u = localStorage.getItem('chat_usuario') || 'admin';
 let contas = [];
+let _logContaId = '';
+let _logTel = '';
 
 function fmtTel(t){
   const s = String(t).replace(/\D/g,'');
@@ -309,6 +314,8 @@ async function apagar(conta_id, telefone){
 }
 
 async function verLog(conta_id, telefone){
+  _logContaId = conta_id;
+  _logTel = telefone;
   document.getElementById('logTel').textContent = fmtTel(telefone);
   document.getElementById('modalLog').classList.add('show');
   const body = document.getElementById('logBody');
@@ -327,6 +334,21 @@ async function verLog(conta_id, telefone){
   }catch(err){ body.innerHTML = '<div class="vazio" style="color:var(--err)">Erro: '+err.message+'</div>'; }
 }
 function fecharLog(){ document.getElementById('modalLog').classList.remove('show'); }
+
+async function limparLog(){
+  if(!_logContaId || !_logTel){ alert('Nada selecionado'); return; }
+  if(!confirm(`Apagar TODO o historico de ${fmtTel(_logTel)}? Isso nao pode ser desfeito.`)) return;
+  try{
+    const r = await fetch('/webhook/chat-ia-auto-log-limpar',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({conta_id: _logContaId, telefone: _logTel})
+    });
+    const j = await r.json();
+    if(!j.ok){ alert('Falha: '+(j.erro||'desconhecido')); return; }
+    // Recarrega o log (vai ficar vazio)
+    verLog(_logContaId, _logTel);
+  }catch(err){ alert('Erro: '+err.message); }
+}
 
 (async () => {
   await carregarContas();
