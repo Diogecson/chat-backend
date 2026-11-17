@@ -6,11 +6,12 @@
 // - Pra cada msg nova, chama processarInboundIa que fala com o fluxo n8n da IA Black Friday
 //   e devolve a resposta via chat-enviar (Meta API)
 //
-// Pra nao reprocessar mensagens antigas, mantem checkpoint em chat_ia_auto_polling_state:
-//   (chave='last_ts', valor timestamptz)
-// A cada tick, busca msgs com timestamp > last_ts, processa e atualiza last_ts.
-//
-// No boot, se last_ts nao existir, comeca "agora" — ignora backlog.
+// Protecao contra DUPLICACAO (multiplas replicas, restart, race):
+// - Tabela chat_ia_auto_processadas (mensagem_id BIGINT PK) registra cada id ja processado
+// - Antes de chamar a IA, tentamos INSERT ON CONFLICT DO NOTHING:
+//   se retornar linha, essa instancia "claimou" a msg e processa
+//   se nao retornar, outra instancia ja pegou, pula
+// - Checkpoint (last_ts) ainda e usado pra limitar a janela de busca (performance)
 
 import { query } from '../services/db.js';
 import { hasDb } from '../config.js';
@@ -19,9 +20,7 @@ import { processarInboundIa } from '../routes/ia-auto.js';
 const INTERVAL_MS = parseInt(process.env.IA_AUTO_POLLING_MS || '5000', 10);
 
 async function ensureState() {
-  // CREATE TABLE IF NOT EXISTS pode colidir no indice de tipos do Postgres
-  // quando varios processos sobem juntos. Tentamos, se falhar por isso,
-  // esperamos um pouco e checamos se a tabela ja existe (outro boot criou).
+  // Tabela de checkpoint (janela de busca)
   for (let tentativa = 0; tentativa < 3; tentativa++) {
     try {
       await query(`
@@ -48,6 +47,28 @@ async function ensureState() {
     VALUES ('last_ts', NOW())
     ON CONFLICT (chave) DO NOTHING
   `);
+
+  // Tabela de claim (uma linha por msg ja processada)
+  for (let tentativa = 0; tentativa < 3; tentativa++) {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS chat_ia_auto_processadas (
+          mensagem_id BIGINT PRIMARY KEY,
+          processado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+      `);
+      break;
+    } catch (err) {
+      const msg = String(err.message || '');
+      const corrida = msg.includes('pg_type_typname_nsp_index')
+                   || msg.includes('duplicate key')
+                   || msg.includes('already exists');
+      if (!corrida) throw err;
+      await new Promise(r => setTimeout(r, 500));
+      const existe = await query(`SELECT to_regclass('public.chat_ia_auto_processadas') AS t`);
+      if (existe.rows[0]?.t) break;
+    }
+  }
 }
 
 async function getCheckpoint() {
@@ -60,6 +81,18 @@ async function setCheckpoint(ts) {
     `UPDATE chat_ia_auto_polling_state SET valor_ts=$1, atualizado_em=NOW() WHERE chave='last_ts'`,
     [ts]
   );
+}
+
+// Tenta claim atomico: retorna true se essa instancia ganhou o direito de processar essa msg
+async function claimMsg(mensagem_id) {
+  const r = await query(
+    `INSERT INTO chat_ia_auto_processadas (mensagem_id)
+     VALUES ($1)
+     ON CONFLICT (mensagem_id) DO NOTHING
+     RETURNING mensagem_id`,
+    [mensagem_id]
+  );
+  return r.rows.length > 0;
 }
 
 export function startIaAutoPolling(fastify) {
@@ -77,6 +110,7 @@ export function startIaAutoPolling(fastify) {
       if (!checkpoint) return;
 
       // Busca msgs IN text novas de telefones na lista ativa
+      // LEFT JOIN em processadas filtra o que ja foi claimado por outra instancia
       const res = await query(
         `SELECT m.id, m.conta_id, m.telefone, m.texto, m.timestamp
          FROM chat_mensagens m
@@ -84,10 +118,13 @@ export function startIaAutoPolling(fastify) {
            ON a.conta_id = m.conta_id
           AND a.telefone = m.telefone
           AND a.ativo = true
+         LEFT JOIN chat_ia_auto_processadas p
+           ON p.mensagem_id = m.id
          WHERE m.direcao = 'in'
            AND m.tipo = 'text'
            AND COALESCE(m.texto,'') <> ''
            AND m.timestamp > $1
+           AND p.mensagem_id IS NULL
          ORDER BY m.timestamp ASC
          LIMIT 50`,
         [checkpoint]
@@ -96,7 +133,25 @@ export function startIaAutoPolling(fastify) {
       if (!res.rows.length) return;
 
       let maiorTs = checkpoint;
+      let processadas = 0;
+      let puladas = 0;
       for (const m of res.rows) {
+        // Avanca checkpoint mesmo se pularmos (pra nao travar na msg)
+        if (new Date(m.timestamp) > new Date(maiorTs)) maiorTs = m.timestamp;
+
+        // Claim atomico — se outra instancia (ou tick anterior) ja pegou, pula
+        let ganhou = false;
+        try {
+          ganhou = await claimMsg(m.id);
+        } catch (err) {
+          fastify.log.error(`[ia-auto-polling] claim ${m.id}: ${err.message}`);
+          continue;
+        }
+        if (!ganhou) {
+          puladas++;
+          continue;
+        }
+
         try {
           await processarInboundIa(fastify, {
             conta_id: m.conta_id,
@@ -104,14 +159,15 @@ export function startIaAutoPolling(fastify) {
             texto: m.texto,
             tipo: 'text',
           });
+          processadas++;
         } catch (err) {
           fastify.log.error(`[ia-auto-polling] ${m.conta_id}/${m.telefone}: ${err.message}`);
         }
-        // Avanca checkpoint mesmo se erro (pra nao travar na msg quebrada)
-        if (new Date(m.timestamp) > new Date(maiorTs)) maiorTs = m.timestamp;
       }
       await setCheckpoint(maiorTs);
-      fastify.log.info(`[ia-auto-polling] processou ${res.rows.length} msg(s)`);
+      if (processadas || puladas) {
+        fastify.log.info(`[ia-auto-polling] processou ${processadas} msg(s), pulou ${puladas} (ja processadas)`);
+      }
     } catch (err) {
       fastify.log.error('[ia-auto-polling] tick: ' + err.message);
     } finally {
