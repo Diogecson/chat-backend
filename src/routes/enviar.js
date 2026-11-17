@@ -124,12 +124,14 @@ async function uploadMetaMedia({ accountCfg, base64, mimetype, filename }) {
   fd.append('messaging_product', 'whatsapp');
   fd.append('type', mimetype);
   fd.append('file', blob, filename || 'upload.bin');
+  console.log(`[uploadMetaMedia] mimetype=${mimetype} size=${buffer.length}B filename=${filename}`);
   const r = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accountCfg.access_token}` },
     body: fd,
   });
   const data = await r.json().catch(() => ({}));
+  console.log(`[uploadMetaMedia] status=${r.status} resp=`, JSON.stringify(data));
   if (!r.ok || data.error) {
     return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
   }
@@ -150,10 +152,15 @@ async function enviarMetaMedia({ accountCfg, telefone, tipo, media_id, caption, 
   } else if (tipo === 'document') {
     if (caption) mediaObj.caption = caption;
     if (filename) mediaObj.filename = filename;
+  } else if (tipo === 'audio') {
+    // voice=true faz o WhatsApp exibir como bolha de voice note (ptt).
+    // Sem voice=true o msg chega como "arquivo de audio" generico e em
+    // algumas versoes do app so aparece como notificacao sem player.
+    mediaObj.voice = true;
   }
-  // audio nao aceita caption nem filename
   payload[tipo] = mediaObj;
   if (reply_to_id) payload.context = { message_id: reply_to_id };
+  console.log(`[enviarMetaMedia] tipo=${tipo} media_id=${media_id} to=${telefone} payload=`, JSON.stringify(payload));
   const r = await fetch(url, {
     method: 'POST',
     headers: {
@@ -163,6 +170,7 @@ async function enviarMetaMedia({ accountCfg, telefone, tipo, media_id, caption, 
     body: JSON.stringify(payload),
   });
   const data = await r.json().catch(() => ({}));
+  console.log(`[enviarMetaMedia] status=${r.status} resp=`, JSON.stringify(data));
   if (!r.ok || data.error) {
     return { ok: false, error: data?.error?.message || `HTTP ${r.status}`, raw: data };
   }
