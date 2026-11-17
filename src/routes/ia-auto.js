@@ -362,10 +362,14 @@ export default async function iaAutoRoutes(fastify) {
     const pos = !!(b.fila_apos_expediente === true || b.fila_apos_expediente === 'true' || b.fila_apos_expediente === 1);
     try {
       await query(`ALTER TABLE chat_atendentes ADD COLUMN IF NOT EXISTS fila_apos_expediente BOOLEAN NOT NULL DEFAULT false`).catch(() => {});
-      // UPSERT do atendente IA
+      // UPSERT do atendente IA. 'senha' eh NOT NULL na tabela — a IA nao
+      // loga, entao passo uma string impossivel de match (nao eh hash
+      // valido de nenhuma funcao de login). Se existir mais coluna NOT
+      // NULL que eu nao sei, o ON CONFLICT nunca vai cair no INSERT
+      // original depois do primeiro sucesso.
       await query(
-        `INSERT INTO chat_atendentes (usuario, nome, papel, ativo, na_fila, fila_apos_expediente)
-         VALUES ($1, $2, 'USER', true, $3, $4)
+        `INSERT INTO chat_atendentes (usuario, nome, senha, papel, ativo, na_fila, fila_apos_expediente)
+         VALUES ($1, $2, '!ia_nao_loga!', 'USER', true, $3, $4)
          ON CONFLICT (usuario) DO UPDATE SET
            nome = EXCLUDED.nome,
            papel = 'USER',
