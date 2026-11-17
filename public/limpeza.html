@@ -148,8 +148,19 @@ table.lst td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align
     <div class="card-body">
       <div class="filtros">
         <div class="campo">
+          <label>Modo de filtro</label>
+          <select id="modoFiltro" class="inp" onchange="atualizarModoFiltro()" style="width:200px">
+            <option value="dias">Dias sem atividade</option>
+            <option value="data">Ate uma data (apaga tudo antes)</option>
+          </select>
+        </div>
+        <div class="campo" id="campoDias">
           <label>Dias minimos (sem atividade)</label>
           <input type="number" id="diasMin" class="inp" value="30" min="7" step="1" style="width:130px">
+        </div>
+        <div class="campo" id="campoData" style="display:none">
+          <label>Apagar tudo com atividade antes de</label>
+          <input type="date" id="dataLimite" class="inp" style="width:180px">
         </div>
         <div class="campo">
           <label>Conta</label>
@@ -280,16 +291,36 @@ async function carregarContas(){
   }catch(_){}
 }
 
+function atualizarModoFiltro(){
+  const modo = document.getElementById('modoFiltro').value;
+  document.getElementById('campoDias').style.display = (modo === 'dias') ? '' : 'none';
+  document.getElementById('campoData').style.display = (modo === 'data') ? '' : 'none';
+}
+
+function montarFiltroBody(){
+  const modo = document.getElementById('modoFiltro').value;
+  if(modo === 'data'){
+    const d = document.getElementById('dataLimite').value;
+    if(!d){ return { erro: 'Escolha a data limite' }; }
+    const dt = new Date(d + 'T23:59:59');
+    if(isNaN(dt.getTime())){ return { erro: 'Data invalida' }; }
+    if(dt.getTime() >= Date.now()){ return { erro: 'A data precisa estar no passado' }; }
+    return { data_limite: dt.toISOString(), dias_min: 30, modo: 'data', label: 'ate ' + d };
+  }
+  const dias = parseInt(document.getElementById('diasMin').value, 10);
+  if(isNaN(dias) || dias < 7){ return { erro: 'Dias minimos precisa ser pelo menos 7' }; }
+  return { dias_min: dias, modo: 'dias', label: dias + 'd sem atividade' };
+}
+
 async function simular(){
   resetarUI();
-  const dias = parseInt(document.getElementById('diasMin').value, 10);
+  const f = montarFiltroBody();
+  if(f.erro){ msgErr(f.erro); return; }
   const conta = document.getElementById('contaId').value;
-  if(isNaN(dias) || dias < 7){
-    msgErr('Dias minimos precisa ser pelo menos 7');
-    return;
-  }
+  const dias = f.dias_min;
   try{
     const body = { usuario, papel, dias_min: dias, conta_id: conta, dry_run: true };
+    if(f.data_limite) body.data_limite = f.data_limite;
     const r = await fetch(BASE + '/webhook/chat-limpar-finalizados', {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=UTF-8'},
@@ -297,7 +328,7 @@ async function simular(){
     });
     const d = await r.json();
     if(!d.ok){ throw new Error(d.erro || 'erro'); }
-    previewAtual = { dias_min: dias, conta_id: conta, ...d };
+    previewAtual = { dias_min: dias, data_limite: f.data_limite || null, conta_id: conta, ...d };
 
     const box = document.getElementById('previewBox');
     const stats = document.getElementById('previewStats');
@@ -422,6 +453,7 @@ async function executarDelete(){
       dry_run: false,
       vacuum: true,
     };
+    if(previewAtual.data_limite) body.data_limite = previewAtual.data_limite;
     const r = await fetch(BASE + '/webhook/chat-limpar-finalizados', {
       method:'POST',
       headers:{'Content-Type':'text/plain;charset=UTF-8'},
@@ -470,7 +502,7 @@ async function carregarHistorico(){
             <th>Quando</th>
             <th>Quem</th>
             <th>Conta</th>
-            <th>Dias</th>
+            <th>Criterio</th>
             <th style="text-align:right">Conversas</th>
             <th style="text-align:right">Mensagens</th>
             <th>Duracao</th>
@@ -483,7 +515,7 @@ async function carregarHistorico(){
               <td>${fmtData(i.criado_em)}</td>
               <td>${i.usuario}</td>
               <td>${i.conta_id==='__all__'?'todas':i.conta_id}</td>
-              <td>${i.dias_min}d</td>
+              <td>${i.data_limite ? ('ate ' + (i.data_limite+'').substring(0,10)) : (i.dias_min + 'd')}</td>
               <td style="text-align:right"><b>${fmtNum(i.conversas_apagadas)}</b></td>
               <td style="text-align:right">${fmtNum(i.mensagens_apagadas)}</td>
               <td>${(i.duracao_ms/1000).toFixed(1)}s</td>

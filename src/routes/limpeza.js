@@ -38,10 +38,14 @@ async function ensureLimpezaLog() {
     )
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_limpeza_log_criado ON chat_limpeza_log(criado_em DESC)`).catch(() => {});
+  // Coluna nova: data_limite (quando criterio nao e por dias e sim ate X data)
+  await query(`ALTER TABLE chat_limpeza_log ADD COLUMN IF NOT EXISTS data_limite TIMESTAMPTZ NULL`).catch(() => {});
 }
 
 // CTE que seleciona as conversas candidatas (usada pelo preview e pelo delete)
-// $1 = dias_min (int), $2 = conta_id ('__all__' ou codigo), $3 = limit (int) ou NULL
+// $1 = dias_min (int), $2 = conta_id ('__all__' ou codigo), $3 = data_limite (timestamptz) ou NULL
+// Se $3 veio preenchido, o criterio e "ate essa data" e $1 e ignorado.
+// Se $3 veio NULL, o criterio e "> $1 dias sem atividade".
 const SQL_CANDIDATAS = `
   WITH ult AS (
     SELECT conta_id, telefone, MAX(timestamp) AS ultima_msg_ts
@@ -55,7 +59,10 @@ const SQL_CANDIDATAS = `
   WHERE cd.finalizada = true
     AND ($2 = '__all__' OR cd.conta_id = $2)
     AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) IS NOT NULL
-    AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) < NOW() - ($1::int || ' days')::interval
+    AND (
+      ($3::timestamptz IS NOT NULL AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) < $3::timestamptz)
+      OR ($3::timestamptz IS NULL AND COALESCE(cd.finalizada_em, u.ultima_msg_ts) < NOW() - ($1::int || ' days')::interval)
+    )
 `;
 
 export default async function limpezaRoutes(fastify) {
@@ -69,6 +76,26 @@ export default async function limpezaRoutes(fastify) {
     const dry_run_raw = p(req, 'dry_run', 'true');
     const dry_run = dry_run_raw === 'true' || dry_run_raw === true || dry_run_raw === '1';
     const rodar_vacuum = String(p(req, 'vacuum', 'true')).toLowerCase() === 'true';
+
+    // Modo alternativo: data_limite (apaga tudo com atividade antes dessa data).
+    // Se vier, substitui o criterio de dias_min. Aceita yyyy-mm-dd ou ISO.
+    const data_limite_raw = p(req, 'data_limite', '');
+    let data_limite = null;
+    if (data_limite_raw) {
+      const d = new Date(data_limite_raw);
+      if (isNaN(d.getTime())) {
+        return reply.code(400).send({ ok: false, erro: 'data_limite invalida' });
+      }
+      const agora = Date.now();
+      const minimo = new Date('2020-01-01').getTime();
+      if (d.getTime() >= agora) {
+        return reply.code(400).send({ ok: false, erro: 'data_limite tem que estar no passado' });
+      }
+      if (d.getTime() < minimo) {
+        return reply.code(400).send({ ok: false, erro: 'data_limite muito antiga (minimo 2020-01-01)' });
+      }
+      data_limite = d.toISOString();
+    }
 
     if (papel !== 'SUPER') {
       return reply.code(403).send({ ok: false, erro: 'apenas SUPER pode limpar em massa' });
@@ -90,15 +117,19 @@ export default async function limpezaRoutes(fastify) {
           (SELECT COUNT(*) FROM chat_conversa_etiquetas e
              WHERE EXISTS (SELECT 1 FROM cand c WHERE c.conta_id=e.conta_id AND c.telefone=e.telefone))::int AS etiquetas
       `;
-      const pv = await query(sqlPreview, [dias_min, conta_id]);
+      const pv = await query(sqlPreview, [dias_min, conta_id, data_limite]);
       const prev = pv.rows[0] || { conversas: 0, mensagens: 0, etiquetas: 0 };
 
       if (dry_run) {
+        const criterio = data_limite
+          ? `finalizada=true e com ultima atividade antes de ${data_limite.substring(0, 10)}`
+          : `finalizada=true e >${dias_min} dias sem atividade`;
         return {
           ok: true,
           dry_run: true,
-          criterio: `finalizada=true e >${dias_min} dias sem atividade`,
+          criterio,
           conta_id,
+          data_limite,
           conversas: prev.conversas,
           mensagens: prev.mensagens,
           etiquetas: prev.etiquetas,
@@ -118,7 +149,7 @@ export default async function limpezaRoutes(fastify) {
         await client.query('BEGIN');
 
         // 1) Marca pra apagar
-        await client.query(`CREATE TEMP TABLE _cand ON COMMIT DROP AS ${SQL_CANDIDATAS}`, [dias_min, conta_id]);
+        await client.query(`CREATE TEMP TABLE _cand ON COMMIT DROP AS ${SQL_CANDIDATAS}`, [dias_min, conta_id, data_limite]);
 
         // 2) Apaga mensagens (maior volume)
         const rMsg = await client.query(`
@@ -186,9 +217,9 @@ export default async function limpezaRoutes(fastify) {
       // 7) Log
       await query(
         `INSERT INTO chat_limpeza_log
-         (usuario, conta_id, dias_min, conversas_apagadas, mensagens_apagadas, etiquetas_apagadas, vapo_logs_apagados, vacuum_ok, duracao_ms)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [usuario, conta_id, dias_min, resultado.conversas, resultado.mensagens, resultado.etiquetas, resultado.vapo, vacuum_ok, duracao]
+         (usuario, conta_id, dias_min, conversas_apagadas, mensagens_apagadas, etiquetas_apagadas, vapo_logs_apagados, vacuum_ok, duracao_ms, data_limite)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [usuario, conta_id, dias_min, resultado.conversas, resultado.mensagens, resultado.etiquetas, resultado.vapo, vacuum_ok, duracao, data_limite]
       );
 
       fastify.log.info(`[limpeza] ${usuario} apagou ${resultado.conversas} conv / ${resultado.mensagens} msgs em ${duracao}ms`);
@@ -197,6 +228,7 @@ export default async function limpezaRoutes(fastify) {
         ok: true,
         dry_run: false,
         dias_min,
+        data_limite,
         conta_id,
         apagadas: resultado,
         vacuum_ok,
@@ -218,7 +250,7 @@ export default async function limpezaRoutes(fastify) {
       await ensureLimpezaLog();
       const r = await query(
         `SELECT id, usuario, conta_id, dias_min, conversas_apagadas, mensagens_apagadas,
-                etiquetas_apagadas, vapo_logs_apagados, vacuum_ok, duracao_ms, criado_em
+                etiquetas_apagadas, vapo_logs_apagados, vacuum_ok, duracao_ms, criado_em, data_limite
          FROM chat_limpeza_log
          ORDER BY criado_em DESC
          LIMIT 50`
