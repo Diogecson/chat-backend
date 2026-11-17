@@ -204,7 +204,7 @@ async function carregarContas(){
   try{
     const r = await fetch('/api/contas',{headers:{'x-usuario':_u}});
     const j = await r.json();
-    contas = Array.isArray(j) ? j : (j.rows || []);
+    contas = Array.isArray(j) ? j : (j.contas || j.rows || []);
   }catch(_){ contas = []; }
   const selAdd = document.getElementById('addConta');
   const selFil = document.getElementById('filtroConta');
