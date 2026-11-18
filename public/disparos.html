@@ -828,10 +828,19 @@ async function reenfileirar(codigo){
     if(r.ok){
       const enviadas = r.enfileiradas||0;
       const erros = r.erros||0;
-      let msg = `Processou ${enviadas+erros} msg(s): ${enviadas} enviadas, ${erros} erro`;
-      if(r.ultimo_erro) msg += ` (ultimo erro: ${r.ultimo_erro})`;
-      toast(msg, enviadas ? '' : 'err');
+      const bg = r.em_background||0;
+      let msg = `${enviadas} enviadas agora`;
+      if(erros) msg += `, ${erros} erro`;
+      if(bg) msg += `. ${bg} rodando em background (ate ~${Math.ceil(bg*2/60)}min)`;
+      if(r.ultimo_erro) msg += ` | ultimo erro: ${r.ultimo_erro}`;
+      toast(msg, (enviadas||bg) ? '' : 'err');
       carregarCampanhas();
+      // Se tem background, atualiza a lista mais vezes pra ver o progresso
+      if(bg){
+        setTimeout(carregarCampanhas, 5000);
+        setTimeout(carregarCampanhas, 15000);
+        setTimeout(carregarCampanhas, 30000);
+      }
     } else {
       const msg = (r.erro||r.error||'servidor') + (r.trace?` | trace: ${r.trace.join(' > ')}`:'');
       toast('Erro: '+msg,'err');

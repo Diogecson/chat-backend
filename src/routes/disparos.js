@@ -223,7 +223,7 @@ export async function handleDisparoReenfileirar(req, reply) {
       trace.push('destravar-falhou: ' + e.message);
     }
 
-    // 2) Pega ate 20 pendentes (cap pra nao estourar HTTP timeout)
+    // 2) Pega TODAS as pendentes (ate 5000 pra proteger memoria)
     let rows = [];
     try {
       const sql = codigo
@@ -231,11 +231,11 @@ export async function handleDisparoReenfileirar(req, reply) {
            JOIN chat_disparos c ON c.codigo = m.campanha_id
            WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
              AND m.campanha_id=$1
-           LIMIT 20`
+           LIMIT 5000`
         : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
            JOIN chat_disparos c ON c.codigo = m.campanha_id
            WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-           LIMIT 20`;
+           LIMIT 5000`;
       const res = await query(sql, codigo ? [codigo] : []);
       rows = res.rows || [];
       trace.push('pendentes=' + rows.length);
@@ -245,10 +245,13 @@ export async function handleDisparoReenfileirar(req, reply) {
       return { ok: false, erro: 'select: ' + e.message, trace };
     }
 
-    // 3) Processa cada msg em-processo (sem pg-boss)
+    // 3) Processa SINCRONO ate 20 (resposta rapida com feedback)
+    //    e DISPARA o resto EM BACKGROUND (fire-and-forget).
+    const SINCRONO = Math.min(20, rows.length);
     let enq = 0, err_count = 0;
     let last_err = '';
-    for (const r of rows) {
+    for (let i = 0; i < SINCRONO; i++) {
+      const r = rows[i];
       try {
         const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
         if (result && result.ok) enq++;
@@ -259,8 +262,35 @@ export async function handleDisparoReenfileirar(req, reply) {
         console.error(`[reenfileirar] erro processar msg ${r.id}:`, e.message);
       }
     }
-    trace.push('enviadas=' + enq + ' erros=' + err_count);
-    return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro: last_err, trace };
+    trace.push('sincrono=' + SINCRONO + ' ok=' + enq + ' erros=' + err_count);
+
+    // Restante em background — nao bloqueia a resposta HTTP
+    const restante = rows.slice(SINCRONO);
+    if (restante.length) {
+      setImmediate(async () => {
+        console.log(`[reenfileirar-bg] iniciando ${restante.length} msgs em background`);
+        let bg_ok = 0, bg_err = 0;
+        for (const r of restante) {
+          try {
+            const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
+            if (result && result.ok) bg_ok++; else bg_err++;
+          } catch (e) {
+            bg_err++;
+            console.error(`[reenfileirar-bg] msg ${r.id}: ${e.message}`);
+          }
+        }
+        console.log(`[reenfileirar-bg] done: ${bg_ok} ok / ${bg_err} erro`);
+      });
+    }
+
+    return {
+      ok: true,
+      enfileiradas: enq,
+      erros: err_count,
+      em_background: restante.length,
+      ultimo_erro: last_err,
+      trace,
+    };
   } catch (err) {
     console.error('[reenfileirar] exception externa:', err.message, err.stack);
     reply.code(500);
