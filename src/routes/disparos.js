@@ -258,19 +258,21 @@ export default async function disparosRoutes(fastify) {
       const res = await query(sql, codigo ? [codigo] : []);
       const boss = await getBoss();
       if (!boss) return reply.code(503).send({ ok: false, erro: 'pg-boss não iniciou' });
-      let enq = 0, dup = 0;
+      let enq = 0, err_count = 0;
       for (const r of res.rows) {
-        const jobId = await boss.send(
-          QUEUES.DISPAROS,
-          { msg_id: r.id, campanha_id: r.campanha_id },
-          { singletonKey: 'msg_' + r.id }
-        );
-        if (jobId) enq++; else dup++;
+        try {
+          await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
+          enq++;
+        } catch (e) {
+          err_count++;
+          console.error(`[reenfileirar] erro send msg ${r.id}: ${e.message}`);
+        }
       }
-      return { ok: true, enfileiradas: enq, ja_na_fila: dup };
+      return { ok: true, enfileiradas: enq, erros: err_count };
     } catch (err) {
+      console.error('[reenfileirar] exception:', err.message, err.stack);
       reply.code(500);
-      return { ok: false, error: err.message };
+      return { ok: false, erro: err.message };
     }
   };
   fastify.post('/disparos/reenfileirar', handlerReenfileirar);

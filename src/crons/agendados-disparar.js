@@ -66,21 +66,17 @@ export function startAgendadosDisparar(fastify) {
         [LOTE_MAX]
       ).catch(() => ({ rows: [] }));
 
-      let enq = 0, dup = 0;
+      let enq = 0;
       for (const r of pend.rows) {
         try {
-          const jobId = await boss.send(
-            QUEUES.DISPAROS,
-            { msg_id: r.id, campanha_id: r.campanha_id },
-            { singletonKey: 'msg_' + r.id }
-          );
-          if (jobId) enq++; else dup++;
+          await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
+          enq++;
         } catch (err) {
           fastify.log.error(`[agendados-disparar] erro send msg ${r.id}: ${err.message}`);
         }
       }
-      if (enq || dup) {
-        fastify.log.info(`[agendados-disparar] enfileirou ${enq} msgs pendentes${dup ? ` (${dup} ja na fila)` : ''}`);
+      if (enq) {
+        fastify.log.info(`[agendados-disparar] enfileirou ${enq} msgs pendentes`);
       }
     } catch (err) {
       fastify.log.error('[agendados-disparar] tick: ' + err.message);
