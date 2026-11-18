@@ -78,6 +78,36 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 .rail-foot a:hover{background:rgba(255,255,255,.18);color:#fff}
 .rail-foot a.sair:hover{background:#ff3b3b}
 
+/* ===== RAIL: expandir ao passar o mouse e mostrar nome dos menus ===== */
+@media (hover: hover) and (min-width: 769px){
+  .rail{position:relative;z-index:50;transition:width .18s ease;will-change:width}
+  .rail:hover{width:230px;box-shadow:4px 0 24px rgba(0,0,0,.28)}
+  .rail:hover .brand{
+    width:calc(100% - 8px);justify-content:flex-start;padding-left:10px;gap:12px
+  }
+  .rail:hover .brand::after{
+    content:"Trocar foto";font-size:.75rem;font-weight:700;color:#fff;opacity:.85;
+    white-space:nowrap;letter-spacing:.2px
+  }
+  .rail:hover .rail-foot{padding:0 6px}
+  .rail:hover .rail-foot a{
+    width:100%;height:40px;display:flex;align-items:center;
+    justify-content:flex-start;gap:12px;padding:0 10px;
+    border-radius:12px;text-align:left
+  }
+  .rail:hover .rail-foot a::after{
+    content:attr(data-label);
+    font-size:.78rem;font-weight:600;color:#fff;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis;max-width:160px;letter-spacing:.2px
+  }
+  .rail:hover .rail-foot a i{flex-shrink:0;width:20px;text-align:center}
+  .rail:hover .acct-list{padding:0 6px}
+  .rail:hover .acct-btn{
+    width:100%;display:flex;align-items:center;justify-content:flex-start;
+    gap:12px;padding:0 10px
+  }
+}
+
 /* ===== SIDEBAR (lista de conversas) ===== */
 .sidebar{background:var(--sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .sb-head{padding:16px 18px 12px;border-bottom:1px solid var(--line);background:#fff;flex-shrink:0}
@@ -1017,31 +1047,31 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <!-- populado por JS -->
     </div>
     <div class="rail-foot">
-      <a href="#" id="railRetornos" onclick="event.preventDefault();abrirRetornosDashboard()" title="Meus retornos agendados" data-feat="retorno"><i class="bi bi-calendar-check"></i></a>
-      <a href="disparos.html" id="railDisparos" title="Disparos em massa (Meta templates)" data-feat="disparos"><i class="bi bi-megaphone-fill"></i></a>
-      <a href="consulta.html" id="railConsulta" title="Consultar contatos (quais já têm chat)" data-feat="consulta"><i class="bi bi-search"></i></a>
-      <a href="triagem.html" id="railTriagem" title="Configurar triagem IA" data-feat="triagem"><i class="bi bi-funnel-fill"></i></a>
-      <a href="respostas.html" id="railRespostas" title="Respostas rápidas (digite / no chat)" data-feat="respostas"><i class="bi bi-lightning-charge-fill"></i></a>
-      <a href="funil.html" id="railFunil" title="Funil de conversas (quente/morna/fria)" data-feat="funil"><i class="bi bi-columns-gap"></i></a>
-      <a href="matriculas.html" id="railMatriculas" title="Base de alunos matriculados" data-feat="matriculas"><i class="bi bi-mortarboard-fill"></i></a>
-      <a href="gestao.html" id="railGestao" title="Painel de gestão (só SUPER)" data-super><i class="bi bi-graph-up-arrow"></i></a>
-      <a href="#" id="railFollowup" onclick="event.preventDefault();abrirFollowup()" title="Follow-up IA — reengajamento automático" data-feat="followup"><i class="bi bi-robot"></i></a>
-      <a href="#" onclick="event.preventDefault();abrirTemas()" title="Tema visual"><i class="bi bi-palette-fill"></i></a>
-      <a href="#" id="railTemplates" onclick="event.preventDefault();abrirTemplates()" title="Templates HSM (Meta)" data-feat="templates"><i class="bi bi-tag-fill"></i></a>
-      <a href="#" id="railAtendentes" onclick="event.preventDefault();abrirAtendentes()" title="Gerenciar atendentes (ADM vê só da conta)" data-admin><i class="bi bi-people-fill"></i></a>
-      <a href="#" id="railFila" onclick="event.preventDefault();abrirFila()" title="Fila de distribuição" data-admin><i class="bi bi-shuffle"></i></a>
-      <a href="#" id="railMotivos" onclick="event.preventDefault();abrirMotivos()" title="Motivos de fechamento" data-admin><i class="bi bi-tags-fill"></i></a>
-      <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-admin data-feat="finalizar_antigas"><i class="bi bi-eraser-fill"></i></a>
-      <a href="#" id="railEncerramento" onclick="event.preventDefault();abrirConfigEncerramento()" title="Template automático ao finalizar conversa" data-admin><i class="bi bi-send-check-fill"></i></a>
-      <a href="vapo.html" id="railVapo" title="VAPO — leads que passaram do tempo sem resposta e foram realocados" data-admin data-feat="vapo"><i class="bi bi-exclamation-octagon-fill"></i></a>
-      <a href="limpeza.html" id="railLimpeza" title="Limpar banco — apagar conversas finalizadas antigas (só SUPER)" data-super data-feat="limpeza"><i class="bi bi-database-fill-x"></i></a>
-      <a href="ia-teste.html" id="railIaTeste" title="IA de Teste — conversar com a IA Black Friday (prompt hardcoded no n8n)" data-admin data-feat="ia_teste"><i class="bi bi-robot"></i></a>
-      <a href="ia-teste-retencao.html" id="railIaTesteRetencao" title="IA de Teste Retencao — conversar com a IA de Retencao (prompt hardcoded no n8n)" data-admin data-feat="ia_teste_retencao"><i class="bi bi-shield-check"></i></a>
-      <a href="ia-auto.html" id="railIaAuto" title="IA Automatica — telefones em que a IA responde sozinha pelo WhatsApp" data-admin data-feat="ia_auto"><i class="bi bi-cpu-fill"></i></a>
-      <a href="#" id="railAdminLink" onclick="event.preventDefault();abrirAdminLink()" title="Empurrar atualização (só SUPER)" data-super><i class="bi bi-megaphone-fill"></i></a>
-      <a href="#" id="railPermissoes" onclick="event.preventDefault();abrirPermissoes()" title="Permissões (só SUPER)" data-super><i class="bi bi-toggle-on"></i></a>
-      <a href="#" id="railContas" onclick="event.preventDefault();abrirContas()" title="Gerenciar contas / números WhatsApp" data-admin><i class="bi bi-gear-fill"></i></a>
-      <a href="#" onclick="event.preventDefault();sair()" class="sair" title="Sair"><i class="bi bi-box-arrow-right"></i></a>
+      <a href="#" id="railRetornos" onclick="event.preventDefault();abrirRetornosDashboard()" title="Meus retornos agendados" data-label="Retornos" data-feat="retorno"><i class="bi bi-calendar-check"></i></a>
+      <a href="disparos.html" id="railDisparos" title="Disparos em massa (Meta templates)" data-label="Disparos em massa" data-feat="disparos"><i class="bi bi-megaphone-fill"></i></a>
+      <a href="consulta.html" id="railConsulta" title="Consultar contatos (quais já têm chat)" data-label="Consultar contato" data-feat="consulta"><i class="bi bi-search"></i></a>
+      <a href="triagem.html" id="railTriagem" title="Configurar triagem IA" data-label="Triagem IA" data-feat="triagem"><i class="bi bi-funnel-fill"></i></a>
+      <a href="respostas.html" id="railRespostas" title="Respostas rápidas (digite / no chat)" data-label="Respostas rápidas" data-feat="respostas"><i class="bi bi-lightning-charge-fill"></i></a>
+      <a href="funil.html" id="railFunil" title="Funil de conversas (quente/morna/fria)" data-label="Funil de conversas" data-feat="funil"><i class="bi bi-columns-gap"></i></a>
+      <a href="matriculas.html" id="railMatriculas" title="Base de alunos matriculados" data-label="Matrículas" data-feat="matriculas"><i class="bi bi-mortarboard-fill"></i></a>
+      <a href="gestao.html" id="railGestao" title="Painel de gestão (só SUPER)" data-label="Painel de gestão" data-super><i class="bi bi-graph-up-arrow"></i></a>
+      <a href="#" id="railFollowup" onclick="event.preventDefault();abrirFollowup()" title="Follow-up IA — reengajamento automático" data-label="Follow-up IA" data-feat="followup"><i class="bi bi-robot"></i></a>
+      <a href="#" onclick="event.preventDefault();abrirTemas()" title="Tema visual" data-label="Tema visual"><i class="bi bi-palette-fill"></i></a>
+      <a href="#" id="railTemplates" onclick="event.preventDefault();abrirTemplates()" title="Templates HSM (Meta)" data-label="Templates HSM" data-feat="templates"><i class="bi bi-tag-fill"></i></a>
+      <a href="#" id="railAtendentes" onclick="event.preventDefault();abrirAtendentes()" title="Gerenciar atendentes (ADM vê só da conta)" data-label="Atendentes" data-admin><i class="bi bi-people-fill"></i></a>
+      <a href="#" id="railFila" onclick="event.preventDefault();abrirFila()" title="Fila de distribuição" data-label="Fila de distribuição" data-admin><i class="bi bi-shuffle"></i></a>
+      <a href="#" id="railMotivos" onclick="event.preventDefault();abrirMotivos()" title="Motivos de fechamento" data-label="Motivos de fechamento" data-admin><i class="bi bi-tags-fill"></i></a>
+      <a href="#" id="railLimpar" onclick="event.preventDefault();abrirFinalizarAntigas()" title="Finalizar conversas antigas (limpeza em massa)" data-label="Finalizar em massa" data-admin data-feat="finalizar_antigas"><i class="bi bi-eraser-fill"></i></a>
+      <a href="#" id="railEncerramento" onclick="event.preventDefault();abrirConfigEncerramento()" title="Template automático ao finalizar conversa" data-label="Msg de encerramento" data-admin><i class="bi bi-send-check-fill"></i></a>
+      <a href="vapo.html" id="railVapo" title="VAPO — leads que passaram do tempo sem resposta e foram realocados" data-label="VAPO (realocados)" data-admin data-feat="vapo"><i class="bi bi-exclamation-octagon-fill"></i></a>
+      <a href="limpeza.html" id="railLimpeza" title="Limpar banco — apagar conversas finalizadas antigas (só SUPER)" data-label="Limpar banco" data-super data-feat="limpeza"><i class="bi bi-database-fill-x"></i></a>
+      <a href="ia-teste.html" id="railIaTeste" title="IA de Teste — conversar com a IA Black Friday (prompt hardcoded no n8n)" data-label="IA Teste Black Friday" data-admin data-feat="ia_teste"><i class="bi bi-robot"></i></a>
+      <a href="ia-teste-retencao.html" id="railIaTesteRetencao" title="IA de Teste Retencao — conversar com a IA de Retencao (prompt hardcoded no n8n)" data-label="IA Teste Retenção" data-admin data-feat="ia_teste_retencao"><i class="bi bi-shield-check"></i></a>
+      <a href="ia-auto.html" id="railIaAuto" title="IA Automatica — telefones em que a IA responde sozinha pelo WhatsApp" data-label="IA Automática" data-admin data-feat="ia_auto"><i class="bi bi-cpu-fill"></i></a>
+      <a href="#" id="railAdminLink" onclick="event.preventDefault();abrirAdminLink()" title="Empurrar atualização (só SUPER)" data-label="Empurrar atualização" data-super><i class="bi bi-megaphone-fill"></i></a>
+      <a href="#" id="railPermissoes" onclick="event.preventDefault();abrirPermissoes()" title="Permissões (só SUPER)" data-label="Permissões" data-super><i class="bi bi-toggle-on"></i></a>
+      <a href="#" id="railContas" onclick="event.preventDefault();abrirContas()" title="Gerenciar contas / números WhatsApp" data-label="Contas WhatsApp" data-admin><i class="bi bi-gear-fill"></i></a>
+      <a href="#" onclick="event.preventDefault();sair()" class="sair" title="Sair" data-label="Sair"><i class="bi bi-box-arrow-right"></i></a>
     </div>
   </div>
 
