@@ -1,20 +1,17 @@
-// Cron de disparos agendados: a cada 30s procura campanhas com
-// status='agendado' AND quando_agendar <= NOW() e enfileira as msgs
-// pendentes delas no pg-boss.
+// Cron de disparos: a cada 30s
+// 1) Ativa campanhas agendadas cujo horario chegou (agendado -> em_andamento)
+// 2) Processa as msgs pendentes DIRETO em-processo (sem pg-boss)
 //
-// Sem este cron, uma campanha agendada ficava para sempre em 'agendado'
-// e 0/N porque o create-route soh enfileira quando NAO esta agendado.
-//
-// Tambem faz safety-net: campanhas em_andamento com msgs pendentes que
-// nao tem job na fila (ex: perdeu redeploy mid-processamento) sao
-// reenfileiradas.
+// Antes dependia do pg-boss, que estava jogando ERR_INVALID_ARG_TYPE
+// neste ambiente. Agora chama o worker direto igual o botao retry.
 
 import { query } from '../services/db.js';
-import { getBoss, QUEUES } from '../services/queue.js';
 import { hasDb } from '../config.js';
+import { processarJobDisparos } from '../workers/disparos.worker.js';
 
 const INTERVAL_MS = parseInt(process.env.AGENDADOS_DISPARAR_INTERVAL_MS || '30000', 10);
-const LOTE_MAX = parseInt(process.env.AGENDADOS_DISPARAR_LOTE_MAX || '2000', 10);
+// Quantos msgs processar por tick (0.5-2s cada). 100 = ~1-3min por tick.
+const LOTE_MAX = parseInt(process.env.AGENDADOS_DISPARAR_LOTE_MAX || '100', 10);
 
 export function startAgendadosDisparar(fastify) {
   if (!hasDb()) {
@@ -27,12 +24,6 @@ export function startAgendadosDisparar(fastify) {
     if (rodando) return;
     rodando = true;
     try {
-      const boss = await getBoss().catch(() => null);
-      if (!boss) {
-        // pg-boss nao iniciou — pula tick, tenta de novo
-        return;
-      }
-
       // 1) Ativa campanhas agendadas cujo horario chegou: agendado -> em_andamento
       const ativar = await query(
         `UPDATE chat_disparos
@@ -50,11 +41,13 @@ export function startAgendadosDisparar(fastify) {
         fastify.log.info(`[agendados-disparar] ativou campanha ${c.codigo} (${c.nome}) — ${c.total_msgs} msgs`);
       }
 
-      // 2) Enfileira as msgs pendentes de TODA campanha em_andamento.
-      // Usa singletonKey = msg_id pra evitar duplicacao: se ja ha job
-      // ativo pra esse msg_id, pg-boss recusa o send (retorna null).
-      // Isso cobre tanto campanhas recem-ativadas (passo 1) quanto
-      // campanhas antigas presas sem jobs na fila (ex: perdeu redeploy).
+      // 2) Resseta msgs em_envio presas (>2min) de volta pra pendente
+      await query(
+        `UPDATE chat_disparos_msgs SET status='pendente'
+         WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
+      ).catch(() => {});
+
+      // 3) Pega lote de pendentes e processa DIRETO em-processo (sem pg-boss)
       const pend = await query(
         `SELECT m.id, m.campanha_id
          FROM chat_disparos_msgs m
@@ -66,18 +59,19 @@ export function startAgendadosDisparar(fastify) {
         [LOTE_MAX]
       ).catch(() => ({ rows: [] }));
 
-      let enq = 0;
+      if (!pend.rows.length) return;
+
+      let ok = 0, erro = 0;
       for (const r of pend.rows) {
         try {
-          await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
-          enq++;
+          const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
+          if (result && result.ok) ok++; else erro++;
         } catch (err) {
-          fastify.log.error(`[agendados-disparar] erro send msg ${r.id}: ${err.message}`);
+          erro++;
+          fastify.log.error(`[agendados-disparar] msg ${r.id}: ${err.message}`);
         }
       }
-      if (enq) {
-        fastify.log.info(`[agendados-disparar] enfileirou ${enq} msgs pendentes`);
-      }
+      fastify.log.info(`[agendados-disparar] processou ${ok} ok / ${erro} erro`);
     } catch (err) {
       fastify.log.error('[agendados-disparar] tick: ' + err.message);
     } finally {

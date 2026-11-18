@@ -9,7 +9,7 @@ export default async function healthRoutes(fastify) {
     uptime_s: Math.round(process.uptime()),
     dry_run: config.dryRun,
     has_db: hasDb(),
-    build_marker: 'retry-background-v4',
+    build_marker: 'cron-bypass-pgboss-v5',
     timestamp: new Date().toISOString(),
   }));
 
