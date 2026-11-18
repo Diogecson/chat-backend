@@ -97,6 +97,48 @@ export async function desligarSeHumano(conta_id, telefone, usuario) {
   }
 }
 
+// Heuristica: o texto do cliente parece ter preenchido o formulario?
+// A IA pede: Nome, CPF, RG, Estado civil, Data de nascimento, Endereco,
+// No da casa, Bairro, Cidade, CEP, Telefone, E-mail, Curso, Vencimento.
+// Se vier 4+ marcadores no texto, consideramos "dados enviados".
+export function pareceFormulario(texto) {
+  if (!texto) return false;
+  const t = String(texto).toLowerCase();
+  const marks = [
+    'cpf', 'rg', 'cep', 'estado civil', 'endereço', 'endereco',
+    'bairro', 'nascimento', 'vencimento', 'e-mail', 'email',
+    'curso', 'nº da casa', 'numero da casa', 'n° da casa',
+  ];
+  let count = 0;
+  for (const m of marks) if (t.includes(m)) count++;
+  return count >= 4;
+}
+
+// Marca dados_enviados=true no chat_ia_auto se o texto parecer o
+// formulario preenchido. Idempotente. Nao insere linha nova — so
+// atualiza se a linha existir (telefone ja esta na lista da IA).
+export async function marcarDadosSePareceFormulario(conta_id, telefone, texto) {
+  if (!hasDb() || !conta_id || !telefone) return false;
+  if (!pareceFormulario(texto)) return false;
+  try {
+    const r = await query(
+      `UPDATE chat_ia_auto
+       SET dados_enviados=true,
+           dados_enviados_em=COALESCE(dados_enviados_em, NOW())
+       WHERE conta_id=$1 AND telefone=$2 AND dados_enviados=false
+       RETURNING telefone`,
+      [conta_id, telefone]
+    );
+    if (r.rows.length) {
+      console.log(`[ia-auto] ${conta_id}/${telefone} dados_enviados=true (heuristica formulario)`);
+      return true;
+    }
+  } catch (err) {
+    console.error('[ia-auto] marcarDadosSePareceFormulario', err.message);
+  }
+  return false;
+}
+
 // Chamado pelo inbound depois de inserir a msg no banco
 export async function processarInboundIa(fastify, { conta_id, telefone, texto, tipo }) {
   if (!hasDb()) return;
@@ -224,6 +266,43 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
 
 export default async function iaAutoRoutes(fastify) {
   await ensureTable();
+
+  // Backfill: varre chat_mensagens IN e marca dados_enviados nos leads
+  // cuja mensagem parece formulario. Util pra contar casos anteriores
+  // ao deploy desta logica.
+  fastify.post('/webhook/chat-ia-auto-recontar-dados', async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem db' });
+    try {
+      const telsRows = await query(
+        `SELECT conta_id, telefone FROM chat_ia_auto WHERE dados_enviados=false`
+      );
+      let marcados = 0;
+      for (const t of telsRows.rows) {
+        const msgs = await query(
+          `SELECT texto FROM chat_mensagens
+           WHERE conta_id=$1 AND telefone=$2 AND direcao='in' AND tipo='text'
+           ORDER BY timestamp DESC LIMIT 20`,
+          [t.conta_id, t.telefone]
+        );
+        let bateu = false;
+        for (const m of msgs.rows) {
+          if (pareceFormulario(m.texto)) { bateu = true; break; }
+        }
+        if (bateu) {
+          await query(
+            `UPDATE chat_ia_auto
+             SET dados_enviados=true, dados_enviados_em=COALESCE(dados_enviados_em, NOW())
+             WHERE conta_id=$1 AND telefone=$2`,
+            [t.conta_id, t.telefone]
+          );
+          marcados++;
+        }
+      }
+      return { ok: true, varridos: telsRows.rows.length, marcados };
+    } catch (err) {
+      return reply.code(500).send({ ok: false, erro: err.message });
+    }
+  });
 
   // Lista telefones (ativos primeiro)
   fastify.get('/webhook/chat-ia-auto-list', async (req) => {

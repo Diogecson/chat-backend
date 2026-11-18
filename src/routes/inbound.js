@@ -5,7 +5,7 @@
 // pesado (download de midia) roda APOS a resposta (fire-and-forget).
 import { query } from '../services/db.js';
 import { hasDb, config } from '../config.js';
-import { processarInboundIa } from './ia-auto.js';
+import { processarInboundIa, marcarDadosSePareceFormulario } from './ia-auto.js';
 
 const META_VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'unifecaf';
 
@@ -209,6 +209,10 @@ export default async function inboundRoutes(fastify) {
                 texto: r.texto,
                 tipo: r.tipo,
               }).catch(err => console.error('[inbound->ia-auto]', err.message));
+              // Marca dados_enviados mesmo se a IA ja estiver desligada
+              // (lead pode mandar o form depois de humano assumir)
+              marcarDadosSePareceFormulario(r.conta_id, r.telefone, r.texto)
+                .catch(err => console.error('[inbound->dados-form]', err.message));
             });
           }
         }

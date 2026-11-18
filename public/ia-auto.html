@@ -120,7 +120,7 @@ tr:hover{background:#fbfcfe}
   <div class="kpis">
     <div class="kpi ok"><div class="kpi-lbl">Ativos</div><div class="kpi-val" id="kpiAtivos">0</div></div>
     <div class="kpi"><div class="kpi-lbl">Desligados</div><div class="kpi-val" id="kpiDesligados">0</div></div>
-    <div class="kpi"><div class="kpi-lbl">Dados enviados</div><div class="kpi-val" id="kpiDados" style="color:#f59e0b">0</div></div>
+    <div class="kpi" style="cursor:pointer" onclick="recontarDados()" title="Clique pra varrer o historico e remarcar"><div class="kpi-lbl">Dados enviados <i class="bi bi-arrow-clockwise" style="font-size:.6rem;opacity:.6"></i></div><div class="kpi-val" id="kpiDados" style="color:#f59e0b">0</div></div>
     <div class="kpi"><div class="kpi-lbl">Total cadastrados</div><div class="kpi-val" id="kpiTotal">0</div></div>
   </div>
 
@@ -350,6 +350,17 @@ async function limparLog(){
     if(!j.ok){ alert('Falha: '+(j.erro||'desconhecido')); return; }
     // Recarrega o log (vai ficar vazio)
     verLog(_logContaId, _logTel);
+  }catch(err){ alert('Erro: '+err.message); }
+}
+
+async function recontarDados(){
+  if(!confirm('Varrer o historico de todos os leads e remarcar "Dados enviados" onde o cliente mandou o formulario? Isso pode levar alguns segundos.')) return;
+  try{
+    const r = await fetch('/webhook/chat-ia-auto-recontar-dados', { method:'POST' });
+    const j = await r.json();
+    if(!j.ok){ alert('Falha: '+(j.erro||'desconhecido')); return; }
+    alert(`Varridos: ${j.varridos}. Marcados agora: ${j.marcados}.`);
+    carregar();
   }catch(err){ alert('Erro: '+err.message); }
 }
 
