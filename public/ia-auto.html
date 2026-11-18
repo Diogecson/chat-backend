@@ -120,6 +120,7 @@ tr:hover{background:#fbfcfe}
   <div class="kpis">
     <div class="kpi ok"><div class="kpi-lbl">Ativos</div><div class="kpi-val" id="kpiAtivos">0</div></div>
     <div class="kpi"><div class="kpi-lbl">Desligados</div><div class="kpi-val" id="kpiDesligados">0</div></div>
+    <div class="kpi"><div class="kpi-lbl">Dados enviados</div><div class="kpi-val" id="kpiDados" style="color:#f59e0b">0</div></div>
     <div class="kpi"><div class="kpi-lbl">Total cadastrados</div><div class="kpi-val" id="kpiTotal">0</div></div>
   </div>
 
@@ -236,8 +237,10 @@ async function carregar(){
     const j = await r.json();
     const rows = j.rows || [];
     const ativos = rows.filter(r => r.ativo).length;
+    const dados = rows.filter(r => r.dados_enviados).length;
     document.getElementById('kpiAtivos').textContent = ativos;
     document.getElementById('kpiDesligados').textContent = rows.length - ativos;
+    document.getElementById('kpiDados').textContent = dados;
     document.getElementById('kpiTotal').textContent = rows.length;
     if(!rows.length){
       tbody.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum telefone cadastrado. Adicione o primeiro acima.</td></tr>';

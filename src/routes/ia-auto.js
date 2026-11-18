@@ -31,6 +31,10 @@ export async function ensureTable() {
         PRIMARY KEY (conta_id, telefone)
       )
     `);
+    // dados_enviados: flag ligado quando a IA encaminha o lead via tag
+    // (significa que o cliente mandou os dados do formulario)
+    await query(`ALTER TABLE chat_ia_auto ADD COLUMN IF NOT EXISTS dados_enviados boolean NOT NULL DEFAULT false`);
+    await query(`ALTER TABLE chat_ia_auto ADD COLUMN IF NOT EXISTS dados_enviados_em timestamptz`);
     await query(`
       CREATE TABLE IF NOT EXISTS chat_ia_auto_log (
         id            BIGSERIAL PRIMARY KEY,
@@ -174,8 +178,14 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
   // Se pediu encaminhamento: desliga auto + joga pra fila humana
   if (encaminhar) {
     try {
+      // dados_enviados=true marca que a IA qualificou/coletou dados
+      // (encaminhou via tag, nao por humano assumir)
       await query(
-        `UPDATE chat_ia_auto SET ativo=false WHERE conta_id=$1 AND telefone=$2`,
+        `UPDATE chat_ia_auto
+         SET ativo=false,
+             dados_enviados=true,
+             dados_enviados_em=COALESCE(dados_enviados_em, NOW())
+         WHERE conta_id=$1 AND telefone=$2`,
         [conta_id, telefone]
       );
       const prox = await fastify.inject({
