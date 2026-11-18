@@ -739,6 +739,11 @@ async function carregarCampanhas(){
         : (podeRetomar
           ? `<button class="btn btn-success" onclick="retomarCampanha('${escapeHtml(c.codigo)}')" title="Retomar disparo" style="margin-right:4px"><i class="bi bi-play-fill"></i></button>`
           : '');
+      // Botao "tentar novamente" pra campanha presa (em_andamento com progresso <100%)
+      const temPendente = (c.status === 'em_andamento' || c.status === 'agendado') && (enviadas+falharam) < total;
+      const btnRetry = temPendente
+        ? `<button class="btn btn-secondary" onclick="reenfileirar('${escapeHtml(c.codigo)}')" title="Reenfileirar mensagens pendentes (destrava campanha)" style="margin-right:4px"><i class="bi bi-arrow-clockwise"></i></button>`
+        : '';
       const corMat = matriculas > 0 ? '#16a34a' : '#94a3b8';
       const corPerda = perdas > 0 ? '#dc2626' : '#94a3b8';
       const corConv = Number(convPct) >= 5 ? '#16a34a' : (Number(convPct) >= 1 ? '#c78100' : '#94a3b8');
@@ -757,7 +762,7 @@ async function carregarCampanhas(){
         <td style="text-align:center;font-weight:700;color:${corMat}"><i class="bi bi-mortarboard-fill" style="font-size:.85rem"></i> ${matriculas}</td>
         <td style="text-align:center;font-weight:700;color:${corPerda}"><i class="bi bi-x-circle-fill" style="font-size:.85rem"></i> ${perdas}</td>
         <td style="text-align:center;font-weight:700;color:${corConv}">${convPct}%</td>
-        <td style="white-space:nowrap">${btnPulados}${btnPausa}${podeCanc?`<button class="btn btn-danger" onclick="cancelar('${escapeHtml(c.codigo)}')" title="Cancelar"><i class="bi bi-x-lg"></i></button>`:''}</td>
+        <td style="white-space:nowrap">${btnPulados}${btnRetry}${btnPausa}${podeCanc?`<button class="btn btn-danger" onclick="cancelar('${escapeHtml(c.codigo)}')" title="Cancelar"><i class="bi bi-x-lg"></i></button>`:''}</td>
       </tr>`;
     }).join('');
     window.__camps_cache = camps;
@@ -813,6 +818,16 @@ async function retomarCampanha(campanha){
     const r = await api(URL_BASE + '/webhook/chat-disparos-pausar', {method:'POST', bodyObj:{campanha, acao:'retomar'}});
     if(r.ok){ toast('Campanha retomada. Cron voltará a enviar.',''); carregarCampanhas(); }
     else toast('Erro: '+(r.erro||'servidor'),'err');
+  }catch(e){ toast('Erro: '+e.message,'err'); }
+}
+
+async function reenfileirar(codigo){
+  try{
+    const r = await api(URL_BASE + '/webhook/chat-disparos-reenfileirar', {method:'POST', bodyObj:{campanha_codigo: codigo}});
+    if(r.ok){
+      toast(`Reenfileirou ${r.enfileiradas||0} msg(s). ${r.ja_na_fila?`(${r.ja_na_fila} já na fila)`:''}`,'');
+      carregarCampanhas();
+    } else toast('Erro: '+(r.erro||r.error||'servidor'),'err');
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 

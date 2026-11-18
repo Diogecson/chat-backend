@@ -226,36 +226,55 @@ export default async function disparosRoutes(fastify) {
     }
   });
 
-  // POST /api/disparos/reenfileirar — pega msgs pendentes e enfileira no pg-boss
-  // (útil pra campanhas criadas antes do fix do pg-boss createQueue)
-  fastify.post('/disparos/reenfileirar', async (req, reply) => {
+  // Handler compartilhado por /disparos/reenfileirar e /webhook/chat-disparos-reenfileirar.
+  // Agora resseta msgs presas em 'em_envio' pra 'pendente' antes de enfileirar
+  // (cobre casos em que o worker morreu no meio do processamento).
+  const handlerReenfileirar = async (req, reply) => {
     if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
     const codigo = req.body?.campanha_codigo;
-    const sql = codigo
-      ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-         JOIN chat_disparos c ON c.codigo = m.campanha_id
-         WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-           AND m.campanha_id=$1
-         LIMIT 1000`
-      : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-         JOIN chat_disparos c ON c.codigo = m.campanha_id
-         WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-         LIMIT 1000`;
     try {
+      // 1) Destrava em_envio antigo -> pendente
+      if (codigo) {
+        await query(
+          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND campanha_id=$1`,
+          [codigo]
+        );
+      } else {
+        await query(
+          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
+        );
+      }
+      // 2) Pega pendentes
+      const sql = codigo
+        ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+           JOIN chat_disparos c ON c.codigo = m.campanha_id
+           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+             AND m.campanha_id=$1
+           LIMIT 1000`
+        : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+           JOIN chat_disparos c ON c.codigo = m.campanha_id
+           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+           LIMIT 1000`;
       const res = await query(sql, codigo ? [codigo] : []);
       const boss = await getBoss();
       if (!boss) return reply.code(503).send({ ok: false, erro: 'pg-boss não iniciou' });
-      let enq = 0;
+      let enq = 0, dup = 0;
       for (const r of res.rows) {
-        await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
-        enq++;
+        const jobId = await boss.send(
+          QUEUES.DISPAROS,
+          { msg_id: r.id, campanha_id: r.campanha_id },
+          { singletonKey: 'msg_' + r.id }
+        );
+        if (jobId) enq++; else dup++;
       }
-      return { ok: true, enfileiradas: enq };
+      return { ok: true, enfileiradas: enq, ja_na_fila: dup };
     } catch (err) {
       reply.code(500);
       return { ok: false, error: err.message };
     }
-  });
+  };
+  fastify.post('/disparos/reenfileirar', handlerReenfileirar);
+  fastify.post('/webhook/chat-disparos-reenfileirar', handlerReenfileirar);
 
   // POST /api/disparos/:codigo/cancelar
   fastify.post('/disparos/:codigo/cancelar', async (req, reply) => {
