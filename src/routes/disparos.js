@@ -1,6 +1,7 @@
 import { query, getPool } from '../services/db.js';
 import { getBoss, QUEUES } from '../services/queue.js';
 import { hasDb } from '../config.js';
+import { processarJobDisparos } from '../workers/disparos.worker.js';
 
 function generateCodigo() {
   return 'disp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
@@ -260,16 +261,18 @@ export default async function disparosRoutes(fastify) {
       // 2) Pega pendentes
       let rows = [];
       try {
+        // Cap em 20 por chamada HTTP pra nao dar timeout; usuario clica
+        // de novo pros proximos 20. O cron agendados-disparar tambem pega.
         const sql = codigo
           ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
              JOIN chat_disparos c ON c.codigo = m.campanha_id
              WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
                AND m.campanha_id=$1
-             LIMIT 1000`
+             LIMIT 20`
           : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
              JOIN chat_disparos c ON c.codigo = m.campanha_id
              WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-             LIMIT 1000`;
+             LIMIT 20`;
         const res = await query(sql, codigo ? [codigo] : []);
         rows = res.rows || [];
         trace.push('pendentes=' + rows.length);
@@ -279,34 +282,23 @@ export default async function disparosRoutes(fastify) {
         return { ok: false, erro: 'select: ' + e.message, trace };
       }
 
-      // 3) Enfileira no pg-boss
-      let boss = null;
-      try {
-        boss = await getBoss();
-        trace.push('boss=' + (boss ? 'ok' : 'null'));
-      } catch (e) {
-        trace.push('getBoss-falhou: ' + e.message);
-        reply.code(500);
-        return { ok: false, erro: 'getBoss: ' + e.message, trace };
-      }
-      if (!boss) {
-        reply.code(503);
-        return { ok: false, erro: 'pg-boss não iniciou (QUEUE_DATABASE_URL vazio?)', trace };
-      }
-
+      // 3) Processa DIRETO em-processo (sem pg-boss) — mais confiavel
+      // e ja retorna o resultado de cada envio pra UI mostrar progresso.
       let enq = 0, err_count = 0;
       let last_err = '';
       for (const r of rows) {
         try {
-          await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
-          enq++;
+          const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
+          if (result && result.ok) enq++;
+          else { err_count++; last_err = (result && result.error) || 'nao_pendente'; }
         } catch (e) {
           err_count++;
           last_err = e.message;
+          console.error(`[reenfileirar] erro processar msg ${r.id}:`, e.message);
         }
       }
-      trace.push('enfileirou=' + enq + ' erros=' + err_count);
-      return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro_send: last_err, trace };
+      trace.push('enviadas=' + enq + ' erros=' + err_count);
+      return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro: last_err, trace };
     } catch (err) {
       console.error('[reenfileirar] exception externa:', err.message, err.stack);
       reply.code(500);
