@@ -145,6 +145,82 @@ export async function handleDisparoCriar(req, reply) {
     }
 }
 
+// Exportado standalone pra ser usado por aliases.js (rota /webhook/...).
+// Resetta msgs em_envio -> pendente e processa ate 20 msgs em-processo
+// chamando o worker direto, sem passar pelo pg-boss.
+export async function handleDisparoReenfileirar(req, reply) {
+  const trace = [];
+  try {
+    trace.push('start');
+    if (!hasDb()) {
+      reply.code(503);
+      return { ok: false, erro: 'DATABASE_URL não configurado', trace };
+    }
+    const codigo = req.body?.campanha_codigo || null;
+    trace.push('codigo=' + codigo);
+
+    // 1) Destrava em_envio antigo -> pendente
+    try {
+      if (codigo) {
+        await query(
+          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND campanha_id=$1`,
+          [codigo]
+        );
+      } else {
+        await query(
+          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
+        );
+      }
+      trace.push('destravou');
+    } catch (e) {
+      trace.push('destravar-falhou: ' + e.message);
+    }
+
+    // 2) Pega ate 20 pendentes (cap pra nao estourar HTTP timeout)
+    let rows = [];
+    try {
+      const sql = codigo
+        ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+           JOIN chat_disparos c ON c.codigo = m.campanha_id
+           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+             AND m.campanha_id=$1
+           LIMIT 20`
+        : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+           JOIN chat_disparos c ON c.codigo = m.campanha_id
+           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+           LIMIT 20`;
+      const res = await query(sql, codigo ? [codigo] : []);
+      rows = res.rows || [];
+      trace.push('pendentes=' + rows.length);
+    } catch (e) {
+      trace.push('select-falhou: ' + e.message);
+      reply.code(500);
+      return { ok: false, erro: 'select: ' + e.message, trace };
+    }
+
+    // 3) Processa cada msg em-processo (sem pg-boss)
+    let enq = 0, err_count = 0;
+    let last_err = '';
+    for (const r of rows) {
+      try {
+        const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
+        if (result && result.ok) enq++;
+        else { err_count++; last_err = (result && result.error) || 'nao_pendente'; }
+      } catch (e) {
+        err_count++;
+        last_err = e.message;
+        console.error(`[reenfileirar] erro processar msg ${r.id}:`, e.message);
+      }
+    }
+    trace.push('enviadas=' + enq + ' erros=' + err_count);
+    return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro: last_err, trace };
+  } catch (err) {
+    console.error('[reenfileirar] exception externa:', err.message, err.stack);
+    reply.code(500);
+    return { ok: false, erro: err.message, trace };
+  }
+}
+
 export default async function disparosRoutes(fastify) {
   // POST /api/disparos/criar
   fastify.post('/disparos/criar', handleDisparoCriar);
@@ -227,86 +303,10 @@ export default async function disparosRoutes(fastify) {
     }
   });
 
-  // Handler compartilhado por /disparos/reenfileirar e /webhook/chat-disparos-reenfileirar.
-  // Agora resseta msgs presas em 'em_envio' pra 'pendente' antes de enfileirar
-  // (cobre casos em que o worker morreu no meio do processamento).
-  const handlerReenfileirar = async (req, reply) => {
-    const trace = [];
-    try {
-      trace.push('start');
-      if (!hasDb()) {
-        reply.code(503);
-        return { ok: false, erro: 'DATABASE_URL não configurado', trace };
-      }
-      const codigo = req.body?.campanha_codigo || null;
-      trace.push('codigo=' + codigo);
-
-      // 1) Destrava em_envio antigo -> pendente
-      try {
-        if (codigo) {
-          await query(
-            `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND campanha_id=$1`,
-            [codigo]
-          );
-        } else {
-          await query(
-            `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
-          );
-        }
-        trace.push('destravou');
-      } catch (e) {
-        trace.push('destravar-falhou: ' + e.message);
-      }
-
-      // 2) Pega pendentes
-      let rows = [];
-      try {
-        // Cap em 20 por chamada HTTP pra nao dar timeout; usuario clica
-        // de novo pros proximos 20. O cron agendados-disparar tambem pega.
-        const sql = codigo
-          ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-             JOIN chat_disparos c ON c.codigo = m.campanha_id
-             WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-               AND m.campanha_id=$1
-             LIMIT 20`
-          : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-             JOIN chat_disparos c ON c.codigo = m.campanha_id
-             WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-             LIMIT 20`;
-        const res = await query(sql, codigo ? [codigo] : []);
-        rows = res.rows || [];
-        trace.push('pendentes=' + rows.length);
-      } catch (e) {
-        trace.push('select-falhou: ' + e.message);
-        reply.code(500);
-        return { ok: false, erro: 'select: ' + e.message, trace };
-      }
-
-      // 3) Processa DIRETO em-processo (sem pg-boss) — mais confiavel
-      // e ja retorna o resultado de cada envio pra UI mostrar progresso.
-      let enq = 0, err_count = 0;
-      let last_err = '';
-      for (const r of rows) {
-        try {
-          const result = await processarJobDisparos({ data: { msg_id: r.id, campanha_id: r.campanha_id } });
-          if (result && result.ok) enq++;
-          else { err_count++; last_err = (result && result.error) || 'nao_pendente'; }
-        } catch (e) {
-          err_count++;
-          last_err = e.message;
-          console.error(`[reenfileirar] erro processar msg ${r.id}:`, e.message);
-        }
-      }
-      trace.push('enviadas=' + enq + ' erros=' + err_count);
-      return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro: last_err, trace };
-    } catch (err) {
-      console.error('[reenfileirar] exception externa:', err.message, err.stack);
-      reply.code(500);
-      return { ok: false, erro: err.message, trace };
-    }
-  };
-  fastify.post('/disparos/reenfileirar', handlerReenfileirar);
-  fastify.post('/webhook/chat-disparos-reenfileirar', handlerReenfileirar);
+  fastify.post('/disparos/reenfileirar', handleDisparoReenfileirar);
+  // NOTA: o alias /webhook/chat-disparos-reenfileirar esta em aliases.js
+  // (este arquivo eh registrado com prefix '/api', entao o alias ia virar
+  // /api/webhook/... e cair no proxy pro n8n)
 
   // POST /api/disparos/:codigo/cancelar
   fastify.post('/disparos/:codigo/cancelar', async (req, reply) => {

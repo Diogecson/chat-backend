@@ -2,7 +2,7 @@
 // Cada rota aqui substitui 1 workflow n8n equivalente, direto no pg pool (muito mais rápido)
 import { query } from '../services/db.js';
 import { hasDb, config } from '../config.js';
-import { handleDisparoCriar } from './disparos.js';
+import { handleDisparoCriar, handleDisparoReenfileirar } from './disparos.js';
 
 function p(req, name, def = '') {
   const v = (req.body && req.body[name]) ?? req.query?.[name];
@@ -590,6 +590,10 @@ LIMIT 500`;
   // === chat-disparos-criar (criar campanha pelo painel de disparos.html) ===
   // Vai pro backend novo em vez do n8n → zero duplicação via pg-boss worker
   fastify.post('/webhook/chat-disparos-criar', handleDisparoCriar);
+
+  // === chat-disparos-reenfileirar (botao "tentar novamente" no painel) ===
+  // Resseta msgs em_envio->pendente e processa em-processo (sem pg-boss)
+  fastify.post('/webhook/chat-disparos-reenfileirar', handleDisparoReenfileirar);
 
   // === chat-disparos-list (lista campanhas) ===
   // Recalcula status/contadores antes de retornar — garante dados frescos.
