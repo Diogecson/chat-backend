@@ -184,10 +184,17 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
     return;
   }
 
-  // Detecta encaminhamento
+  // Detecta encaminhamento e finalizacao.
+  // [FINALIZAR_CHAT] tem prioridade sobre [ENCAMINHAR_CONSULTOR]:
+  // cliente que recusa de vez nao vai pra fila humana, so finaliza.
+  const finalizarMatch = saida.match(/\[FINALIZAR_CHAT\][\s\S]*$/i);
   const tagMatch = saida.match(/\[ENCAMINHAR_CONSULTOR\][\s\S]*$/i);
-  let textoLimpo = saida.replace(/\[ENCAMINHAR_CONSULTOR\][\s\S]*$/i, '').trim();
-  const encaminhar = !!tagMatch;
+  let textoLimpo = saida
+    .replace(/\[FINALIZAR_CHAT\][\s\S]*$/i, '')
+    .replace(/\[ENCAMINHAR_CONSULTOR\][\s\S]*$/i, '')
+    .trim();
+  const finalizar = !!finalizarMatch;
+  const encaminhar = !finalizar && !!tagMatch;
 
   // Envia resposta via chat-enviar interno (tudo que vem sem a tag)
   if (textoLimpo) {
@@ -260,6 +267,34 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
       }
     } catch (err) {
       console.error('[ia-auto] encaminhar falhou', err.message);
+    }
+  }
+
+  // Se pediu finalizacao: desliga auto + finaliza conversa (sem fila humana)
+  if (finalizar) {
+    try {
+      await query(
+        `UPDATE chat_ia_auto SET ativo=false WHERE conta_id=$1 AND telefone=$2`,
+        [conta_id, telefone]
+      );
+      await fastify.inject({
+        method: 'POST',
+        url: '/webhook/chat-conversa-finalizar',
+        headers: { 'Content-Type': 'application/json' },
+        payload: {
+          conta_id, telefone,
+          motivo_fechamento: 'cliente_nao_quer',
+          usuario: USUARIO_IA,
+          pular_template: 'true',
+        }
+      });
+      await query(
+        `INSERT INTO chat_ia_auto_log (conta_id, telefone, direcao, texto) VALUES ($1,$2,'encaminhado',$3)`,
+        [conta_id, telefone, 'finalizada pela IA (cliente_nao_quer)']
+      );
+      console.log(`[ia-auto] ${conta_id}/${telefone} finalizada pela IA (tag [FINALIZAR_CHAT])`);
+    } catch (err) {
+      console.error('[ia-auto] finalizar falhou', err.message);
     }
   }
 }
