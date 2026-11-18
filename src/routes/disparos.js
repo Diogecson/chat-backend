@@ -145,6 +145,53 @@ export async function handleDisparoCriar(req, reply) {
     }
 }
 
+// Cancela uma campanha e todas as msgs pendentes/em_envio dela
+export async function handleDisparoCancelar(req, reply) {
+  if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+  const codigo = req.body?.campanha || req.body?.campanha_codigo || req.params?.codigo;
+  if (!codigo) return reply.code(400).send({ ok: false, erro: 'campanha obrigatorio' });
+  try {
+    await query(`UPDATE chat_disparos SET status='cancelado', atualizado_em=NOW() WHERE codigo=$1`, [codigo]);
+    const r = await query(
+      `UPDATE chat_disparos_msgs SET status='cancelado', erro_msg='Cancelado manualmente'
+       WHERE campanha_id=$1 AND status IN ('pendente','em_envio')`,
+      [codigo]
+    );
+    return { ok: true, msgs_canceladas: r.rowCount };
+  } catch (err) {
+    console.error('[cancelar]', err.message);
+    reply.code(500);
+    return { ok: false, erro: err.message };
+  }
+}
+
+// Pausa/retoma: muda status entre 'em_andamento' <-> 'pausado'.
+// Worker e cron agendados-disparar NAO processam 'pausado'.
+export async function handleDisparoPausar(req, reply) {
+  if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
+  const codigo = req.body?.campanha || req.body?.campanha_codigo;
+  const acao = String(req.body?.acao || 'pausar').toLowerCase();
+  if (!codigo) return reply.code(400).send({ ok: false, erro: 'campanha obrigatorio' });
+  try {
+    if (acao === 'retomar') {
+      await query(
+        `UPDATE chat_disparos SET status='em_andamento', atualizado_em=NOW() WHERE codigo=$1 AND status='pausado'`,
+        [codigo]
+      );
+    } else {
+      await query(
+        `UPDATE chat_disparos SET status='pausado', atualizado_em=NOW() WHERE codigo=$1 AND status IN ('em_andamento','agendado')`,
+        [codigo]
+      );
+    }
+    return { ok: true, acao };
+  } catch (err) {
+    console.error('[pausar]', err.message);
+    reply.code(500);
+    return { ok: false, erro: err.message };
+  }
+}
+
 // Exportado standalone pra ser usado por aliases.js (rota /webhook/...).
 // Resetta msgs em_envio -> pendente e processa ate 20 msgs em-processo
 // chamando o worker direto, sem passar pelo pg-boss.
@@ -309,20 +356,5 @@ export default async function disparosRoutes(fastify) {
   // /api/webhook/... e cair no proxy pro n8n)
 
   // POST /api/disparos/:codigo/cancelar
-  fastify.post('/disparos/:codigo/cancelar', async (req, reply) => {
-    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
-    const { codigo } = req.params;
-    try {
-      await query(`UPDATE chat_disparos SET status='cancelado', atualizado_em=NOW() WHERE codigo=$1`, [codigo]);
-      const r = await query(
-        `UPDATE chat_disparos_msgs SET status='cancelado', erro_msg='Cancelado manualmente'
-         WHERE campanha_id=$1 AND status IN ('pendente','em_envio')`,
-        [codigo]
-      );
-      return { ok: true, msgs_canceladas: r.rowCount };
-    } catch (err) {
-      reply.code(500);
-      return { ok: false, error: err.message };
-    }
-  });
+  fastify.post('/disparos/:codigo/cancelar', handleDisparoCancelar);
 }

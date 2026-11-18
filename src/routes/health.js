@@ -9,7 +9,7 @@ export default async function healthRoutes(fastify) {
     uptime_s: Math.round(process.uptime()),
     dry_run: config.dryRun,
     has_db: hasDb(),
-    build_marker: 'retry-webhook-alias-fix-v2',
+    build_marker: 'disparos-webhooks-complete-v3',
     timestamp: new Date().toISOString(),
   }));
 
