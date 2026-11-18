@@ -230,49 +230,87 @@ export default async function disparosRoutes(fastify) {
   // Agora resseta msgs presas em 'em_envio' pra 'pendente' antes de enfileirar
   // (cobre casos em que o worker morreu no meio do processamento).
   const handlerReenfileirar = async (req, reply) => {
-    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'DATABASE_URL não configurado' });
-    const codigo = req.body?.campanha_codigo;
+    const trace = [];
     try {
-      // 1) Destrava em_envio antigo -> pendente
-      if (codigo) {
-        await query(
-          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND campanha_id=$1`,
-          [codigo]
-        );
-      } else {
-        await query(
-          `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
-        );
+      trace.push('start');
+      if (!hasDb()) {
+        reply.code(503);
+        return { ok: false, erro: 'DATABASE_URL não configurado', trace };
       }
+      const codigo = req.body?.campanha_codigo || null;
+      trace.push('codigo=' + codigo);
+
+      // 1) Destrava em_envio antigo -> pendente
+      try {
+        if (codigo) {
+          await query(
+            `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND campanha_id=$1`,
+            [codigo]
+          );
+        } else {
+          await query(
+            `UPDATE chat_disparos_msgs SET status='pendente' WHERE status='em_envio' AND enviado_em < NOW() - INTERVAL '2 minutes'`
+          );
+        }
+        trace.push('destravou');
+      } catch (e) {
+        trace.push('destravar-falhou: ' + e.message);
+      }
+
       // 2) Pega pendentes
-      const sql = codigo
-        ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-           JOIN chat_disparos c ON c.codigo = m.campanha_id
-           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-             AND m.campanha_id=$1
-           LIMIT 1000`
-        : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
-           JOIN chat_disparos c ON c.codigo = m.campanha_id
-           WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
-           LIMIT 1000`;
-      const res = await query(sql, codigo ? [codigo] : []);
-      const boss = await getBoss();
-      if (!boss) return reply.code(503).send({ ok: false, erro: 'pg-boss não iniciou' });
+      let rows = [];
+      try {
+        const sql = codigo
+          ? `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+             JOIN chat_disparos c ON c.codigo = m.campanha_id
+             WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+               AND m.campanha_id=$1
+             LIMIT 1000`
+          : `SELECT m.id, m.campanha_id FROM chat_disparos_msgs m
+             JOIN chat_disparos c ON c.codigo = m.campanha_id
+             WHERE m.status='pendente' AND c.status IN ('agendado','em_andamento')
+             LIMIT 1000`;
+        const res = await query(sql, codigo ? [codigo] : []);
+        rows = res.rows || [];
+        trace.push('pendentes=' + rows.length);
+      } catch (e) {
+        trace.push('select-falhou: ' + e.message);
+        reply.code(500);
+        return { ok: false, erro: 'select: ' + e.message, trace };
+      }
+
+      // 3) Enfileira no pg-boss
+      let boss = null;
+      try {
+        boss = await getBoss();
+        trace.push('boss=' + (boss ? 'ok' : 'null'));
+      } catch (e) {
+        trace.push('getBoss-falhou: ' + e.message);
+        reply.code(500);
+        return { ok: false, erro: 'getBoss: ' + e.message, trace };
+      }
+      if (!boss) {
+        reply.code(503);
+        return { ok: false, erro: 'pg-boss não iniciou (QUEUE_DATABASE_URL vazio?)', trace };
+      }
+
       let enq = 0, err_count = 0;
-      for (const r of res.rows) {
+      let last_err = '';
+      for (const r of rows) {
         try {
           await boss.send(QUEUES.DISPAROS, { msg_id: r.id, campanha_id: r.campanha_id });
           enq++;
         } catch (e) {
           err_count++;
-          console.error(`[reenfileirar] erro send msg ${r.id}: ${e.message}`);
+          last_err = e.message;
         }
       }
-      return { ok: true, enfileiradas: enq, erros: err_count };
+      trace.push('enfileirou=' + enq + ' erros=' + err_count);
+      return { ok: true, enfileiradas: enq, erros: err_count, ultimo_erro_send: last_err, trace };
     } catch (err) {
-      console.error('[reenfileirar] exception:', err.message, err.stack);
+      console.error('[reenfileirar] exception externa:', err.message, err.stack);
       reply.code(500);
-      return { ok: false, erro: err.message };
+      return { ok: false, erro: err.message, trace };
     }
   };
   fastify.post('/disparos/reenfileirar', handlerReenfileirar);

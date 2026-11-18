@@ -824,10 +824,15 @@ async function retomarCampanha(campanha){
 async function reenfileirar(codigo){
   try{
     const r = await api(URL_BASE + '/webhook/chat-disparos-reenfileirar', {method:'POST', bodyObj:{campanha_codigo: codigo}});
+    console.log('[reenfileirar] resposta:', r);
     if(r.ok){
-      toast(`Reenfileirou ${r.enfileiradas||0} msg(s). ${r.ja_na_fila?`(${r.ja_na_fila} já na fila)`:''}`,'');
+      toast(`Reenfileirou ${r.enfileiradas||0} msg(s). ${r.erros?`(${r.erros} erro)`:''}`,'');
       carregarCampanhas();
-    } else toast('Erro: '+(r.erro||r.error||'servidor'),'err');
+    } else {
+      const msg = (r.erro||r.error||'servidor') + (r.trace?` | trace: ${r.trace.join(' > ')}`:'');
+      toast('Erro: '+msg,'err');
+      console.error('[reenfileirar] trace:', r.trace);
+    }
   }catch(e){ toast('Erro: '+e.message,'err'); }
 }
 
