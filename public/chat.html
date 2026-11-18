@@ -82,12 +82,12 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 @media (hover: hover) and (min-width: 769px){
   .rail{position:relative;z-index:50;transition:width .18s ease;will-change:width}
   .rail:hover{width:230px;box-shadow:4px 0 24px rgba(0,0,0,.28)}
-  .rail:hover .brand{
-    width:calc(100% - 8px);justify-content:flex-start;padding-left:10px;gap:12px
-  }
+  .rail .brand{position:relative}
   .rail:hover .brand::after{
-    content:"Trocar foto";font-size:.75rem;font-weight:700;color:#fff;opacity:.85;
-    white-space:nowrap;letter-spacing:.2px
+    content:"Trocar foto";
+    position:absolute;left:50px;top:50%;transform:translateY(-50%);
+    font-size:.75rem;font-weight:700;color:#fff;opacity:.9;
+    white-space:nowrap;letter-spacing:.2px;pointer-events:none
   }
   .rail:hover .rail-foot{padding:0 6px}
   .rail:hover .rail-foot a{
