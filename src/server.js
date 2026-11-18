@@ -32,6 +32,7 @@ import { startAutoFinalizarInteresse } from './crons/auto-finalizar-interesse.js
 import { startAutoFilaHorario } from './crons/auto-fila-horario.js';
 import { startVapoTimeout } from './crons/vapo-timeout.js';
 import { startIaAutoPolling } from './crons/ia-auto-polling.js';
+import { startAgendadosDisparar } from './crons/agendados-disparar.js';
 
 // URL do n8n (upstream dos webhooks /webhook/*)
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
@@ -190,6 +191,7 @@ try {
     startAutoFilaHorario(fastify);
     startVapoTimeout(fastify);
     startIaAutoPolling(fastify);
+    startAgendadosDisparar(fastify);
   }
 
   // Worker embutido no mesmo processo (evita problemas de health check em serviço separado)
