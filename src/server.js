@@ -25,6 +25,7 @@ import gestaoRoutes from './routes/gestao.js';
 import limpezaRoutes from './routes/limpeza.js';
 import iaAutoRoutes from './routes/ia-auto.js';
 import polosRoutes from './routes/polos.js';
+import consultaAlunoRoutes from './routes/consulta-aluno.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
 import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
@@ -82,6 +83,7 @@ await fastify.register(gestaoRoutes);
 await fastify.register(limpezaRoutes);
 await fastify.register(iaAutoRoutes);
 await fastify.register(polosRoutes);
+await fastify.register(consultaAlunoRoutes);
 
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({

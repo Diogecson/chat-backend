@@ -1303,6 +1303,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
             <button class="composer-hs" id="btnHS" onclick="abrirHubspot()" title="HubSpot — criar/buscar negócio deste contato" data-feat="hubspot"><i class="bi bi-bullseye"></i></button>
             <button class="composer-tpl hidden" id="btnTpl" onclick="abrirModalTemplate()" title="Enviar template HSM (Meta)" data-feat="templates"><i class="bi bi-tag-fill"></i></button>
             <button class="composer-ia" id="btnPolo" onclick="window.open('https://www.unifecaf.com.br/polos','_blank','noopener')" title="Localizar polo — abre a página de polos UniFECAF" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="bi bi-geo-alt-fill"></i></button>
+            <button class="composer-ia" id="btnAluno" onclick="abrirConsultaAluno()" title="Consultar aluno — busca por RA ou CPF na base UniFECAF" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)"><i class="bi bi-mortarboard-fill"></i></button>
           </div>
           <button class="composer-extras-toggle" onclick="toggleExtras()" title="Mais opções" id="btnExtrasToggle"><i class="bi bi-three-dots-vertical"></i></button>
           <button class="composer-mic" id="btnMic" onclick="alternarGravacao()" title="Gravar nota de voz"><i class="bi bi-mic-fill"></i></button>
@@ -1673,6 +1674,28 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <button class="cx-close" onclick="fecharCorrigir()"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="cx-body" id="cxBody"></div>
+  </div>
+</div>
+
+<!-- MODAL CONSULTAR ALUNO (API CORE / TI) -->
+<div id="caBack" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)fecharConsultaAluno()">
+  <div style="background:#fff;border-radius:14px;width:min(640px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="padding:14px 18px;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:1rem;font-weight:700"><i class="bi bi-mortarboard-fill"></i> Consultar aluno — API UniFECAF</h3>
+      <button onclick="fecharConsultaAluno()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div style="padding:16px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button id="caTabRa" onclick="caSetTipo('ra')" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:600;font-size:.85rem">RA</button>
+        <button id="caTabCpf" onclick="caSetTipo('cpf')" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:600;font-size:.85rem">CPF</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <input id="caInput" type="text" placeholder="Digite o RA" style="flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem" onkeydown="if(event.key==='Enter')consultarAluno()">
+        <button onclick="consultarAluno()" id="caBtn" style="padding:10px 18px;background:#0369a1;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer"><i class="bi bi-search"></i> Buscar</button>
+      </div>
+      <div id="caHint" style="margin-top:6px;font-size:.72rem;color:#64748b"></div>
+    </div>
+    <div id="caResultado" style="padding:16px 18px;overflow:auto;flex:1"></div>
   </div>
 </div>
 
@@ -2192,6 +2215,121 @@ function usarSugestao(i){
 
 function fecharCorrigir(){
   const b = qs('#cxBack'); if(b) b.classList.remove('on');
+}
+
+/* ============ CONSULTAR ALUNO (API CORE / TI) ============ */
+let caTipoAtual = 'ra';
+function abrirConsultaAluno(){
+  caTipoAtual = 'ra';
+  caSetTipo('ra');
+  const el = document.getElementById('caBack');
+  if(el){ el.style.display='flex'; }
+  document.getElementById('caResultado').innerHTML = '';
+  setTimeout(()=>{ const i=document.getElementById('caInput'); if(i){ i.value=''; i.focus(); } }, 50);
+}
+function fecharConsultaAluno(){
+  const el = document.getElementById('caBack');
+  if(el) el.style.display='none';
+}
+function caSetTipo(tipo){
+  caTipoAtual = tipo;
+  const tRa = document.getElementById('caTabRa');
+  const tCpf = document.getElementById('caTabCpf');
+  const i = document.getElementById('caInput');
+  const h = document.getElementById('caHint');
+  const sel = 'background:#0369a1;color:#fff;border-color:#0369a1';
+  const off = 'background:#fff;color:#334155';
+  if(tipo==='ra'){
+    tRa.style.cssText = tRa.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'') + ';' + sel;
+    tCpf.style.cssText = tCpf.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'') + ';' + off;
+    i.placeholder = 'Digite o RA (só números)';
+    h.textContent = 'RA é o jeito mais confiável: busca direto na API da TI.';
+  } else {
+    tCpf.style.cssText = tCpf.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'') + ';' + sel;
+    tRa.style.cssText  = tRa.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'') + ';' + off;
+    i.placeholder = 'Digite o CPF (11 dígitos)';
+    h.textContent = 'CPF: API só mostra mascarado, cruzamos pelos últimos 4 dígitos nos últimos anos — pode trazer mais de 1 match.';
+  }
+  if(i){ i.value=''; i.focus(); }
+}
+async function consultarAluno(){
+  const valor = (document.getElementById('caInput').value || '').trim();
+  if(!valor){ toast('Digite o '+(caTipoAtual==='ra'?'RA':'CPF'), 'err'); return; }
+  const btn = document.getElementById('caBtn');
+  const out = document.getElementById('caResultado');
+  btn.disabled = true; btn.innerHTML = '<i class="bi bi-arrow-repeat" style="animation:sp-rot .7s linear infinite"></i>';
+  out.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b"><div class="spinner" style="margin:0 auto 10px"></div>Consultando...</div>';
+  try{
+    const r = await fetch(BASE + '/chat-consulta-aluno', {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=UTF-8'},
+      body: JSON.stringify({ tipo: caTipoAtual, valor })
+    });
+    const j = await r.json();
+    if(!j || !j.ok){
+      out.innerHTML = '<div style="padding:20px;background:#fef2f2;border-radius:8px;color:#991b1b;text-align:center"><i class="bi bi-exclamation-triangle"></i> '+escapeHtml((j&&j.erro)||'erro desconhecido')+'</div>';
+      return;
+    }
+    renderConsultaAluno(j);
+  }catch(e){
+    out.innerHTML = '<div style="padding:20px;background:#fef2f2;border-radius:8px;color:#991b1b;text-align:center"><i class="bi bi-exclamation-triangle"></i> '+escapeHtml(e.message)+'</div>';
+  }finally{
+    btn.disabled = false; btn.innerHTML = '<i class="bi bi-search"></i> Buscar';
+  }
+}
+function fmtMoeda(v){
+  const n = Number(v||0);
+  return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function fmtData(s){
+  if(!s) return '—';
+  const d = new Date(s);
+  if(isNaN(d.getTime())) return String(s);
+  return d.toLocaleDateString('pt-BR');
+}
+function renderConsultaAluno(j){
+  const alunos = j.alunos || [];
+  const out = document.getElementById('caResultado');
+  if(!alunos.length){
+    out.innerHTML = '<div style="padding:30px;text-align:center;color:#64748b"><i class="bi bi-inbox" style="font-size:2rem;opacity:.5"></i><br><br>Nenhum aluno encontrado.</div>';
+    return;
+  }
+  const header = alunos.length>1 ? `<div style="padding:8px 12px;background:#fef3c7;border-radius:8px;color:#92400e;font-size:.82rem;margin-bottom:12px"><i class="bi bi-info-circle"></i> ${alunos.length} matrícula(s) encontrada(s)</div>` : '';
+  out.innerHTML = header + alunos.map(a => {
+    const taxa = a.taxa_paga ? `✅ ${fmtMoeda(a.valor_taxa_adesao_paga)}` : '❌ Não paga';
+    const mens = a.mensalidade_paga ? `✅ ${fmtMoeda(a.valor_primeira_mensalidade_paga)}` : '❌ Não paga';
+    const sitCor = a.situacao==='CONCLUIDA' ? '#059669' : (a.situacao==='CANCELADA' ? '#dc2626' : '#64748b');
+    return `
+    <div style="border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:12px;background:#fff">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px">
+        <div style="min-width:0;flex:1">
+          <div style="font-weight:700;font-size:1rem;color:#0f172a">${escapeHtml(a.nome_completo||'—')}</div>
+          <div style="font-size:.78rem;color:#64748b">RA ${escapeHtml(a.ra||'—')} · CPF ${escapeHtml(a.cpf||'—')}</div>
+        </div>
+        <span style="padding:4px 10px;background:${sitCor}22;color:${sitCor};border-radius:6px;font-size:.72rem;font-weight:700;white-space:nowrap">${escapeHtml(a.situacao||'—')}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;font-size:.84rem">
+        <div><b style="color:#64748b">Curso:</b> ${escapeHtml(a.curso||'—')}</div>
+        <div><b style="color:#64748b">Modalidade:</b> ${escapeHtml(a.modalidade||'—')}</div>
+        <div><b style="color:#64748b">Turma:</b> ${escapeHtml(a.turma||'—')}</div>
+        <div><b style="color:#64748b">Polo:</b> ${escapeHtml(a.polo||'—')}</div>
+        <div><b style="color:#64748b">Consultor:</b> ${escapeHtml(a.consultor||'—')}</div>
+        <div><b style="color:#64748b">Supervisor:</b> ${escapeHtml(a.supervisor||'—')}</div>
+        <div><b style="color:#64748b">Captação:</b> ${fmtData(a.dt_captacao)}</div>
+        <div><b style="color:#64748b">Matrícula:</b> ${fmtData(a.dt_matricula)}</div>
+        <div><b style="color:#64748b">Canal:</b> ${escapeHtml(a.canal||'—')}</div>
+        <div><b style="color:#64748b">Origem venda:</b> ${escapeHtml(a.origem_venda||'—')}</div>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #e5e7eb;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:.82rem">
+        <div><b style="color:#64748b">Taxa adesão:</b> ${taxa}</div>
+        <div><b style="color:#64748b">1ª mensalidade:</b> ${mens}</div>
+        <div><b style="color:#64748b">Dt pag. taxa:</b> ${fmtData(a.dt_pagamento_taxa)}</div>
+        <div><b style="color:#64748b">Dt pag. mens.:</b> ${fmtData(a.dt_pagamento_mensalidade)}</div>
+        <div><b style="color:#64748b">Nº parc. mens.:</b> ${a.numero_parcela_mensalidade ?? '—'}</div>
+        <div><b style="color:#64748b">Contratos:</b> ${a.qtd_contratos ?? 0}${a.possui_mais_de_um_contrato?' (múltiplos)':''}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ============ FIGURINHAS (STICKERS) ============ */
