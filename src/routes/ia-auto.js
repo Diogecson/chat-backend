@@ -155,6 +155,8 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
   const t0 = Date.now();
   let saida = '';
   let transcricao = '';
+  let audio_resposta_base64 = '';
+  let audio_resposta_mime = '';
   try {
     // Loga a entrada (pra audio ainda sem transcricao, poe placeholder)
     await query(
@@ -182,6 +184,9 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
       const j = await r.json();
       saida = j.output || j.text || j.message || j.response || '';
       transcricao = (j.transcricao || '').trim();
+      // Se fluxo gerou TTS da resposta (opcao A: espelha canal), pega base64
+      audio_resposta_base64 = (j.audio_resposta_base64 || '').trim();
+      audio_resposta_mime = (j.audio_resposta_mime || 'audio/mpeg').trim();
     } else {
       saida = await r.text();
     }
@@ -223,20 +228,38 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
   const finalizar = !!finalizarMatch;
   const encaminhar = !finalizar && !!tagMatch;
 
-  // Envia resposta via chat-enviar interno (tudo que vem sem a tag)
+  // Envia resposta via chat-enviar interno (tudo que vem sem a tag).
+  // Se o fluxo gerou TTS (cliente mandou audio), envia como voice note;
+  // senao envia texto normal.
   if (textoLimpo) {
     try {
-      await fastify.inject({
-        method: 'POST',
-        url: '/webhook/chat-enviar',
-        headers: { 'Content-Type': 'application/json' },
-        payload: {
-          conta_id, telefone,
-          tipo: 'text',
-          texto: textoLimpo,
-          usuario: USUARIO_IA,
-        }
-      });
+      if (audio_resposta_base64) {
+        await fastify.inject({
+          method: 'POST',
+          url: '/webhook/chat-enviar',
+          headers: { 'Content-Type': 'application/json' },
+          payload: {
+            conta_id, telefone,
+            tipo: 'audio',
+            midia_base64: audio_resposta_base64,
+            mimetype: audio_resposta_mime || 'audio/mpeg',
+            caption: textoLimpo,
+            usuario: USUARIO_IA,
+          }
+        });
+      } else {
+        await fastify.inject({
+          method: 'POST',
+          url: '/webhook/chat-enviar',
+          headers: { 'Content-Type': 'application/json' },
+          payload: {
+            conta_id, telefone,
+            tipo: 'text',
+            texto: textoLimpo,
+            usuario: USUARIO_IA,
+          }
+        });
+      }
     } catch (err) {
       console.error('[ia-auto] chat-enviar falhou', err.message);
     }
