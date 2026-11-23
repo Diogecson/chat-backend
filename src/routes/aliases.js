@@ -367,12 +367,31 @@ export default async function aliasRoutes(fastify) {
     const limit = parseInt(p(req, 'limit', '200')) || 200;
     if (!conta_id || !telefone) return { ok: true, mensagens: [] };
     const r = await query(
-      `SELECT id, codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
-              midia_url, NULL::text AS midia_mimetype, timestamp, status, external_id, atendente,
-              reply_to_id, reply_to_texto
-       FROM chat_mensagens
-       WHERE conta_id=$1 AND telefone=$2
-       ORDER BY timestamp DESC
+      `SELECT m.id, m.codigo, m.conta_id, m.telefone, m.nome_contato, m.direcao, m.tipo, m.texto,
+              m.midia_url, NULL::text AS midia_mimetype, m.timestamp, m.status, m.external_id, m.atendente,
+              m.reply_to_id,
+              COALESCE(
+                NULLIF(m.reply_to_texto,''),
+                NULLIF(LEFT(q.texto, 140),''),
+                CASE q.tipo
+                  WHEN 'audio' THEN '🎙️ Áudio'
+                  WHEN 'image' THEN '🖼️ Imagem'
+                  WHEN 'video' THEN '🎬 Vídeo'
+                  WHEN 'document' THEN '📎 Documento'
+                  WHEN 'sticker' THEN '🏷️ Figurinha'
+                  ELSE ''
+                END,
+                ''
+              ) AS reply_to_texto,
+              q.direcao AS reply_to_direcao
+       FROM chat_mensagens m
+       LEFT JOIN chat_mensagens q
+              ON q.conta_id = m.conta_id
+             AND q.telefone = m.telefone
+             AND m.reply_to_id <> ''
+             AND (q.external_id = m.reply_to_id OR q.codigo = m.reply_to_id)
+       WHERE m.conta_id=$1 AND m.telefone=$2
+       ORDER BY m.timestamp DESC
        LIMIT $3`,
       [conta_id, telefone, limit]
     );
@@ -398,12 +417,31 @@ export default async function aliasRoutes(fastify) {
     let sinceDate = since ? new Date(since) : new Date(Date.now() - 60000);
     if (isNaN(sinceDate.getTime())) sinceDate = new Date(Date.now() - 60000);
     const r = await query(
-      `SELECT id, codigo, conta_id, telefone, nome_contato, direcao, tipo, texto,
-              midia_url, NULL::text AS midia_mimetype, timestamp, status, external_id, atendente,
-              reply_to_id, reply_to_texto
-       FROM chat_mensagens
-       WHERE conta_id=$1 AND telefone=$2 AND timestamp > $3
-       ORDER BY timestamp ASC LIMIT 200`,
+      `SELECT m.id, m.codigo, m.conta_id, m.telefone, m.nome_contato, m.direcao, m.tipo, m.texto,
+              m.midia_url, NULL::text AS midia_mimetype, m.timestamp, m.status, m.external_id, m.atendente,
+              m.reply_to_id,
+              COALESCE(
+                NULLIF(m.reply_to_texto,''),
+                NULLIF(LEFT(q.texto, 140),''),
+                CASE q.tipo
+                  WHEN 'audio' THEN '🎙️ Áudio'
+                  WHEN 'image' THEN '🖼️ Imagem'
+                  WHEN 'video' THEN '🎬 Vídeo'
+                  WHEN 'document' THEN '📎 Documento'
+                  WHEN 'sticker' THEN '🏷️ Figurinha'
+                  ELSE ''
+                END,
+                ''
+              ) AS reply_to_texto,
+              q.direcao AS reply_to_direcao
+       FROM chat_mensagens m
+       LEFT JOIN chat_mensagens q
+              ON q.conta_id = m.conta_id
+             AND q.telefone = m.telefone
+             AND m.reply_to_id <> ''
+             AND (q.external_id = m.reply_to_id OR q.codigo = m.reply_to_id)
+       WHERE m.conta_id=$1 AND m.telefone=$2 AND m.timestamp > $3
+       ORDER BY m.timestamp ASC LIMIT 200`,
       [conta_id, telefone, sinceDate]
     );
     return { ok: true, mensagens: r.rows };

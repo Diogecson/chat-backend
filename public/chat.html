@@ -5031,7 +5031,10 @@ function renderBolhaMsg(m, idx){
   const corpo=renderCorpoMsg(m);
   let quoteHtml = '';
   if(m.reply_to_id){
-    const quem = m.direcao==='out' ? (conversaAtiva.nome||conversaAtiva.telefone||'Cliente') : 'Você';
+    const nomeCliente = (conversaAtiva&&(conversaAtiva.nome||conversaAtiva.telefone))||'Cliente';
+    // reply_to_direcao vem do backend (LEFT JOIN na msg citada). Fallback antigo: invertia a direção da msg atual.
+    const dirCitada = m.reply_to_direcao || (m.direcao==='out' ? 'in' : 'out');
+    const quem = dirCitada==='out' ? 'Você' : nomeCliente;
     const trecho = m.reply_to_texto || '(mensagem citada)';
     quoteHtml = `<div class="quote-inline"><div class="qi-nome">${escapeHtml(quem)}</div><div class="qi-texto">${escapeHtml(trecho)}</div></div>`;
   }
