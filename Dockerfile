@@ -6,9 +6,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --omit=dev --production
 
-# Copia código + estáticos
+# Copia código + estáticos + dados (polos.json etc)
 COPY src ./src
 COPY public ./public
+COPY data ./data
 
 # Variável de ambiente só expõe a porta — resto vem do EasyPanel
 EXPOSE 3100
