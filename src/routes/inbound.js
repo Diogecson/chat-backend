@@ -144,44 +144,33 @@ async function baixarMidia(media_id, accessToken) {
   }
 }
 
-// Transcreve audio via OpenAI Whisper. Retorna texto ou null em erro.
-// Usa OPENAI_API_KEY do env. Modelo configuravel por OPENAI_TRANSCRIBE_MODEL.
+// Transcreve audio chamando o fluxo n8n transcrever-audio.
+// A credencial OpenAI fica no n8n (centraliza, nao precisa de OPENAI_API_KEY aqui).
+// URL do webhook: TRANSCRIBE_WEBHOOK ou {N8N_UPSTREAM}/webhook/transcrever-audio.
+// Retorna texto ou null em erro.
 async function transcreverAudio(audioBuffer, mimeType) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) {
-    console.warn('[inbound] OPENAI_API_KEY nao configurado — pulando transcricao');
-    return null;
-  }
-  const model = process.env.OPENAI_TRANSCRIBE_MODEL || 'whisper-1';
-  // Extensao sugerida pro Whisper (aceita: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg)
-  const mt = String(mimeType || '').toLowerCase();
-  let ext = 'ogg';
-  if (mt.includes('mp4') || mt.includes('m4a')) ext = 'm4a';
-  else if (mt.includes('mpeg') || mt.includes('mp3')) ext = 'mp3';
-  else if (mt.includes('wav')) ext = 'wav';
-  else if (mt.includes('webm')) ext = 'webm';
+  const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
+  const url = process.env.TRANSCRIBE_WEBHOOK || `${N8N_UPSTREAM}/webhook/transcrever-audio`;
   try {
-    const fd = new FormData();
-    const blob = new Blob([audioBuffer], { type: mimeType || 'audio/ogg' });
-    fd.append('file', blob, `audio.${ext}`);
-    fd.append('model', model);
-    fd.append('language', 'pt');
-    fd.append('response_format', 'json');
-    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const audio_base64 = audioBuffer.toString('base64');
+    const r = await fetch(url, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + key },
-      body: fd,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        audio_base64,
+        mime_type: mimeType || 'audio/ogg',
+      }),
     });
     if (!r.ok) {
-      const errTxt = await r.text();
-      console.error('[inbound] whisper HTTP', r.status, errTxt.substring(0, 500));
+      const errTxt = await r.text().catch(() => '');
+      console.error('[inbound] transcrever-audio HTTP', r.status, errTxt.substring(0, 500));
       return null;
     }
     const j = await r.json();
-    const texto = (j.text || '').trim();
+    const texto = (j.texto || j.text || '').trim();
     return texto || null;
   } catch (err) {
-    console.error('[inbound] transcrever falhou', err.message);
+    console.error('[inbound] transcrever-audio falhou', err.message);
     return null;
   }
 }
