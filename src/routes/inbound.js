@@ -144,37 +144,6 @@ async function baixarMidia(media_id, accessToken) {
   }
 }
 
-// Transcreve audio chamando o fluxo n8n transcrever-audio.
-// A credencial OpenAI fica no n8n (centraliza, nao precisa de OPENAI_API_KEY aqui).
-// URL do webhook: TRANSCRIBE_WEBHOOK ou {N8N_UPSTREAM}/webhook/transcrever-audio.
-// Retorna texto ou null em erro.
-async function transcreverAudio(audioBuffer, mimeType) {
-  const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
-  const url = process.env.TRANSCRIBE_WEBHOOK || `${N8N_UPSTREAM}/webhook/transcrever-audio`;
-  try {
-    const audio_base64 = audioBuffer.toString('base64');
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        audio_base64,
-        mime_type: mimeType || 'audio/ogg',
-      }),
-    });
-    if (!r.ok) {
-      const errTxt = await r.text().catch(() => '');
-      console.error('[inbound] transcrever-audio HTTP', r.status, errTxt.substring(0, 500));
-      return null;
-    }
-    const j = await r.json();
-    const texto = (j.texto || j.text || '').trim();
-    return texto || null;
-  } catch (err) {
-    console.error('[inbound] transcrever-audio falhou', err.message);
-    return null;
-  }
-}
-
 async function processarMidiasAsync(mediaRows, fastify) {
   // Agrupa por conta pra buscar o access_token 1x por conta
   const porConta = new Map();
@@ -196,32 +165,21 @@ async function processarMidiasAsync(mediaRows, fastify) {
         // Salva a midia como data:base64 (humano ve no painel)
         await query(`UPDATE chat_mensagens SET midia_url=$1 WHERE codigo=$2`, [dl.dataUrl, r.codigo]);
 
-        // Se for audio, transcreve com Whisper e atualiza o campo texto.
-        // A transcricao vai pra IA como se fosse uma msg de texto comum.
-        if (r.tipo === 'audio' && dl.buffer) {
-          const transcricao = await transcreverAudio(dl.buffer, dl.mimeType);
-          if (transcricao) {
-            const textoFinal = '🎙️ ' + transcricao;
-            await query(
-              `UPDATE chat_mensagens SET texto=$1 WHERE codigo=$2`,
-              [textoFinal, r.codigo]
-            );
-            console.log(`[inbound] transcricao ${r.conta_id}/${r.telefone}: ${transcricao.substring(0, 80)}${transcricao.length > 80 ? '...' : ''}`);
-
-            // Dispara IA com o texto transcrito (so roda se telefone esta ativo).
-            // Fire-and-forget. marcarDadosSePareceFormulario roda em paralelo
-            // pro caso de cliente ditar os dados por audio.
-            if (fastify) {
-              processarInboundIa(fastify, {
-                conta_id: r.conta_id,
-                telefone: r.telefone,
-                texto: transcricao,
-                tipo: 'text',
-              }).catch(err => console.error('[inbound->ia-auto audio]', err.message));
-              marcarDadosSePareceFormulario(r.conta_id, r.telefone, transcricao)
-                .catch(err => console.error('[inbound->dados-form audio]', err.message));
-            }
-          }
+        // Se for audio, passa o base64 direto pro fluxo n8n (que
+        // transcreve com Whisper, roda a IA, e devolve `transcricao`
+        // na resposta). O processarInboundIa cuida de atualizar o
+        // chat_mensagens.texto com 🎙️+transcricao quando ela chega.
+        if (r.tipo === 'audio' && dl.buffer && fastify) {
+          const audio_base64 = dl.buffer.toString('base64');
+          processarInboundIa(fastify, {
+            conta_id: r.conta_id,
+            telefone: r.telefone,
+            texto: '',
+            tipo: 'audio',
+            audio_base64,
+            mime_type: dl.mimeType,
+            media_codigo: r.codigo,
+          }).catch(err => console.error('[inbound->ia-auto audio]', err.message));
         }
       }
     } catch (err) {

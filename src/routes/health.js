@@ -9,7 +9,7 @@ export default async function healthRoutes(fastify) {
     uptime_s: Math.round(process.uptime()),
     dry_run: config.dryRun,
     has_db: hasDb(),
-    build_marker: 'audio-via-n8n-v2',
+    build_marker: 'audio-fluxo-unico-v3',
     timestamp: new Date().toISOString(),
   }));
 

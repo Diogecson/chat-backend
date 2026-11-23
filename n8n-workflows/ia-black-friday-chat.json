@@ -27,7 +27,13 @@
                                                                                  {
                                                                                      "id":  "chatInput",
                                                                                      "name":  "chatInput",
-                                                                                     "value":  "={{ $json.body.chatInput }}",
+                                                                                     "value":  "={{ $json.chatInput || $json.body.chatInput }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "transcricao",
+                                                                                     "name":  "transcricao",
+                                                                                     "value":  "={{ $json.transcricao || '' }}",
                                                                                      "type":  "string"
                                                                                  },
                                                                                  {
@@ -149,7 +155,7 @@
                   {
                       "parameters":  {
                                          "respondWith":  "json",
-                                         "responseBody":  "={\"output\": {{ JSON.stringify($json.output) }} }",
+                                         "responseBody":  "={\"output\": {{ JSON.stringify($json.output) }}, \"transcricao\": {{ JSON.stringify($('Variaveis').item.json.transcricao || '') }} }",
                                          "options":  {
                                                          "responseHeaders":  {
                                                                                  "entries":  [
@@ -195,6 +201,112 @@
                                    ],
                       "id":  "1654f721-71e5-455c-af9d-f2415f29132a",
                       "name":  "Polo por CEP"
+                  },
+                  {
+                      "parameters":  {
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "caseSensitive":  true,
+                                                                            "leftValue":  "",
+                                                                            "typeValidation":  "loose",
+                                                                            "version":  2
+                                                                        },
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "has-audio",
+                                                                                   "leftValue":  "={{ $json.body.audio_base64 || '' }}",
+                                                                                   "rightValue":  "",
+                                                                                   "operator":  {
+                                                                                                    "type":  "string",
+                                                                                                    "operation":  "notEmpty",
+                                                                                                    "singleValue":  true
+                                                                                                }
+                                                                               }
+                                                                           ],
+                                                            "combinator":  "and"
+                                                        },
+                                         "options":  {}
+                                     },
+                      "id":  "b2000001-0000-0000-0000-000000000001",
+                      "name":  "Tem audio?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       -816,
+                                       48
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "jsCode":  "// Converte audio_base64 do body em binary pro node OpenAI Whisper\nconst body = $json.body || {};\nconst rawB64 = body.audio_base64 || '';\nif (!rawB64) throw new Error('audio_base64 vazio');\nconst match = String(rawB64).match(/^data:([^;]+);base64,(.*)$/);\nconst mimeType = body.mime_type || (match ? match[1] : 'audio/ogg');\nconst clean = match ? match[2] : String(rawB64);\nconst buffer = Buffer.from(clean, 'base64');\nconst mt = mimeType.toLowerCase();\nlet ext = 'ogg';\nif (mt.includes('mp4') || mt.includes('m4a')) ext = 'm4a';\nelse if (mt.includes('mpeg') || mt.includes('mp3')) ext = 'mp3';\nelse if (mt.includes('wav')) ext = 'wav';\nelse if (mt.includes('webm')) ext = 'webm';\nconst binaryData = await this.helpers.prepareBinaryData(buffer, `audio.${ext}`, mimeType);\nreturn [{ json: { body }, binary: { data: binaryData } }];"
+                                     },
+                      "id":  "b2000002-0000-0000-0000-000000000002",
+                      "name":  "Prep Audio",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -672,
+                                       -80
+                                   ]
+                  },
+                  {
+                      "parameters":  {
+                                         "resource":  "audio",
+                                         "operation":  "transcribe",
+                                         "binaryPropertyName":  "data",
+                                         "options":  {
+                                                         "language":  "pt"
+                                                     }
+                                     },
+                      "id":  "b2000003-0000-0000-0000-000000000003",
+                      "name":  "OpenAI Whisper",
+                      "type":  "n8n-nodes-base.openAi",
+                      "typeVersion":  1.6,
+                      "position":  [
+                                       -528,
+                                       -80
+                                   ],
+                      "credentials":  {
+                                          "openAiApi":  {
+                                                            "id":  "NK9ttQkECOReZ71h",
+                                                            "name":  "GPT DG PAGO"
+                                                        }
+                                      }
+                  },
+                  {
+                      "parameters":  {
+                                         "assignments":  {
+                                                             "assignments":  [
+                                                                                 {
+                                                                                     "id":  "chatInput",
+                                                                                     "name":  "chatInput",
+                                                                                     "value":  "={{ $json.text }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "transcricao",
+                                                                                     "name":  "transcricao",
+                                                                                     "value":  "={{ $json.text }}",
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                                 {
+                                                                                     "id":  "body",
+                                                                                     "name":  "body",
+                                                                                     "value":  "={{ $('Webhook').item.json.body }}",
+                                                                                     "type":  "object"
+                                                                                 }
+                                                                             ]
+                                                         },
+                                         "options":  {}
+                                     },
+                      "id":  "b2000004-0000-0000-0000-000000000004",
+                      "name":  "Audio Done",
+                      "type":  "n8n-nodes-base.set",
+                      "typeVersion":  3.4,
+                      "position":  [
+                                       -384,
+                                       -80
+                                   ]
                   }
               ],
     "connections":  {
@@ -202,13 +314,64 @@
                                         "main":  [
                                                      [
                                                          {
-                                                             "node":  "Variaveis",
+                                                             "node":  "Tem audio?",
                                                              "type":  "main",
                                                              "index":  0
                                                          }
                                                      ]
                                                  ]
                                     },
+                        "Tem audio?":  {
+                                           "main":  [
+                                                        [
+                                                            {
+                                                                "node":  "Prep Audio",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ],
+                                                        [
+                                                            {
+                                                                "node":  "Variaveis",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                                    ]
+                                       },
+                        "Prep Audio":  {
+                                           "main":  [
+                                                        [
+                                                            {
+                                                                "node":  "OpenAI Whisper",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                                    ]
+                                       },
+                        "OpenAI Whisper":  {
+                                               "main":  [
+                                                            [
+                                                                {
+                                                                    "node":  "Audio Done",
+                                                                    "type":  "main",
+                                                                    "index":  0
+                                                                }
+                                                            ]
+                                                        ]
+                                           },
+                        "Audio Done":  {
+                                           "main":  [
+                                                        [
+                                                            {
+                                                                "node":  "Variaveis",
+                                                                "type":  "main",
+                                                                "index":  0
+                                                            }
+                                                        ]
+                                                    ]
+                                       },
                         "Variaveis":  {
                                           "main":  [
                                                        [

@@ -139,30 +139,40 @@ export async function marcarDadosSePareceFormulario(conta_id, telefone, texto) {
   return false;
 }
 
-// Chamado pelo inbound depois de inserir a msg no banco
-export async function processarInboundIa(fastify, { conta_id, telefone, texto, tipo }) {
+// Chamado pelo inbound depois de inserir a msg no banco.
+// Aceita texto OU audio_base64. Quando vier audio, o fluxo n8n
+// transcreve com Whisper, usa a transcricao como chatInput, e
+// devolve tambem o campo `transcricao` na resposta — a gente usa
+// pra atualizar o chat_mensagens.texto (prefixo 🎙️) e logar.
+export async function processarInboundIa(fastify, { conta_id, telefone, texto, tipo, audio_base64, mime_type, media_codigo }) {
   if (!hasDb()) return;
-  if (!texto || !telefone) return;
-  // So processa text (audio/image exige transcricao — fica pra depois)
-  if (tipo && tipo !== 'text') return;
+  if (!telefone) return;
+  if (!texto && !audio_base64) return;
+  if (tipo && tipo !== 'text' && tipo !== 'audio') return;
   const ativo = await isAtivo(conta_id, telefone);
   if (!ativo) return;
 
   const t0 = Date.now();
   let saida = '';
+  let transcricao = '';
   try {
-    // Loga a entrada
+    // Loga a entrada (pra audio ainda sem transcricao, poe placeholder)
     await query(
       `INSERT INTO chat_ia_auto_log (conta_id, telefone, direcao, texto) VALUES ($1,$2,'in',$3)`,
-      [conta_id, telefone, texto.substring(0, 2000)]
+      [conta_id, telefone, (texto ? texto : '[audio pendente transcricao]').substring(0, 2000)]
     );
 
-    // Chama o fluxo n8n
+    // Chama o fluxo n8n. Payload leva audio_base64 se for audio.
     const sessionId = `${conta_id}__${telefone}`;
+    const payload = { chatInput: texto || '', sessionId, action: 'sendMessage' };
+    if (audio_base64) {
+      payload.audio_base64 = audio_base64;
+      payload.mime_type = mime_type || 'audio/ogg';
+    }
     const r = await fetch(IA_WEBHOOK, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatInput: texto, sessionId, action: 'sendMessage' })
+      body: JSON.stringify(payload)
     });
     if (!r.ok) {
       throw new Error(`webhook n8n HTTP ${r.status}`);
@@ -171,10 +181,27 @@ export async function processarInboundIa(fastify, { conta_id, telefone, texto, t
     if (ct.includes('application/json')) {
       const j = await r.json();
       saida = j.output || j.text || j.message || j.response || '';
+      transcricao = (j.transcricao || '').trim();
     } else {
       saida = await r.text();
     }
     if (!saida || !saida.trim()) throw new Error('resposta vazia da IA');
+
+    // Se o fluxo transcreveu audio, atualiza o chat_mensagens.texto
+    // (humano ve 🎙️+texto no painel) e loga a transcricao como entrada.
+    if (transcricao && media_codigo) {
+      await query(
+        `UPDATE chat_mensagens SET texto=$1 WHERE codigo=$2`,
+        ['🎙️ ' + transcricao, media_codigo]
+      ).catch(err => console.error('[ia-auto] update texto audio', err.message));
+      await query(
+        `INSERT INTO chat_ia_auto_log (conta_id, telefone, direcao, texto) VALUES ($1,$2,'in',$3)`,
+        [conta_id, telefone, ('[audio] ' + transcricao).substring(0, 2000)]
+      ).catch(() => {});
+      // Transcricao pode ser cliente ditando dados do form
+      marcarDadosSePareceFormulario(conta_id, telefone, transcricao)
+        .catch(err => console.error('[ia-auto->dados-form audio]', err.message));
+    }
   } catch (err) {
     console.error('[ia-auto] IA falhou', conta_id, telefone, err.message);
     await query(
