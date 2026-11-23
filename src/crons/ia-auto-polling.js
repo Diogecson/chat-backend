@@ -109,10 +109,11 @@ export function startIaAutoPolling(fastify) {
       const checkpoint = await getCheckpoint();
       if (!checkpoint) return;
 
-      // Busca msgs IN text novas de telefones na lista ativa
+      // Busca msgs IN text OU audio novas de telefones na lista ativa
       // LEFT JOIN em processadas filtra o que ja foi claimado por outra instancia
+      // Pra audio, exige midia_url preenchida (senao nao da pra transcrever)
       const res = await query(
-        `SELECT m.id, m.conta_id, m.telefone, m.texto, m.timestamp
+        `SELECT m.id, m.codigo, m.conta_id, m.telefone, m.tipo, m.texto, m.midia_url, m.timestamp
          FROM chat_mensagens m
          JOIN chat_ia_auto a
            ON a.conta_id = m.conta_id
@@ -121,8 +122,10 @@ export function startIaAutoPolling(fastify) {
          LEFT JOIN chat_ia_auto_processadas p
            ON p.mensagem_id = m.id
          WHERE m.direcao = 'in'
-           AND m.tipo = 'text'
-           AND COALESCE(m.texto,'') <> ''
+           AND (
+             (m.tipo = 'text' AND COALESCE(m.texto,'') <> '')
+             OR (m.tipo = 'audio' AND COALESCE(m.midia_url,'') LIKE 'data:%')
+           )
            AND m.timestamp > $1
            AND p.mensagem_id IS NULL
          ORDER BY m.timestamp ASC
@@ -153,12 +156,39 @@ export function startIaAutoPolling(fastify) {
         }
 
         try {
-          await processarInboundIa(fastify, {
-            conta_id: m.conta_id,
-            telefone: m.telefone,
-            texto: m.texto,
-            tipo: 'text',
-          });
+          if (m.tipo === 'audio') {
+            // Extrai base64 e mime da data URL (ex: data:audio/ogg;base64,AAAA...)
+            const mt = String(m.midia_url || '').match(/^data:([^;]+);base64,(.*)$/);
+            if (!mt) {
+              fastify.log.warn(`[ia-auto-polling] audio msg ${m.id} midia_url nao e data: — pulando`);
+              puladas++;
+              continue;
+            }
+            const mime_type = mt[1] || 'audio/ogg';
+            const audio_base64 = mt[2] || '';
+            if (!audio_base64) {
+              fastify.log.warn(`[ia-auto-polling] audio msg ${m.id} sem base64 — pulando`);
+              puladas++;
+              continue;
+            }
+            fastify.log.info(`[ia-auto-polling] audio ${m.conta_id}/${m.telefone} (${audio_base64.length} chars base64)`);
+            await processarInboundIa(fastify, {
+              conta_id: m.conta_id,
+              telefone: m.telefone,
+              texto: '',
+              tipo: 'audio',
+              audio_base64,
+              mime_type,
+              media_codigo: m.codigo,
+            });
+          } else {
+            await processarInboundIa(fastify, {
+              conta_id: m.conta_id,
+              telefone: m.telefone,
+              texto: m.texto,
+              tipo: 'text',
+            });
+          }
           processadas++;
         } catch (err) {
           fastify.log.error(`[ia-auto-polling] ${m.conta_id}/${m.telefone}: ${err.message}`);
