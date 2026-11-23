@@ -39,7 +39,7 @@ export async function processarJobDisparos(jobOrArray) {
     );
 
     if (!pickRes.rows.length) {
-      console.log(`[worker] msg_id=${msg_id} skip (nao pendente)`);
+      // Silenciado: cron chama em loop e polui log. Erro real gera log.
       return { skipped: 'nao_pendente' };
     }
 

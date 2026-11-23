@@ -145,6 +145,7 @@ async function baixarMidia(media_id, accessToken) {
 }
 
 async function processarMidiasAsync(mediaRows, fastify) {
+  console.log(`[MIDIA] inicio: ${mediaRows.length} midia(s)`);
   // Agrupa por conta pra buscar o access_token 1x por conta
   const porConta = new Map();
   for (const r of mediaRows) {
@@ -154,14 +155,25 @@ async function processarMidiasAsync(mediaRows, fastify) {
   for (const [conta_id, rows] of porConta.entries()) {
     try {
       const contaRes = await query(`SELECT config FROM chat_contas WHERE codigo=$1 LIMIT 1`, [conta_id]);
-      if (!contaRes.rows.length) continue;
+      if (!contaRes.rows.length) {
+        console.log(`[MIDIA] conta ${conta_id} nao encontrada no chat_contas`);
+        continue;
+      }
       let cfg = {};
       try { cfg = typeof contaRes.rows[0].config === 'string' ? JSON.parse(contaRes.rows[0].config) : (contaRes.rows[0].config || {}); } catch (_) {}
-      if (!cfg.access_token) continue;
+      if (!cfg.access_token) {
+        console.log(`[MIDIA] conta ${conta_id} sem access_token na config`);
+        continue;
+      }
       for (const r of rows) {
         if (!r.raw_media_id) continue;
+        console.log(`[MIDIA] baixando ${r.tipo} de ${r.telefone} (media_id=${r.raw_media_id})`);
         const dl = await baixarMidia(r.raw_media_id, cfg.access_token);
-        if (!dl) continue;
+        if (!dl) {
+          console.log(`[MIDIA] baixarMidia retornou null pra ${r.codigo}`);
+          continue;
+        }
+        console.log(`[MIDIA] baixado ${r.tipo} ${dl.buffer.length} bytes mime=${dl.mimeType}`);
         // Salva a midia como data:base64 (humano ve no painel)
         await query(`UPDATE chat_mensagens SET midia_url=$1 WHERE codigo=$2`, [dl.dataUrl, r.codigo]);
 
@@ -171,6 +183,7 @@ async function processarMidiasAsync(mediaRows, fastify) {
         // chat_mensagens.texto com 🎙️+transcricao quando ela chega.
         if (r.tipo === 'audio' && dl.buffer && fastify) {
           const audio_base64 = dl.buffer.toString('base64');
+          console.log(`[MIDIA] disparando IA pra audio ${r.conta_id}/${r.telefone} (b64=${audio_base64.length} chars)`);
           processarInboundIa(fastify, {
             conta_id: r.conta_id,
             telefone: r.telefone,
@@ -179,7 +192,7 @@ async function processarMidiasAsync(mediaRows, fastify) {
             audio_base64,
             mime_type: dl.mimeType,
             media_codigo: r.codigo,
-          }).catch(err => console.error('[inbound->ia-auto audio]', err.message));
+          }).catch(err => console.error('[MIDIA] IA audio erro:', err.message));
         }
       }
     } catch (err) {
@@ -210,6 +223,9 @@ export default async function inboundRoutes(fastify) {
       if (hasDb()) {
         const rows = parseMensagens(body);
         const statuses = parseStatuses(body);
+        // Log explicito pra debug (aparece acima do spam dos workers)
+        const tipos = rows.map(r => `${r.tipo}:${r.telefone}`).join(',');
+        if (rows.length) console.log(`[META-WEBHOOK] ${rows.length} msg(s): ${tipos}`);
 
         // Inserir mensagens primeiro (sem a midia ainda — so o media_id)
         if (rows.length) await inserirMensagens(rows);
