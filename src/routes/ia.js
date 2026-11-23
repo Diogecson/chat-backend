@@ -14,6 +14,7 @@ import { hasDb } from '../config.js';
 
 const N8N_UPSTREAM = process.env.N8N_UPSTREAM || 'https://plano-acao-high-performace-n8n.szlqqi.easypanel.host';
 const AJUDA_IA_WEBHOOK = process.env.AJUDA_IA_WEBHOOK || `${N8N_UPSTREAM}/webhook/ajuda-ia-chat`;
+const CORRIGIR_WEBHOOK = process.env.CORRIGIR_WEBHOOK || `${N8N_UPSTREAM}/webhook/chat-corrigir-texto`;
 
 async function chamarN8N({ historico, nomeLead, prompt_extra }) {
   const linhasHist = historico.map(m => {
@@ -80,4 +81,49 @@ export default async function iaRoutes(fastify) {
   }
   fastify.post('/webhook/painel-ajuda-ia-chat', handle);
   fastify.post('/api/chat/ajuda-ia', handle);
+
+  // === /webhook/chat-corrigir-texto ===
+  // Proxy pro fluxo n8n "chat-corrigir-texto" (ortografia + 2 sugestões de reescrita).
+  // Body esperado: { texto, conta_id?, telefone?, contexto? }.
+  // Resposta: { ok:true, original, corrigido, sugestoes:[{titulo,texto}] } ou { ok:false, erro }.
+  async function corrigirHandle(req, reply) {
+    let b = req.body || {};
+    // Frontend manda Content-Type: text/plain; Fastify entrega string crua.
+    if (typeof b === 'string') {
+      try { b = JSON.parse(b); } catch (_) { b = {}; }
+    }
+    const texto = String(b.texto || '').slice(0, 2000);
+    const contexto = String(b.contexto || '').slice(0, 4000);
+    if (!texto.trim()) {
+      return reply.code(400).send({ ok: false, erro: 'texto obrigatorio' });
+    }
+    try {
+      const r = await fetch(CORRIGIR_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto, contexto }),
+      });
+      const txt = await r.text();
+      let data;
+      try { data = JSON.parse(txt); } catch (_) {
+        reply.code(502);
+        return { ok: false, erro: 'Resposta nao-JSON do n8n: ' + txt.substring(0, 200) };
+      }
+      if (!r.ok || !data || data.ok === false) {
+        reply.code(r.ok ? 500 : r.status);
+        return { ok: false, erro: (data && data.erro) || `HTTP ${r.status} do n8n` };
+      }
+      return {
+        ok: true,
+        original: String(data.original || texto),
+        corrigido: String(data.corrigido || ''),
+        sugestoes: Array.isArray(data.sugestoes) ? data.sugestoes : [],
+      };
+    } catch (err) {
+      reply.code(502);
+      return { ok: false, erro: 'Falha ao chamar n8n: ' + err.message };
+    }
+  }
+  fastify.post('/webhook/chat-corrigir-texto', corrigirHandle);
+  fastify.post('/api/chat/corrigir-texto', corrigirHandle);
 }

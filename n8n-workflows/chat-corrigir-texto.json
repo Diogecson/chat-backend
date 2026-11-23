@@ -1,0 +1,135 @@
+{
+  "name": "Chat Corrigir Texto (ortografia + sugestoes)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chat-corrigir-texto",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "wh-corr-0001-0000-0000-0000-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-928, 48],
+      "webhookId": "chat-corrigir-texto"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "texto",
+              "name": "texto",
+              "value": "={{ ($json.body.texto || '').toString().slice(0, 2000) }}",
+              "type": "string"
+            },
+            {
+              "id": "contexto",
+              "name": "contexto",
+              "value": "={{ ($json.body.contexto || '').toString().slice(0, 4000) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-corr-0001-0000-0000-0000-000000000002",
+      "name": "Variaveis",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-704, 48]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=TEXTO DO CONSULTOR (precisa corrigir + sugerir melhorias):\n---\n{{ $json.texto }}\n---\n\nCONTEXTO DA CONVERSA (últimas mensagens, mais antigo primeiro) — use só pra entender o tom e o assunto:\n---\n{{ $json.contexto || '(sem contexto)' }}\n---\n\nDevolva APENAS um JSON válido no formato:\n{\n  \"original\": \"...texto original sem alteração...\",\n  \"corrigido\": \"...o mesmo texto com ortografia, acentuação e pontuação corrigidas, sem mudar o sentido nem reescrever...\",\n  \"sugestoes\": [\n    { \"titulo\": \"Mais objetiva\", \"texto\": \"...\" },\n    { \"titulo\": \"Mais simpática\", \"texto\": \"...\" }\n  ]\n}\n\nSem texto antes nem depois do JSON. Sem markdown. Sem ```json.",
+        "options": {
+          "systemMessage": "Você é editor de mensagens de WhatsApp de um consultor comercial da UniFECAF (Centro Universitário em SP, foco em EAD e Semipresencial).\n\nSua tarefa tem 2 partes:\n\n1) CORRIGIR o texto que o consultor digitou — só ortografia, acentuação, pontuação e espaçamento. NÃO reescreva, NÃO invente conteúdo, NÃO mude o sentido. Se o original já estiver certo, 'corrigido' é igual ao 'original'.\n\n2) Gerar 2 SUGESTÕES de reescrita (nunca mais que 2, nunca menos que 1), no MESMO espírito do original, mantendo tudo que o consultor disse. Variações típicas: 'Mais objetiva' (enxuga), 'Mais simpática' (acrescenta leveza/empatia), 'Mais clara' (organiza), 'Mais curta'. Escolha os 2 títulos que fizerem mais sentido pro texto.\n\nTOM OBRIGATÓRIO em TODAS as versões:\n- Português do Brasil, WhatsApp, tratamento por 'você' (nunca senhor/a, prezado/a).\n- Simpático, humano, leve. Nada de robô, formal ou desesperado.\n- Curto: 3 a 5 linhas no máximo.\n- *Negrito* do WhatsApp (asterisco único) só em curso/valor, quando fizer sentido.\n- Emoji com moderação (💙 😊 📚 🖤), só se o original já tinha ou se encaixar natural.\n- Se o original termina com pergunta, as versões também terminam com pergunta.\n- Nunca invente curso, valor, data, polo, nome de professor, condição comercial. Só mexe no QUE já está lá.\n\nSAÍDA: SOMENTE o JSON, nada mais. Chaves exatamente: original, corrigido, sugestoes (array de {titulo, texto})."
+        }
+      },
+      "id": "ag-corr-0001-0000-0000-0000-000000000003",
+      "name": "Corretor IA",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [-464, 48]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini",
+          "cachedResultName": "gpt-4.1-mini"
+        },
+        "options": {
+          "temperature": 0.4
+        }
+      },
+      "id": "oa-corr-0001-0000-0000-0000-000000000004",
+      "name": "OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [-544, 272],
+      "credentials": {
+        "openAiApi": {
+          "id": "NK9ttQkECOReZ71h",
+          "name": "GPT DG PAGO"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parser resiliente: extrai o primeiro JSON válido do output do agent e normaliza.\nconst raw = ($json.output || '').toString();\nlet parsed = null;\n\n// Tenta parse direto\ntry { parsed = JSON.parse(raw); } catch (_) {}\n\n// Tenta extrair entre a primeira { e a última }\nif (!parsed) {\n  const i = raw.indexOf('{');\n  const j = raw.lastIndexOf('}');\n  if (i >= 0 && j > i) {\n    try { parsed = JSON.parse(raw.slice(i, j + 1)); } catch (_) {}\n  }\n}\n\nif (!parsed || typeof parsed !== 'object') {\n  return [{ json: { ok: false, erro: 'IA devolveu formato invalido' } }];\n}\n\nconst original = (parsed.original || '').toString().trim();\nconst corrigido = (parsed.corrigido || '').toString().trim();\nlet sugestoes = Array.isArray(parsed.sugestoes) ? parsed.sugestoes : [];\nsugestoes = sugestoes\n  .map(s => ({\n    titulo: (s && s.titulo ? s.titulo : 'Sugestão').toString().slice(0, 60),\n    texto: (s && s.texto ? s.texto : '').toString().trim(),\n  }))\n  .filter(s => s.texto);\n\nreturn [{ json: { ok: true, original, corrigido, sugestoes } }];"
+
+      },
+      "id": "cd-corr-0001-0000-0000-0000-000000000005",
+      "name": "Parse JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 48]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      },
+      "id": "rw-corr-0001-0000-0000-0000-000000000006",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [-16, 48]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Variaveis", "type": "main", "index": 0 }]]
+    },
+    "Variaveis": {
+      "main": [[{ "node": "Corretor IA", "type": "main", "index": 0 }]]
+    },
+    "OpenAI": {
+      "ai_languageModel": [[{ "node": "Corretor IA", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Corretor IA": {
+      "main": [[{ "node": "Parse JSON", "type": "main", "index": 0 }]]
+    },
+    "Parse JSON": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

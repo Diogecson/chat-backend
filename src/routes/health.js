@@ -9,7 +9,7 @@ export default async function healthRoutes(fastify) {
     uptime_s: Math.round(process.uptime()),
     dry_run: config.dryRun,
     has_db: hasDb(),
-    build_marker: 'quote-resolve-v1',
+    build_marker: 'corrigir-texto-v1',
     timestamp: new Date().toISOString(),
   }));
 
