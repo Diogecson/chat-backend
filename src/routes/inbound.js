@@ -121,6 +121,7 @@ async function atualizarStatuses(updates) {
 }
 
 // Baixa midia da Meta (2 etapas: GET /{media_id} -> URL -> GET URL binary)
+// Retorna { buffer, mimeType, dataUrl } ou null em erro
 async function baixarMidia(media_id, accessToken) {
   try {
     const r1 = await fetch(`https://graph.facebook.com/${config.metaApiVersion || 'v20.0'}/${media_id}`, {
@@ -131,14 +132,61 @@ async function baixarMidia(media_id, accessToken) {
     const r2 = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + accessToken } });
     if (!r2.ok) return null;
     const buf = Buffer.from(await r2.arrayBuffer());
-    return `data:${meta.mime_type || 'application/octet-stream'};base64,${buf.toString('base64')}`;
+    const mimeType = meta.mime_type || 'application/octet-stream';
+    return {
+      buffer: buf,
+      mimeType,
+      dataUrl: `data:${mimeType};base64,${buf.toString('base64')}`,
+    };
   } catch (err) {
     console.error('[inbound] baixarMidia falhou', media_id, err.message);
     return null;
   }
 }
 
-async function processarMidiasAsync(mediaRows) {
+// Transcreve audio via OpenAI Whisper. Retorna texto ou null em erro.
+// Usa OPENAI_API_KEY do env. Modelo configuravel por OPENAI_TRANSCRIBE_MODEL.
+async function transcreverAudio(audioBuffer, mimeType) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) {
+    console.warn('[inbound] OPENAI_API_KEY nao configurado — pulando transcricao');
+    return null;
+  }
+  const model = process.env.OPENAI_TRANSCRIBE_MODEL || 'whisper-1';
+  // Extensao sugerida pro Whisper (aceita: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg)
+  const mt = String(mimeType || '').toLowerCase();
+  let ext = 'ogg';
+  if (mt.includes('mp4') || mt.includes('m4a')) ext = 'm4a';
+  else if (mt.includes('mpeg') || mt.includes('mp3')) ext = 'mp3';
+  else if (mt.includes('wav')) ext = 'wav';
+  else if (mt.includes('webm')) ext = 'webm';
+  try {
+    const fd = new FormData();
+    const blob = new Blob([audioBuffer], { type: mimeType || 'audio/ogg' });
+    fd.append('file', blob, `audio.${ext}`);
+    fd.append('model', model);
+    fd.append('language', 'pt');
+    fd.append('response_format', 'json');
+    const r = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + key },
+      body: fd,
+    });
+    if (!r.ok) {
+      const errTxt = await r.text();
+      console.error('[inbound] whisper HTTP', r.status, errTxt.substring(0, 500));
+      return null;
+    }
+    const j = await r.json();
+    const texto = (j.text || '').trim();
+    return texto || null;
+  } catch (err) {
+    console.error('[inbound] transcrever falhou', err.message);
+    return null;
+  }
+}
+
+async function processarMidiasAsync(mediaRows, fastify) {
   // Agrupa por conta pra buscar o access_token 1x por conta
   const porConta = new Map();
   for (const r of mediaRows) {
@@ -154,9 +202,37 @@ async function processarMidiasAsync(mediaRows) {
       if (!cfg.access_token) continue;
       for (const r of rows) {
         if (!r.raw_media_id) continue;
-        const dataUrl = await baixarMidia(r.raw_media_id, cfg.access_token);
-        if (dataUrl) {
-          await query(`UPDATE chat_mensagens SET midia_url=$1 WHERE codigo=$2`, [dataUrl, r.codigo]);
+        const dl = await baixarMidia(r.raw_media_id, cfg.access_token);
+        if (!dl) continue;
+        // Salva a midia como data:base64 (humano ve no painel)
+        await query(`UPDATE chat_mensagens SET midia_url=$1 WHERE codigo=$2`, [dl.dataUrl, r.codigo]);
+
+        // Se for audio, transcreve com Whisper e atualiza o campo texto.
+        // A transcricao vai pra IA como se fosse uma msg de texto comum.
+        if (r.tipo === 'audio' && dl.buffer) {
+          const transcricao = await transcreverAudio(dl.buffer, dl.mimeType);
+          if (transcricao) {
+            const textoFinal = '🎙️ ' + transcricao;
+            await query(
+              `UPDATE chat_mensagens SET texto=$1 WHERE codigo=$2`,
+              [textoFinal, r.codigo]
+            );
+            console.log(`[inbound] transcricao ${r.conta_id}/${r.telefone}: ${transcricao.substring(0, 80)}${transcricao.length > 80 ? '...' : ''}`);
+
+            // Dispara IA com o texto transcrito (so roda se telefone esta ativo).
+            // Fire-and-forget. marcarDadosSePareceFormulario roda em paralelo
+            // pro caso de cliente ditar os dados por audio.
+            if (fastify) {
+              processarInboundIa(fastify, {
+                conta_id: r.conta_id,
+                telefone: r.telefone,
+                texto: transcricao,
+                tipo: 'text',
+              }).catch(err => console.error('[inbound->ia-auto audio]', err.message));
+              marcarDadosSePareceFormulario(r.conta_id, r.telefone, transcricao)
+                .catch(err => console.error('[inbound->dados-form audio]', err.message));
+            }
+          }
         }
       }
     } catch (err) {
@@ -192,10 +268,11 @@ export default async function inboundRoutes(fastify) {
         if (rows.length) await inserirMensagens(rows);
         if (statuses.length) await atualizarStatuses(statuses);
 
-        // Baixar midia em background (fire-and-forget) — Meta nao espera
+        // Baixar midia em background (fire-and-forget) — Meta nao espera.
+        // Passa fastify pra audio poder disparar IA apos transcrever.
         const mediaRows = rows.filter(r => r.is_media && r.raw_media_id);
         if (mediaRows.length) {
-          setImmediate(() => processarMidiasAsync(mediaRows));
+          setImmediate(() => processarMidiasAsync(mediaRows, fastify));
         }
 
         // IA automatica: pra cada msg de texto IN, se telefone esta na lista, chama IA
