@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniFECAF · Polo mais próximo</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#eef2f7;--card:#fff;--ok:#16a34a;--err:#dc2626;--warn:#f59e0b;--meta:#1877f2;--radius:14px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:linear-gradient(100deg,var(--blue),var(--blue-700));color:#fff;padding:16px 26px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 6px 24px rgba(0,40,85,.28);flex-wrap:wrap;gap:10px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:18px}
+.brand-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.1rem;margin:0}
+.brand-sub{font-size:.7rem;letter-spacing:2.5px;text-transform:uppercase;opacity:.7;font-weight:600}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:.82rem;text-decoration:none;transition:.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.wrap{max-width:1200px;margin:24px auto;padding:0 22px 40px;display:grid;grid-template-columns:400px 1fr;gap:20px}
+@media(max-width:900px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:var(--radius);box-shadow:0 2px 10px rgba(7,28,60,.05);border:1px solid var(--line);overflow:hidden}
+.card-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;background:#fbfcfe}
+.card-title{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;color:var(--blue);font-size:.95rem;margin:0;display:flex;align-items:center;gap:8px}
+.card-body{padding:16px 18px}
+.label{display:block;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px}
+.input,.select{width:100%;padding:9px 12px;border:1.5px solid var(--line);border-radius:10px;font-family:inherit;font-size:.9rem;background:#fbfcfe;transition:.15s}
+.input:focus,.select:focus{border-color:var(--meta);background:#fff;outline:none;box-shadow:0 0 0 4px rgba(24,119,242,.12)}
+.helper{font-size:.72rem;color:var(--muted);margin-top:4px}
+.btn{border:none;padding:10px 18px;border-radius:10px;font-weight:700;font-size:.85rem;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px;justify-content:center;width:100%}
+.btn-primary{background:linear-gradient(135deg,var(--meta),#0e5fc7);color:#fff;box-shadow:0 6px 14px rgba(24,119,242,.32)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.btn-secondary{border:1.5px solid var(--line);background:#fff;color:var(--muted)}
+.btn-secondary:hover{color:var(--ink);border-color:#cbd5e1}
+.btn-ghost{background:transparent;color:var(--meta);padding:6px 10px;width:auto;font-size:.78rem}
+.btn-ghost:hover{background:#eef4ff}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.kpi{padding:12px;border-radius:10px;border:1.5px solid var(--line);text-align:center;background:#f5f8fd}
+.kpi-val{font-size:1.5rem;font-weight:800;line-height:1;color:var(--blue)}
+.kpi-lbl{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-top:4px}
+.aba{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 -18px 14px;padding:0 18px;background:#fbfcfe}
+.aba button{padding:10px 14px;border:none;background:transparent;font-weight:700;font-size:.82rem;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:.15s;font-family:inherit}
+.aba button.on{color:var(--meta);border-bottom-color:var(--meta)}
+.row-input{display:grid;grid-template-columns:1fr 100px;gap:8px}
+.list{display:flex;flex-direction:column;gap:10px}
+.polo-card{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:14px 16px;transition:.15s;cursor:pointer}
+.polo-card:hover{border-color:var(--meta);box-shadow:0 4px 14px rgba(24,119,242,.12)}
+.polo-card.active{border-color:var(--meta);background:#f0f6ff}
+.polo-top{display:flex;justify-content:space-between;gap:10px;align-items:start}
+.polo-nome{font-weight:800;font-size:.95rem;color:var(--blue);line-height:1.25}
+.polo-dist{font-weight:800;font-size:1.05rem;color:var(--ok);white-space:nowrap;font-variant-numeric:tabular-nums}
+.polo-sub{display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap}
+.polo-sub .city{font-size:.82rem;color:var(--ink)}
+.polo-sub .pill{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:12px;background:#dcfce7;color:#15803d;text-transform:uppercase;letter-spacing:.3px}
+.polo-end{font-size:.78rem;color:var(--muted);margin-top:6px;line-height:1.35}
+.polo-meta{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);display:none;font-size:.82rem;color:var(--ink)}
+.polo-card.active .polo-meta{display:block}
+.polo-meta b{font-weight:600;color:var(--muted);min-width:90px;display:inline-block}
+.polo-meta a{color:var(--meta);text-decoration:none;font-weight:600}
+.polo-meta a:hover{text-decoration:underline}
+.origem-box{background:#f0f6ff;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:.82rem;color:var(--ink);border-left:3px solid var(--meta)}
+.origem-box b{color:var(--blue)}
+.vazio{text-align:center;padding:40px 20px;color:var(--muted);font-size:.9rem}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:var(--meta);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:middle}
+@keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:20px;right:20px;padding:12px 18px;border-radius:10px;color:#fff;font-weight:600;font-size:.88rem;z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.3);animation:tin .3s ease}
+.toast.ok{background:var(--ok)}
+.toast.err{background:var(--err)}
+.toast.warn{background:var(--warn)}
+@keyframes tin{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.upload-area{border:2px dashed var(--line);border-radius:12px;padding:30px 20px;text-align:center;cursor:pointer;transition:.15s;background:#fbfcfe}
+.upload-area:hover,.upload-area.drag{border-color:var(--meta);background:#f0f6ff}
+.upload-area i{font-size:2.2rem;color:var(--meta);margin-bottom:8px;display:block}
+.chk{display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink);margin:12px 0}
+.chk input{width:16px;height:16px}
+.alerta{background:#fef3c7;border-left:4px solid var(--warn);padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:.82rem;color:#92400e}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <div class="brand-sub">UniFECAF Chat</div>
+      <h1 class="brand-title">Polo mais próximo</h1>
+    </div>
+  </div>
+  <a class="btn-nav" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar pro chat</a>
+</div>
+
+<div class="wrap">
+
+  <!-- COLUNA ESQUERDA: BUSCA / UPLOAD -->
+  <div>
+    <div class="card">
+      <div class="aba">
+        <button id="tabBuscar" class="on" onclick="abrirAba('buscar')"><i class="bi bi-geo-alt-fill"></i> Buscar polo</button>
+        <button id="tabAtualizar" onclick="abrirAba('atualizar')"><i class="bi bi-cloud-upload-fill"></i> Atualizar base</button>
+      </div>
+
+      <div class="card-body" id="abaBuscar">
+        <div class="kpis" id="kpis">
+          <div class="kpi"><div class="kpi-val" id="k_total">—</div><div class="kpi-lbl">Polos</div></div>
+          <div class="kpi"><div class="kpi-val" id="k_ativos">—</div><div class="kpi-lbl">Ativos</div></div>
+          <div class="kpi"><div class="kpi-val" id="k_geo">—</div><div class="kpi-lbl">Geo</div></div>
+        </div>
+
+        <label class="label">CEP do cliente</label>
+        <div class="row-input" style="margin-bottom:10px">
+          <input class="input" id="inCep" placeholder="01310-100" maxlength="9" onkeydown="if(event.key==='Enter')buscarPorCep()">
+          <button class="btn btn-primary" onclick="buscarPorCep()"><i class="bi bi-search"></i></button>
+        </div>
+        <div class="helper">Ou use a cidade abaixo se não souber o CEP</div>
+
+        <div style="margin:14px 0 6px;display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.72rem;font-weight:700;letter-spacing:.5px"><div style="flex:1;height:1px;background:var(--line)"></div>OU<div style="flex:1;height:1px;background:var(--line)"></div></div>
+
+        <label class="label">Cidade</label>
+        <input class="input" id="inCidade" placeholder="Ex: Campinas" style="margin-bottom:8px" onkeydown="if(event.key==='Enter')buscarPorCidade()">
+        <label class="label">UF (opcional)</label>
+        <div class="row-input">
+          <select class="select" id="inUf">
+            <option value="">—</option>
+            <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option>
+            <option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option>
+            <option>MG</option><option>MS</option><option>MT</option><option>PA</option><option>PB</option>
+            <option>PE</option><option>PI</option><option>PR</option><option>RJ</option><option>RN</option>
+            <option>RO</option><option>RR</option><option>RS</option><option>SC</option><option>SE</option>
+            <option>SP</option><option>TO</option>
+          </select>
+          <button class="btn btn-primary" onclick="buscarPorCidade()"><i class="bi bi-search"></i></button>
+        </div>
+
+        <div style="margin-top:16px">
+          <label class="label">Quantos polos mostrar</label>
+          <select class="select" id="inLimit">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+            <option value="15">Top 15</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card-body" id="abaAtualizar" style="display:none">
+        <div class="alerta"><i class="bi bi-exclamation-triangle-fill"></i> Só <b>SUPER</b> pode atualizar a base. O upload substitui a base inteira se marcado.</div>
+        <div class="upload-area" id="dropZone" onclick="document.getElementById('fileUp').click()">
+          <i class="bi bi-cloud-upload"></i>
+          <div style="font-weight:700">Clique ou arraste o arquivo aqui</div>
+          <div class="helper" style="margin-top:4px">CSV, JSON ou dados.js (window.POLOS=[...])</div>
+        </div>
+        <input type="file" id="fileUp" accept=".csv,.txt,.js,.json" style="display:none" onchange="arquivoEscolhido(event)">
+        <div id="prevFile" style="margin-top:12px"></div>
+        <div class="chk">
+          <input type="checkbox" id="chkSubst" checked>
+          <label for="chkSubst">Substituir base inteira (recomendado)</label>
+        </div>
+        <button class="btn btn-primary" id="btnSubir" onclick="subirBase()" disabled><i class="bi bi-cloud-arrow-up-fill"></i> Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLUNA DIREITA: RESULTADOS -->
+  <div>
+    <div class="card">
+      <div class="card-head">
+        <h2 class="card-title"><i class="bi bi-list-ol"></i> Resultados</h2>
+        <span class="helper" id="hintResult">Digite um CEP ou cidade pra começar</span>
+      </div>
+      <div class="card-body" id="boxResult">
+        <div class="vazio"><i class="bi bi-geo-alt" style="font-size:2.5rem;color:#cbd5e1;display:block;margin-bottom:10px"></i>Nenhuma busca ainda.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BASE = '/webhook';
+const PAPEL = String(localStorage.getItem('chat_papel') || '').toUpperCase();
+const USUARIO = localStorage.getItem('chat_usuario') || '';
+
+function toast(msg, tipo){
+  const t = document.createElement('div');
+  t.className = 'toast ' + (tipo || 'ok');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+async function api(url, opts){
+  const r = await fetch(url, { ...opts, headers: { 'Content-Type':'application/json', ...(opts?.headers||{}) }});
+  return r.json().catch(() => ({ ok:false, erro:'resposta inválida' }));
+}
+
+async function carregarStats(){
+  try {
+    const d = await api(BASE + '/chat-polos-stats');
+    if (d.ok) {
+      document.getElementById('k_total').textContent = d.stats.total || 0;
+      document.getElementById('k_ativos').textContent = d.stats.ativos || 0;
+      document.getElementById('k_geo').textContent = d.stats.geolocalizados || 0;
+    }
+  } catch(_){}
+}
+
+function abrirAba(qual){
+  document.getElementById('abaBuscar').style.display = qual === 'buscar' ? '' : 'none';
+  document.getElementById('abaAtualizar').style.display = qual === 'atualizar' ? '' : 'none';
+  document.getElementById('tabBuscar').classList.toggle('on', qual === 'buscar');
+  document.getElementById('tabAtualizar').classList.toggle('on', qual === 'atualizar');
+}
+
+async function buscarPorCep(){
+  const cep = document.getElementById('inCep').value.replace(/\D/g, '');
+  if (cep.length !== 8) return toast('CEP inválido', 'warn');
+  await buscar({ cep });
+}
+
+async function buscarPorCidade(){
+  const cidade = document.getElementById('inCidade').value.trim();
+  if (!cidade) return toast('Digite uma cidade', 'warn');
+  const uf = document.getElementById('inUf').value;
+  await buscar({ cidade, uf });
+}
+
+async function buscar(params){
+  const box = document.getElementById('boxResult');
+  const hint = document.getElementById('hintResult');
+  box.innerHTML = '<div class="vazio"><span class="spinner"></span> Buscando...</div>';
+  hint.textContent = '';
+  const limit = document.getElementById('inLimit').value;
+  const qs = new URLSearchParams({ ...params, limit });
+  try {
+    const d = await api(BASE + '/chat-polos-proximos?' + qs.toString());
+    if (!d.ok) {
+      box.innerHTML = `<div class="vazio" style="color:var(--err)"><i class="bi bi-exclamation-triangle-fill"></i> ${d.erro || 'erro'}</div>`;
+      return;
+    }
+    renderResultado(d);
+  } catch(e){
+    box.innerHTML = `<div class="vazio" style="color:var(--err)">${e.message}</div>`;
+  }
+}
+
+function renderResultado(d){
+  const box = document.getElementById('boxResult');
+  const origem = d.origem || {};
+  const polos = d.polos || [];
+  let html = `<div class="origem-box"><i class="bi bi-geo-alt-fill"></i> <b>Origem:</b> ${origem.cidade || '-'}${origem.uf ? ' / ' + origem.uf : ''} <span style="color:var(--muted);font-size:.72rem">(${origem.fonte || 'direto'})</span></div>`;
+  if (!polos.length) {
+    html += '<div class="vazio">Nenhum polo próximo encontrado.</div>';
+  } else {
+    html += '<div class="list">';
+    for (let i = 0; i < polos.length; i++) {
+      const p = polos[i];
+      const whats = (p.whatsapp || '').replace(/\D/g, '');
+      const whatsLink = whats.length >= 10 ? `https://wa.me/55${whats}` : '';
+      html += `<div class="polo-card" onclick="togglePolo(this)">
+        <div class="polo-top">
+          <div style="flex:1;min-width:0">
+            <div class="polo-nome">${escapeHtml(p.nome || '-')}</div>
+            <div class="polo-sub">
+              <span class="city">${escapeHtml(p.cidade || '')}${p.uf ? ' / ' + p.uf : ''}</span>
+              <span class="pill">${escapeHtml(p.status || 'ATIVO')}</span>
+            </div>
+          </div>
+          <div class="polo-dist">${p.distancia_km} km</div>
+        </div>
+        <div class="polo-end"><i class="bi bi-house-fill" style="color:var(--muted)"></i> ${escapeHtml(p.endereco || '-')}</div>
+        <div class="polo-meta">
+          ${p.coordenadora ? `<div><b>Coord:</b> ${escapeHtml(p.coordenadora)}</div>` : ''}
+          ${p.supervisor ? `<div><b>Supervisor:</b> ${escapeHtml(p.supervisor)}</div>` : ''}
+          ${whats ? `<div><b>WhatsApp:</b> <a href="${whatsLink}" target="_blank" rel="noopener">${whats}</a></div>` : ''}
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost" onclick="event.stopPropagation();copiar('${encodeURIComponent((p.nome||'') + ' — ' + (p.endereco||''))}')"><i class="bi bi-clipboard"></i> Copiar</button>
+            <a class="btn btn-ghost" style="text-decoration:none" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((p.endereco||'')+' Brasil')}"><i class="bi bi-map"></i> Rota Google</a>
+          </div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+  }
+  box.innerHTML = html;
+  document.getElementById('hintResult').textContent = polos.length + ' polo(s) · base ' + (d.total_base || 0);
+}
+
+function togglePolo(el){
+  document.querySelectorAll('.polo-card.active').forEach(x => { if(x !== el) x.classList.remove('active'); });
+  el.classList.toggle('active');
+}
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+async function copiar(enc){
+  try { await navigator.clipboard.writeText(decodeURIComponent(enc)); toast('Copiado!'); }
+  catch(e){ toast('Não deu pra copiar', 'err'); }
+}
+
+// Upload
+let fileConteudo = '';
+function arquivoEscolhido(ev){
+  const f = ev.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    fileConteudo = e.target.result;
+    document.getElementById('prevFile').innerHTML = `<div style="background:#f0fdf4;border-left:3px solid var(--ok);padding:8px 12px;border-radius:8px;font-size:.82rem"><i class="bi bi-file-earmark-check-fill" style="color:var(--ok)"></i> <b>${f.name}</b> — ${Math.round(f.size/1024)} KB</div>`;
+    document.getElementById('btnSubir').disabled = false;
+  };
+  reader.readAsText(f, 'utf-8');
+}
+
+async function subirBase(){
+  if (PAPEL !== 'SUPER') return toast('Só SUPER', 'err');
+  if (!fileConteudo) return toast('Escolha um arquivo', 'warn');
+  if (!confirm('Confirma atualizar a base de polos?')) return;
+  const btn = document.getElementById('btnSubir');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
+  try {
+    const d = await api(BASE + '/chat-polos-atualizar', {
+      method: 'POST',
+      body: JSON.stringify({
+        conteudo: fileConteudo,
+        papel: PAPEL,
+        substituir: document.getElementById('chkSubst').checked,
+        usuario: USUARIO,
+      }),
+    });
+    if (!d.ok) { toast('Erro: ' + (d.erro || 'falhou'), 'err'); return; }
+    toast(`${d.inserted} novos + ${d.updated} atualizados`);
+    document.getElementById('prevFile').innerHTML = '';
+    fileConteudo = '';
+    document.getElementById('fileUp').value = '';
+    carregarStats();
+  } catch(e){ toast(e.message, 'err'); }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-cloud-arrow-up-fill"></i> Enviar';
+  }
+}
+
+// Drag & drop
+const dropZone = document.getElementById('dropZone');
+['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  const dt = new DataTransfer();
+  dt.items.add(f);
+  document.getElementById('fileUp').files = dt.files;
+  arquivoEscolhido({ target: { files: dt.files } });
+});
+
+carregarStats();
+</script>
+</body>
+</html>

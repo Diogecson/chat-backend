@@ -29,6 +29,7 @@ import gestaoRoutes from './routes/gestao.js';
 import limpezaRoutes from './routes/limpeza.js';
 import iaAutoRoutes from './routes/ia-auto.js';
 import polosRoutes from './routes/polos.js';
+import polosConsultaRoutes from './routes/polos-consulta.js';
 import consultaAlunoRoutes from './routes/consulta-aluno.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
@@ -91,6 +92,7 @@ await fastify.register(gestaoRoutes);
 await fastify.register(limpezaRoutes);
 await fastify.register(iaAutoRoutes);
 await fastify.register(polosRoutes);
+await fastify.register(polosConsultaRoutes);
 await fastify.register(consultaAlunoRoutes);
 await fastify.register(acessosRoutes);
 
