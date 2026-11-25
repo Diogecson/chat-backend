@@ -247,6 +247,10 @@ export default async function polosConsultaRoutes(fastify) {
     await ensurePolosSchema();
     const q = req.query || {};
     const limit = Math.min(parseInt(q.limit || '8') || 8, 30);
+    const curso = q.curso ? String(q.curso).trim() : '';
+    const soComTurma = q.so_com_turma === 'true';
+    const minAlunos = parseInt(q.min_alunos || process.env.MIN_ALUNOS_TURMA || '15', 10);
+    const ano = parseInt(q.ano || new Date().getFullYear(), 10);
 
     let origem = null;
     if (q.lat && q.lng) {
@@ -258,19 +262,83 @@ export default async function polosConsultaRoutes(fastify) {
       return reply.code(400).send({ ok: false, erro: 'informe cep, cidade ou lat+lng' });
     }
 
-    // So polos ATIVOS geolocalizados
     const soAtivos = q.incluir_inativos === 'true' ? '' : `AND UPPER(status)='ATIVO'`;
     const r = await query(`
       SELECT id, nome, cidade, uf, lat, lng, endereco, status, coordenadora, whatsapp, supervisor
       FROM chat_polos
       WHERE lat IS NOT NULL AND lng IS NOT NULL ${soAtivos}
     `);
-    const polos = r.rows.map(p => ({
-      ...p,
-      distancia_km: Math.round(distKm(origem.lat, origem.lng, p.lat, p.lng) * 10) / 10,
-    }));
-    polos.sort((a, b) => a.distancia_km - b.distancia_km);
-    return { ok: true, origem, polos: polos.slice(0, limit), total_base: r.rowCount };
+
+    // Agrega matriculas: total geral por polo + total no curso (se curso informado)
+    let totaisPorPolo = new Map(); // polo_chave → {total, ativos, nocurso, nocurso_ativos}
+    try {
+      // Total de alunos por polo (independe do curso)
+      const tp = await query(`
+        SELECT polo_chave, SUM(total_alunos)::int AS total, SUM(total_ativos)::int AS ativos
+        FROM chat_polos_turmas WHERE ano=$1 GROUP BY polo_chave
+      `, [ano]);
+      for (const row of tp.rows) {
+        totaisPorPolo.set(String(row.polo_chave).trim().toLowerCase(), { total: row.total, ativos: row.ativos, nocurso: 0, nocurso_ativos: 0 });
+      }
+      if (curso) {
+        // Match aproximado por LIKE (curso pode vir com nome parcial)
+        const tc = await query(`
+          SELECT polo_chave, total_alunos, total_ativos, curso
+          FROM chat_polos_turmas
+          WHERE ano=$1 AND LOWER(curso) LIKE $2
+        `, [ano, '%' + String(curso).toLowerCase() + '%']);
+        for (const row of tc.rows) {
+          const k = String(row.polo_chave).trim().toLowerCase();
+          const cur = totaisPorPolo.get(k) || { total: 0, ativos: 0, nocurso: 0, nocurso_ativos: 0 };
+          cur.nocurso += row.total_alunos;
+          cur.nocurso_ativos += row.total_ativos;
+          totaisPorPolo.set(k, cur);
+        }
+      }
+    } catch (err) {
+      console.warn('[polos-consulta] agg turmas falhou:', err.message);
+    }
+
+    // Enriquece cada polo. Match: polo_chave pode ser id do polo OU nome — tenta ambos
+    const polos = r.rows.map(p => {
+      const dist = Math.round(distKm(origem.lat, origem.lng, p.lat, p.lng) * 10) / 10;
+      // Tenta match com id, depois nome/cidade
+      const candidatos = [
+        String(p.id || '').toLowerCase(),
+        String(p.nome || '').toLowerCase(),
+        String(p.cidade || '').toLowerCase(),
+      ].filter(Boolean);
+      let agg = null;
+      for (const c of candidatos) {
+        if (totaisPorPolo.has(c)) { agg = totaisPorPolo.get(c); break; }
+      }
+      if (!agg) {
+        // Busca por substring (nome do polo contem a chave)
+        for (const [k, v] of totaisPorPolo.entries()) {
+          if (candidatos.some(c => c.includes(k) || k.includes(c))) { agg = v; break; }
+        }
+      }
+      const total_alunos = agg?.total || 0;
+      const total_ativos = agg?.ativos || 0;
+      const alunos_curso = agg?.nocurso || 0;
+      const alunos_curso_ativos = agg?.nocurso_ativos || 0;
+      const turma_viavel = curso ? (alunos_curso_ativos >= minAlunos) : (total_ativos >= minAlunos);
+      return {
+        ...p,
+        distancia_km: dist,
+        total_alunos, total_ativos,
+        alunos_curso, alunos_curso_ativos,
+        turma_viavel,
+      };
+    });
+
+    let filtrados = polos;
+    if (curso && soComTurma) filtrados = polos.filter(p => p.alunos_curso_ativos >= minAlunos);
+    filtrados.sort((a, b) => a.distancia_km - b.distancia_km);
+    return {
+      ok: true, origem, polos: filtrados.slice(0, limit),
+      total_base: r.rowCount, curso, min_alunos_turma: minAlunos, ano,
+    };
   }
 
   async function atualizar(req, reply) {

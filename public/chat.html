@@ -1728,16 +1728,22 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 
       <!-- Painel busca por CEP -->
       <div id="cpBuscaCep">
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
           <input id="cpInCep" type="text" placeholder="01310-100" maxlength="9" style="flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem" onkeydown="if(event.key==='Enter')consultarPolo()">
-          <select id="cpInLimit" style="width:120px;padding:10px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem">
+          <select id="cpInLimit" style="width:110px;padding:10px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem">
             <option value="3">Top 3</option>
             <option value="5" selected>Top 5</option>
             <option value="8">Top 8</option>
           </select>
           <button onclick="consultarPolo()" id="cpBtn" style="padding:10px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer"><i class="bi bi-search"></i> Buscar</button>
         </div>
-        <div id="cpHint" style="margin-top:6px;font-size:.72rem;color:#64748b">CEP do cliente — busca os polos mais próximos</div>
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+          <select id="cpFiltroCurso" style="flex:1;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.82rem;background:#fff" onchange="cpCursoMudou()">
+            <option value="">— sem filtro de curso —</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:4px;font-size:.75rem;color:#334155;white-space:nowrap"><input type="checkbox" id="cpSoComTurma" style="margin:0"> só com turma</label>
+        </div>
+        <div id="cpHint" style="font-size:.72rem;color:#64748b">CEP do cliente — busca polos próximos (opcional: filtrar por curso)</div>
       </div>
 
       <!-- Painel busca por Cidade -->
@@ -1770,7 +1776,16 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
         </div>
         <div id="cpPrevFile" style="margin-top:10px"></div>
         <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;margin:10px 0"><input type="checkbox" id="cpChkSubst" checked> Substituir base inteira</label>
-        <button id="cpBtnSubir" onclick="cpSubirBase()" disabled style="width:100%;padding:10px;background:#1877f2;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer"><i class="bi bi-cloud-arrow-up-fill"></i> Enviar</button>
+        <button id="cpBtnSubir" onclick="cpSubirBase()" disabled style="width:100%;padding:10px;background:#1877f2;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;margin-bottom:12px"><i class="bi bi-cloud-arrow-up-fill"></i> Enviar</button>
+        <div style="padding-top:12px;border-top:1px solid #e5e7eb">
+          <div style="font-size:.78rem;font-weight:700;color:#334155;margin-bottom:6px"><i class="bi bi-cloud-download-fill" style="color:#059669"></i> Sincronizar matrículas da TI</div>
+          <div style="font-size:.72rem;color:#64748b;margin-bottom:8px">Puxa <b>matriculas/lista</b> da API Core, agrupa por polo+curso. Pode demorar ~1 min.</div>
+          <div style="display:flex;gap:6px;margin-bottom:6px">
+            <input type="number" id="cpSyncAno" value="2026" min="2020" max="2030" style="width:100px;padding:7px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem" title="Ano letivo">
+            <button onclick="cpSyncMatriculas()" id="cpBtnSync" style="flex:1;padding:8px;background:#059669;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer;font-size:.82rem"><i class="bi bi-arrow-clockwise"></i> Sincronizar</button>
+          </div>
+          <div id="cpSyncStatus" style="font-size:.72rem;color:#64748b;min-height:16px"></div>
+        </div>
       </div>
     </div>
     <div id="cpResultado" style="padding:14px 18px;overflow:auto;flex:1;background:#fbfcfe"></div>
@@ -2412,6 +2427,8 @@ function renderConsultaAluno(j){
 
 /* ============ POLO MAIS PRÓXIMO ============ */
 let cpFileConteudo = '';
+let cpCursosCache = null;
+let cpMinAlunosTurma = 15;
 
 function abrirConsultaPolo(){
   const el = document.getElementById('poloBack');
@@ -2419,7 +2436,40 @@ function abrirConsultaPolo(){
   el.style.display='flex';
   cpSetTipo('cep');
   document.getElementById('cpResultado').innerHTML = '';
+  cpCarregarCursos();
   setTimeout(()=>{ const i=document.getElementById('cpInCep'); if(i) i.focus(); }, 60);
+}
+
+async function cpCarregarCursos(){
+  if(cpCursosCache) { cpPopularSelectCursos(); return; }
+  try{
+    const r = await fetch(BASE + '/chat-polos-cursos');
+    const d = await r.json();
+    if(!d.ok) return;
+    cpCursosCache = d.cursos || [];
+    cpMinAlunosTurma = d.min_alunos_turma || 15;
+    cpPopularSelectCursos();
+  }catch(_){}
+}
+
+function cpPopularSelectCursos(){
+  const sel = document.getElementById('cpFiltroCurso');
+  if(!sel || !cpCursosCache) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">— sem filtro de curso —</option>';
+  for(const c of cpCursosCache){
+    const op = document.createElement('option');
+    op.value = c.curso;
+    op.textContent = `${c.curso} (${c.ativos} ativos)`;
+    sel.appendChild(op);
+  }
+  if(atual) sel.value = atual;
+}
+
+function cpCursoMudou(){
+  const curso = document.getElementById('cpFiltroCurso').value;
+  document.getElementById('cpSoComTurma').disabled = !curso;
+  if(!curso) document.getElementById('cpSoComTurma').checked = false;
 }
 function fecharConsultaPolo(){
   const el = document.getElementById('poloBack');
@@ -2445,14 +2495,24 @@ async function consultarPolo(){
   const cep = (document.getElementById('cpInCep').value||'').replace(/\D/g,'');
   if(cep.length !== 8) return toast('CEP inválido (8 dígitos)', 'warn');
   const limit = document.getElementById('cpInLimit').value;
-  await cpBuscarCore({ cep, limit });
+  const curso = document.getElementById('cpFiltroCurso').value;
+  const so_com_turma = document.getElementById('cpSoComTurma').checked;
+  const extras = {};
+  if(curso) extras.curso = curso;
+  if(so_com_turma) extras.so_com_turma = 'true';
+  await cpBuscarCore({ cep, limit, ...extras });
 }
 async function consultarPoloCidade(){
   const cidade = (document.getElementById('cpInCidade').value||'').trim();
   if(!cidade) return toast('Digite a cidade', 'warn');
   const uf = document.getElementById('cpInUf').value;
   const limit = document.getElementById('cpInLimit2').value;
-  await cpBuscarCore({ cidade, uf, limit });
+  const curso = document.getElementById('cpFiltroCurso').value;
+  const so_com_turma = document.getElementById('cpSoComTurma').checked;
+  const extras = {};
+  if(curso) extras.curso = curso;
+  if(so_com_turma) extras.so_com_turma = 'true';
+  await cpBuscarCore({ cidade, uf, limit, ...extras });
 }
 
 async function cpBuscarCore(params){
@@ -2476,7 +2536,9 @@ function cpRender(d){
   const out = document.getElementById('cpResultado');
   const origem = d.origem || {};
   const polos = d.polos || [];
-  let html = `<div style="background:#f0f6ff;border-left:3px solid #1877f2;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:.82rem"><i class="bi bi-geo-alt-fill" style="color:#1877f2"></i> <b>Origem:</b> ${escapeHtml(origem.cidade || '-')}${origem.uf ? ' / ' + escapeHtml(origem.uf) : ''} <span style="color:#64748b;font-size:.72rem">(${escapeHtml(origem.fonte || 'direto')})</span></div>`;
+  const curso = d.curso || '';
+  const minT = d.min_alunos_turma || 15;
+  let html = `<div style="background:#f0f6ff;border-left:3px solid #1877f2;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:.82rem"><i class="bi bi-geo-alt-fill" style="color:#1877f2"></i> <b>Origem:</b> ${escapeHtml(origem.cidade || '-')}${origem.uf ? ' / ' + escapeHtml(origem.uf) : ''} <span style="color:#64748b;font-size:.72rem">(${escapeHtml(origem.fonte || 'direto')})</span>${curso ? ` · <b>Curso:</b> ${escapeHtml(curso)} <span style="color:#64748b;font-size:.72rem">(viável ≥ ${minT})</span>` : ''}</div>`;
   if(!polos.length){
     html += '<div style="padding:26px;text-align:center;color:#64748b">Nenhum polo próximo encontrado.</div>';
   } else {
@@ -2484,14 +2546,29 @@ function cpRender(d){
       const whats = (p.whatsapp||'').replace(/\D/g,'');
       const whatsLink = whats.length >= 10 ? `https://wa.me/55${whats}` : '';
       const txtCopiar = `${p.nome||''} — ${p.endereco||''}`;
+      // Badge de turma
+      let badgeTurma = '';
+      if(curso){
+        if(p.turma_viavel) badgeTurma = `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:12px;font-size:.68rem;font-weight:700"><i class="bi bi-check-circle-fill"></i> Turma viável · ${p.alunos_curso_ativos} alunos</span>`;
+        else badgeTurma = `<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:12px;font-size:.68rem;font-weight:700"><i class="bi bi-exclamation-triangle-fill"></i> ${p.alunos_curso_ativos} alunos (não viável)</span>`;
+      }
+      // Linha de alunos
+      let linhaAlunos = '';
+      if(p.total_alunos || p.alunos_curso){
+        const parts = [];
+        if(p.total_ativos || p.total_alunos) parts.push(`<b>${p.total_ativos || p.total_alunos}</b> alunos ativos`);
+        if(curso && (p.alunos_curso || p.alunos_curso_ativos)) parts.push(`<b>${p.alunos_curso_ativos}</b> em ${escapeHtml(curso)}`);
+        if(parts.length) linhaAlunos = `<div style="font-size:.76rem;color:#334155;margin-top:4px"><i class="bi bi-people-fill" style="color:#64748b"></i> ${parts.join(' · ')}</div>`;
+      }
       return `<div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff">
         <div style="display:flex;justify-content:space-between;gap:10px;align-items:start;margin-bottom:4px">
           <div style="flex:1;min-width:0">
             <div style="font-weight:800;font-size:.92rem;color:#002855;line-height:1.3">${escapeHtml(p.nome||'-')}</div>
-            <div style="font-size:.78rem;color:#334155;margin-top:2px">${escapeHtml(p.cidade||'')}${p.uf?' / '+escapeHtml(p.uf):''} · <span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase">${escapeHtml(p.status||'ATIVO')}</span></div>
+            <div style="font-size:.78rem;color:#334155;margin-top:2px;display:flex;gap:6px;align-items:center;flex-wrap:wrap">${escapeHtml(p.cidade||'')}${p.uf?' / '+escapeHtml(p.uf):''} <span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase">${escapeHtml(p.status||'ATIVO')}</span>${badgeTurma}</div>
           </div>
           <div style="font-weight:800;font-size:1rem;color:#16a34a;white-space:nowrap">${p.distancia_km} km</div>
         </div>
+        ${linhaAlunos}
         <div style="font-size:.76rem;color:#64748b;margin-top:6px"><i class="bi bi-house-fill"></i> ${escapeHtml(p.endereco||'-')}</div>
         ${p.coordenadora?`<div style="font-size:.76rem;color:#334155;margin-top:4px"><b style="color:#64748b">Coord:</b> ${escapeHtml(p.coordenadora)}</div>`:''}
         ${whats?`<div style="font-size:.76rem;color:#334155;margin-top:4px"><b style="color:#64748b">WhatsApp:</b> <a href="${whatsLink}" target="_blank" rel="noopener" style="color:#1877f2;text-decoration:none">${escapeHtml(whats)}</a></div>`:''}
@@ -2503,6 +2580,39 @@ function cpRender(d){
     }).join('');
   }
   out.innerHTML = html;
+}
+
+async function cpSyncMatriculas(){
+  const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel !== 'SUPER' && papel !== 'ADMIN') return toast('Só SUPER ou ADMIN', 'err');
+  const ano = parseInt(document.getElementById('cpSyncAno').value) || new Date().getFullYear();
+  if(!confirm(`Sincronizar matrículas do ano ${ano}? Pode levar ~1 min.`)) return;
+  const btn = document.getElementById('cpBtnSync');
+  const stat = document.getElementById('cpSyncStatus');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sincronizando...';
+  stat.innerHTML = '<i class="bi bi-hourglass-split"></i> Puxando matrículas da API Core...';
+  try{
+    const r = await fetch(BASE + '/chat-polos-sync-matriculas', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ papel, ano, usuario: USUARIO })
+    });
+    const d = await r.json();
+    if(!d.ok){
+      stat.innerHTML = `<span style="color:#dc2626"><i class="bi bi-x-circle"></i> ${escapeHtml(d.erro||'erro')}</span>`;
+      return;
+    }
+    stat.innerHTML = `<span style="color:#059669"><i class="bi bi-check-circle"></i> ${d.linhas_total} matrículas · ${d.agregados} grupos (polo×curso) · mínimo turma: ${d.min_alunos_turma}</span>`;
+    cpCursosCache = null; // invalida cache pra recarregar lista
+    cpCarregarCursos();
+    toast('Matrículas sincronizadas!', 'ok');
+  }catch(e){
+    stat.innerHTML = `<span style="color:#dc2626">${escapeHtml(e.message)}</span>`;
+  }finally{
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Sincronizar';
+  }
 }
 
 async function cpCopiar(btn, enc){
