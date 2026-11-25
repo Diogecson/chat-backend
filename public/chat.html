@@ -1062,7 +1062,6 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <a href="#" id="railRetornos" onclick="event.preventDefault();abrirRetornosDashboard()" title="Meus retornos agendados" data-label="Retornos" data-feat="retorno"><i class="bi bi-calendar-check"></i></a>
       <a href="disparos.html" id="railDisparos" title="Disparos em massa (Meta templates)" data-label="Disparos em massa" data-feat="disparos"><i class="bi bi-megaphone-fill"></i></a>
       <a href="consulta.html" id="railConsulta" title="Consultar contatos (quais já têm chat)" data-label="Consultar contato" data-feat="consulta"><i class="bi bi-search"></i></a>
-      <a href="polos-consulta.html" id="railPolosConsulta" title="Polo mais próximo (CEP ou cidade)" data-label="Polo mais próximo"><i class="bi bi-pin-map-fill"></i></a>
       <a href="triagem.html" id="railTriagem" title="Configurar triagem IA" data-label="Triagem IA" data-feat="triagem"><i class="bi bi-funnel-fill"></i></a>
       <a href="respostas.html" id="railRespostas" title="Respostas rápidas (digite / no chat)" data-label="Respostas rápidas" data-feat="respostas"><i class="bi bi-lightning-charge-fill"></i></a>
       <a href="funil.html" id="railFunil" title="Funil de conversas (quente/morna/fria)" data-label="Funil de conversas" data-feat="funil"><i class="bi bi-columns-gap"></i></a>
@@ -1316,7 +1315,7 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
             <button class="composer-rt" id="btnRt" onclick="abrirRetornoModal()" title="Agendar retorno com esse cliente" data-feat="retorno"><i class="bi bi-calendar-plus"></i></button>
             <button class="composer-hs" id="btnHS" onclick="abrirHubspot()" title="HubSpot — criar/buscar negócio deste contato" data-feat="hubspot"><i class="bi bi-bullseye"></i></button>
             <button class="composer-tpl hidden" id="btnTpl" onclick="abrirModalTemplate()" title="Enviar template HSM (Meta)" data-feat="templates"><i class="bi bi-tag-fill"></i></button>
-            <button class="composer-ia" id="btnPolo" onclick="window.open('https://www.unifecaf.com.br/polos','_blank','noopener')" title="Localizar polo — abre a página de polos UniFECAF" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="bi bi-geo-alt-fill"></i></button>
+            <button class="composer-ia" id="btnPolo" onclick="abrirConsultaPolo()" title="Polo mais próximo — busca por CEP ou cidade" style="background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="bi bi-geo-alt-fill"></i></button>
             <button class="composer-ia" id="btnAluno" onclick="abrirConsultaAluno()" title="Consultar aluno — busca por RA ou CPF na base UniFECAF" style="background:linear-gradient(135deg,#0ea5e9,#0369a1)"><i class="bi bi-mortarboard-fill"></i></button>
           </div>
           <button class="composer-extras-toggle" onclick="toggleExtras()" title="Mais opções" id="btnExtrasToggle"><i class="bi bi-three-dots-vertical"></i></button>
@@ -1710,6 +1709,71 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
       <div id="caHint" style="margin-top:6px;font-size:.72rem;color:#64748b"></div>
     </div>
     <div id="caResultado" style="padding:16px 18px;overflow:auto;flex:1"></div>
+  </div>
+</div>
+
+<!-- MODAL POLO MAIS PRÓXIMO -->
+<div id="poloBack" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;align-items:center;justify-content:center" onclick="if(event.target===this)fecharConsultaPolo()">
+  <div style="background:#fff;border-radius:14px;width:min(720px,94vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="padding:14px 18px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff;display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:1rem;font-weight:700"><i class="bi bi-geo-alt-fill"></i> Polo mais próximo</h3>
+      <button onclick="fecharConsultaPolo()" style="background:rgba(255,255,255,.2);border:none;color:#fff;width:32px;height:32px;border-radius:8px;cursor:pointer"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div style="padding:14px 18px;border-bottom:1px solid #e5e7eb;background:#f8fafc">
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button id="cpTabCep" onclick="cpSetTipo('cep')" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:600;font-size:.85rem">CEP</button>
+        <button id="cpTabCidade" onclick="cpSetTipo('cidade')" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:600;font-size:.85rem">Cidade</button>
+        <button id="cpTabAtualizar" onclick="cpSetTipo('atualizar')" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:600;font-size:.85rem" title="Só SUPER">↑ Base</button>
+      </div>
+
+      <!-- Painel busca por CEP -->
+      <div id="cpBuscaCep">
+        <div style="display:flex;gap:8px">
+          <input id="cpInCep" type="text" placeholder="01310-100" maxlength="9" style="flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem" onkeydown="if(event.key==='Enter')consultarPolo()">
+          <select id="cpInLimit" style="width:120px;padding:10px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+          </select>
+          <button onclick="consultarPolo()" id="cpBtn" style="padding:10px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer"><i class="bi bi-search"></i> Buscar</button>
+        </div>
+        <div id="cpHint" style="margin-top:6px;font-size:.72rem;color:#64748b">CEP do cliente — busca os polos mais próximos</div>
+      </div>
+
+      <!-- Painel busca por Cidade -->
+      <div id="cpBuscaCidade" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input id="cpInCidade" type="text" placeholder="Ex: Campinas" style="flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:.95rem" onkeydown="if(event.key==='Enter')consultarPoloCidade()">
+          <select id="cpInUf" style="width:80px;padding:10px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem">
+            <option value="">UF</option>
+            <option>AC</option><option>AL</option><option>AM</option><option>AP</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MG</option><option>MS</option><option>MT</option><option>PA</option><option>PB</option><option>PE</option><option>PI</option><option>PR</option><option>RJ</option><option>RN</option><option>RO</option><option>RR</option><option>RS</option><option>SC</option><option>SE</option><option>SP</option><option>TO</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:8px">
+          <select id="cpInLimit2" style="flex:1;padding:10px 8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.88rem">
+            <option value="3">Top 3</option>
+            <option value="5" selected>Top 5</option>
+            <option value="8">Top 8</option>
+          </select>
+          <button onclick="consultarPoloCidade()" style="padding:10px 18px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer"><i class="bi bi-search"></i> Buscar</button>
+        </div>
+      </div>
+
+      <!-- Painel atualizar -->
+      <div id="cpAtualizarBox" style="display:none">
+        <div style="background:#fef3c7;border-left:3px solid #f59e0b;padding:8px 12px;border-radius:8px;font-size:.78rem;color:#92400e;margin-bottom:10px"><i class="bi bi-exclamation-triangle-fill"></i> Só <b>SUPER</b> pode atualizar. O upload substitui a base inteira se marcado.</div>
+        <input type="file" id="cpFileUp" accept=".csv,.txt,.js,.json" style="display:none" onchange="cpArquivoEscolhido(event)">
+        <div id="cpDropZone" onclick="document.getElementById('cpFileUp').click()" style="border:2px dashed #cbd5e1;border-radius:10px;padding:22px 20px;text-align:center;cursor:pointer;background:#fff">
+          <i class="bi bi-cloud-upload" style="font-size:1.8rem;color:#1877f2;display:block;margin-bottom:6px"></i>
+          <div style="font-weight:700;font-size:.9rem">Clique ou arraste o arquivo</div>
+          <div style="font-size:.72rem;color:#64748b;margin-top:2px">CSV, JSON ou dados.js (window.POLOS=[...])</div>
+        </div>
+        <div id="cpPrevFile" style="margin-top:10px"></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;margin:10px 0"><input type="checkbox" id="cpChkSubst" checked> Substituir base inteira</label>
+        <button id="cpBtnSubir" onclick="cpSubirBase()" disabled style="width:100%;padding:10px;background:#1877f2;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer"><i class="bi bi-cloud-arrow-up-fill"></i> Enviar</button>
+      </div>
+    </div>
+    <div id="cpResultado" style="padding:14px 18px;overflow:auto;flex:1;background:#fbfcfe"></div>
   </div>
 </div>
 
@@ -2344,6 +2408,155 @@ function renderConsultaAluno(j){
       </div>
     </div>`;
   }).join('');
+}
+
+/* ============ POLO MAIS PRÓXIMO ============ */
+let cpFileConteudo = '';
+
+function abrirConsultaPolo(){
+  const el = document.getElementById('poloBack');
+  if(!el) return;
+  el.style.display='flex';
+  cpSetTipo('cep');
+  document.getElementById('cpResultado').innerHTML = '';
+  setTimeout(()=>{ const i=document.getElementById('cpInCep'); if(i) i.focus(); }, 60);
+}
+function fecharConsultaPolo(){
+  const el = document.getElementById('poloBack');
+  if(el) el.style.display='none';
+}
+function cpSetTipo(tipo){
+  const bCep = document.getElementById('cpTabCep');
+  const bCid = document.getElementById('cpTabCidade');
+  const bAtu = document.getElementById('cpTabAtualizar');
+  const sel = 'background:#dc2626;color:#fff;border-color:#dc2626';
+  const off = 'background:#fff;color:#334155;border-color:#cbd5e1';
+  const bases = [bCep, bCid, bAtu];
+  bases.forEach(b => { if(b){ b.style.cssText = b.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'').replace(/border-color[^;]*;?/g,'') + ';' + off; } });
+  document.getElementById('cpBuscaCep').style.display    = tipo==='cep' ? '' : 'none';
+  document.getElementById('cpBuscaCidade').style.display = tipo==='cidade' ? '' : 'none';
+  document.getElementById('cpAtualizarBox').style.display= tipo==='atualizar' ? '' : 'none';
+  if(tipo==='cep')       bCep.style.cssText = bCep.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'').replace(/border-color[^;]*;?/g,'') + ';' + sel;
+  if(tipo==='cidade')    bCid.style.cssText = bCid.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'').replace(/border-color[^;]*;?/g,'') + ';' + sel;
+  if(tipo==='atualizar') bAtu.style.cssText = bAtu.style.cssText.replace(/background[^;]*;?/g,'').replace(/color[^;]*;?/g,'').replace(/border-color[^;]*;?/g,'') + ';' + sel;
+}
+
+async function consultarPolo(){
+  const cep = (document.getElementById('cpInCep').value||'').replace(/\D/g,'');
+  if(cep.length !== 8) return toast('CEP inválido (8 dígitos)', 'warn');
+  const limit = document.getElementById('cpInLimit').value;
+  await cpBuscarCore({ cep, limit });
+}
+async function consultarPoloCidade(){
+  const cidade = (document.getElementById('cpInCidade').value||'').trim();
+  if(!cidade) return toast('Digite a cidade', 'warn');
+  const uf = document.getElementById('cpInUf').value;
+  const limit = document.getElementById('cpInLimit2').value;
+  await cpBuscarCore({ cidade, uf, limit });
+}
+
+async function cpBuscarCore(params){
+  const out = document.getElementById('cpResultado');
+  out.innerHTML = '<div style="text-align:center;padding:26px;color:#64748b"><div class="spinner" style="margin:0 auto 10px"></div>Buscando polos próximos...</div>';
+  const qs2 = new URLSearchParams(params);
+  try{
+    const r = await fetch(BASE + '/chat-polos-proximos?' + qs2.toString());
+    const d = await r.json();
+    if(!d || !d.ok){
+      out.innerHTML = '<div style="padding:18px;background:#fef2f2;border-radius:8px;color:#991b1b;text-align:center"><i class="bi bi-exclamation-triangle"></i> '+escapeHtml((d&&d.erro)||'erro')+'</div>';
+      return;
+    }
+    cpRender(d);
+  }catch(e){
+    out.innerHTML = '<div style="padding:18px;background:#fef2f2;border-radius:8px;color:#991b1b;text-align:center">'+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function cpRender(d){
+  const out = document.getElementById('cpResultado');
+  const origem = d.origem || {};
+  const polos = d.polos || [];
+  let html = `<div style="background:#f0f6ff;border-left:3px solid #1877f2;padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:.82rem"><i class="bi bi-geo-alt-fill" style="color:#1877f2"></i> <b>Origem:</b> ${escapeHtml(origem.cidade || '-')}${origem.uf ? ' / ' + escapeHtml(origem.uf) : ''} <span style="color:#64748b;font-size:.72rem">(${escapeHtml(origem.fonte || 'direto')})</span></div>`;
+  if(!polos.length){
+    html += '<div style="padding:26px;text-align:center;color:#64748b">Nenhum polo próximo encontrado.</div>';
+  } else {
+    html += polos.map(p => {
+      const whats = (p.whatsapp||'').replace(/\D/g,'');
+      const whatsLink = whats.length >= 10 ? `https://wa.me/55${whats}` : '';
+      const txtCopiar = `${p.nome||''} — ${p.endereco||''}`;
+      return `<div style="border:1.5px solid #e5e7eb;border-radius:10px;padding:12px 14px;margin-bottom:8px;background:#fff">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:start;margin-bottom:4px">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:800;font-size:.92rem;color:#002855;line-height:1.3">${escapeHtml(p.nome||'-')}</div>
+            <div style="font-size:.78rem;color:#334155;margin-top:2px">${escapeHtml(p.cidade||'')}${p.uf?' / '+escapeHtml(p.uf):''} · <span style="background:#dcfce7;color:#15803d;padding:1px 6px;border-radius:10px;font-size:.65rem;font-weight:700;text-transform:uppercase">${escapeHtml(p.status||'ATIVO')}</span></div>
+          </div>
+          <div style="font-weight:800;font-size:1rem;color:#16a34a;white-space:nowrap">${p.distancia_km} km</div>
+        </div>
+        <div style="font-size:.76rem;color:#64748b;margin-top:6px"><i class="bi bi-house-fill"></i> ${escapeHtml(p.endereco||'-')}</div>
+        ${p.coordenadora?`<div style="font-size:.76rem;color:#334155;margin-top:4px"><b style="color:#64748b">Coord:</b> ${escapeHtml(p.coordenadora)}</div>`:''}
+        ${whats?`<div style="font-size:.76rem;color:#334155;margin-top:4px"><b style="color:#64748b">WhatsApp:</b> <a href="${whatsLink}" target="_blank" rel="noopener" style="color:#1877f2;text-decoration:none">${escapeHtml(whats)}</a></div>`:''}
+        <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+          <button onclick="cpCopiar(this,'${encodeURIComponent(txtCopiar)}')" style="padding:4px 10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;cursor:pointer;font-size:.75rem;font-weight:600;color:#334155"><i class="bi bi-clipboard"></i> Copiar</button>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((p.endereco||'')+' Brasil')}" target="_blank" rel="noopener" style="padding:4px 10px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;font-size:.75rem;font-weight:600;color:#334155;text-decoration:none"><i class="bi bi-map"></i> Rota Google</a>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  out.innerHTML = html;
+}
+
+async function cpCopiar(btn, enc){
+  try{
+    await navigator.clipboard.writeText(decodeURIComponent(enc));
+    const antigo = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-check-lg"></i> Copiado';
+    setTimeout(()=>{ btn.innerHTML = antigo; }, 1500);
+  }catch(_){ toast('Não deu pra copiar', 'err'); }
+}
+
+function cpArquivoEscolhido(ev){
+  const f = ev.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    cpFileConteudo = e.target.result;
+    document.getElementById('cpPrevFile').innerHTML = `<div style="background:#f0fdf4;border-left:3px solid #16a34a;padding:8px 12px;border-radius:8px;font-size:.78rem"><i class="bi bi-file-earmark-check-fill" style="color:#16a34a"></i> <b>${escapeHtml(f.name)}</b> — ${Math.round(f.size/1024)} KB</div>`;
+    document.getElementById('cpBtnSubir').disabled = false;
+  };
+  reader.readAsText(f, 'utf-8');
+}
+
+async function cpSubirBase(){
+  const papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(papel !== 'SUPER') return toast('Só SUPER pode atualizar', 'err');
+  if(!cpFileConteudo) return toast('Escolha um arquivo', 'warn');
+  if(!confirm('Confirma atualizar a base de polos?')) return;
+  const btn = document.getElementById('cpBtnSubir');
+  btn.disabled = true;
+  const antigo = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner"></span> Enviando...';
+  try{
+    const r = await fetch(BASE + '/chat-polos-atualizar', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        conteudo: cpFileConteudo,
+        papel,
+        substituir: document.getElementById('cpChkSubst').checked,
+        usuario: USUARIO,
+      }),
+    });
+    const d = await r.json();
+    if(!d.ok){ toast('Erro: '+(d.erro||'falhou'), 'err'); return; }
+    toast(`${d.inserted} novos + ${d.updated} atualizados`);
+    cpFileConteudo = '';
+    document.getElementById('cpFileUp').value = '';
+    document.getElementById('cpPrevFile').innerHTML = '';
+  }catch(e){ toast(e.message, 'err'); }
+  finally{
+    btn.disabled = false;
+    btn.innerHTML = antigo;
+  }
 }
 
 /* ============ FIGURINHAS (STICKERS) ============ */
