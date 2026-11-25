@@ -369,7 +369,7 @@ export default async function aliasRoutes(fastify) {
     const r = await query(
       `SELECT m.id, m.codigo, m.conta_id, m.telefone, m.nome_contato, m.direcao, m.tipo, m.texto,
               m.midia_url, NULL::text AS midia_mimetype, m.timestamp, m.status, m.external_id, m.atendente,
-              m.reply_to_id,
+              m.reply_to_id, m.editado_em,
               COALESCE(
                 NULLIF(m.reply_to_texto,''),
                 NULLIF(LEFT(q.texto, 140),''),
@@ -419,7 +419,7 @@ export default async function aliasRoutes(fastify) {
     const r = await query(
       `SELECT m.id, m.codigo, m.conta_id, m.telefone, m.nome_contato, m.direcao, m.tipo, m.texto,
               m.midia_url, NULL::text AS midia_mimetype, m.timestamp, m.status, m.external_id, m.atendente,
-              m.reply_to_id,
+              m.reply_to_id, m.editado_em,
               COALESCE(
                 NULLIF(m.reply_to_texto,''),
                 NULLIF(LEFT(q.texto, 140),''),

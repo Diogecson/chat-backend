@@ -15,6 +15,7 @@ import conversasRoutes from './routes/conversas.js';
 import aliasRoutes from './routes/aliases.js';
 import acoesRoutes from './routes/acoes.js';
 import enviarRoutes from './routes/enviar.js';
+import editarRoutes, { ensureEditSchema } from './routes/editar.js';
 import funilRoutes from './routes/funil.js';
 import iaRoutes from './routes/ia.js';
 import inboundRoutes from './routes/inbound.js';
@@ -73,6 +74,7 @@ await fastify.register(conversasRoutes);
 await fastify.register(aliasRoutes);
 await fastify.register(acoesRoutes);
 await fastify.register(enviarRoutes);
+await fastify.register(editarRoutes);
 await fastify.register(funilRoutes);
 await fastify.register(iaRoutes);
 await fastify.register(inboundRoutes);
@@ -147,6 +149,11 @@ try {
   }
   if (config.dryRun) {
     fastify.log.warn('⚠️  DRY_RUN=true — envios Meta serão simulados, não reais.');
+  }
+
+  // Garante colunas de edição de msg (editado_em, texto_original) ao subir
+  if (hasDb()) {
+    ensureEditSchema().catch(err => fastify.log.error('ensureEditSchema:', err.message));
   }
 
   // Cron embutido: recupera msgs presas em 'em_envio' + recalcula contadores

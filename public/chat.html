@@ -464,6 +464,14 @@ body,html{height:100%;margin:0;overflow:hidden;background:var(--bg);
 .msg{position:relative}
 .msg:hover .btn-reply-msg{opacity:1}
 .btn-reply-msg:hover{color:var(--blue);background:#fff}
+/* Botão editar mensagem (só em .msg.out de texto, dentro da janela de 15min) */
+.btn-edit-msg{position:absolute;top:4px;right:32px;width:24px;height:24px;border:none;background:rgba(255,255,255,.9);color:var(--muted);border-radius:50%;display:grid;place-items:center;cursor:pointer;opacity:0;transition:.15s;font-size:.75rem;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.msg:hover .btn-edit-msg{opacity:1}
+.btn-edit-msg:hover{color:var(--green-700);background:#fff}
+.msg-editada-tag{font-size:.6rem;color:var(--muted);font-style:italic;margin-right:4px;opacity:.8}
+/* Reply-bar vira verde quando em modo edição */
+.reply-bar.modo-edit{border-left-color:var(--green-700);background:#f0fdf4}
+.reply-bar.modo-edit .rb-nome{color:var(--green-700)}
 
 /* Barra de reply no composer */
 .reply-bar{display:none;background:#fff;border-radius:8px;padding:8px 12px 8px 14px;margin-bottom:8px;border-left:3px solid var(--blue-300);align-items:center;gap:10px}
@@ -5170,6 +5178,7 @@ function renderBolhaMsg(m, idx){
     statusIcon=`<i class="bi ${map[st]||'bi-check'} status ${st}"></i>`;
   }
   const atendente=m.direcao==='out'&&m.atendente?`<span class="atendente">${escapeHtml(m.atendente)}</span>`:'';
+  const editadaTag = m.editado_em ? `<span class="msg-editada-tag" title="Editada no painel em ${new Date(m.editado_em).toLocaleString('pt-BR')} — o cliente continua vendo o texto original no WhatsApp dele">editada (interno)</span>` : '';
   const corpo=renderCorpoMsg(m);
   let quoteHtml = '';
   if(m.reply_to_id){
@@ -5181,7 +5190,15 @@ function renderBolhaMsg(m, idx){
     quoteHtml = `<div class="quote-inline"><div class="qi-nome">${escapeHtml(quem)}</div><div class="qi-texto">${escapeHtml(trecho)}</div></div>`;
   }
   const btnReply = `<button class="btn-reply-msg" title="Responder" onclick="iniciarReply(${idx})"><i class="bi bi-reply-fill"></i></button>`;
-  return `<div class="${cls}" data-codigo="${escapeAttr(m.codigo||'')}">${quoteHtml}${corpo}<div class="msg-hora">${atendente}${hora} ${statusIcon}</div>${btnReply}</div>`;
+  // Botão editar: só em msg out, texto, com wamid (external_id) e nos últimos 15 min
+  let btnEdit = '';
+  if(m.direcao==='out' && m.tipo==='text' && m.external_id){
+    const idadeMs = Date.now() - new Date(m.timestamp).getTime();
+    if(idadeMs < 15*60*1000){
+      btnEdit = `<button class="btn-edit-msg" title="Editar no painel (só interno — cliente continua vendo o original)" onclick="iniciarEditarMsg(${idx})"><i class="bi bi-pencil-fill"></i></button>`;
+    }
+  }
+  return `<div class="${cls}" data-codigo="${escapeAttr(m.codigo||'')}">${quoteHtml}${corpo}<div class="msg-hora">${atendente}${editadaTag}${hora} ${statusIcon}</div>${btnReply}${btnEdit}</div>`;
 }
 
 // Render evento (msg de sistema, centralizado, cinza)
@@ -5365,6 +5382,7 @@ async function abrirDoc(el){
 let __ENVIANDO_MSG = false; // lock global anti-double-click
 async function enviarMsg(){
   if(__ENVIANDO_MSG){ return; } // ja enviando, ignora clicks adicionais
+  if(modoEdit){ return salvarEdicaoMsg(); }
   if(!conversaAtiva)return;
   const t=qs('#msgTexto');const txt=t.value.trim();if(!txt)return;
   const conta=contas.find(x=>x.id===conversaAtiva.conta_id);
@@ -5572,15 +5590,117 @@ function iniciarReply(msgIndex){
   if(!externalId){toast('Não é possível responder essa mensagem (sem id)','warn');return}
   const remetente = m.direcao==='in' ? (conversaAtiva.nome||conversaAtiva.telefone||'Cliente') : 'Você';
   const preview = m.texto || (m.tipo!=='text' ? ('['+m.tipo+']') : '');
+  if(modoEdit){ cancelarEdicao(); }
   replyTo = { id: externalId, texto: preview.substring(0,140), remetente };
   qs('#rbNome').textContent = 'Respondendo ' + remetente;
   qs('#rbTexto').textContent = preview || '(mídia)';
+  qs('#replyBar').classList.remove('modo-edit');
   qs('#replyBar').classList.add('on');
   qs('#msgTexto').focus();
 }
 function cancelarReply(){
   replyTo = null;
   qs('#replyBar').classList.remove('on');
+  qs('#replyBar').classList.remove('modo-edit');
+  if(modoEdit){ cancelarEdicao(); }
+}
+
+// ===== Edição de mensagem (Meta Cloud API, janela de 15 min) =====
+let modoEdit = null; // {msgId, codigo, textoOriginal, textoNoComposerAntes}
+
+function iniciarEditarMsg(msgIndex){
+  const m = mensagens[msgIndex]; if(!m) return;
+  if(m.direcao!=='out' || m.tipo!=='text' || !m.external_id){
+    toast('Não dá pra editar essa mensagem','warn'); return;
+  }
+  const idade = Date.now() - new Date(m.timestamp).getTime();
+  if(idade >= 15*60*1000){
+    toast('Passou dos 15 min — não dá mais pra editar','warn'); return;
+  }
+  // Se já tinha um reply ativo, cancela
+  replyTo = null;
+  const t = qs('#msgTexto');
+  modoEdit = {
+    msgId: m.id || m.codigo,
+    codigo: m.codigo,
+    textoOriginal: m.texto || '',
+    textoNoComposerAntes: t.value || '',
+  };
+  t.value = m.texto || '';
+  autoGrow(t);
+  qs('#rbNome').textContent = 'Editando no painel (cliente continua vendo o original)';
+  qs('#rbTexto').textContent = (m.texto || '').substring(0,140);
+  qs('#replyBar').classList.add('modo-edit');
+  qs('#replyBar').classList.add('on');
+  // Troca ícone do botão send pra "salvar"
+  const btn = qs('#btnSend');
+  if(btn){ btn.dataset.iconOrig = btn.innerHTML; btn.innerHTML = '<i class="bi bi-check-lg"></i>'; btn.title = 'Salvar edição'; }
+  t.focus();
+  // Move cursor pro fim do texto
+  try{ t.setSelectionRange(t.value.length, t.value.length); }catch(_){}
+}
+
+function cancelarEdicao(){
+  if(!modoEdit) return;
+  const t = qs('#msgTexto');
+  t.value = modoEdit.textoNoComposerAntes || '';
+  autoGrow(t);
+  modoEdit = null;
+  qs('#replyBar').classList.remove('modo-edit');
+  qs('#replyBar').classList.remove('on');
+  const btn = qs('#btnSend');
+  if(btn && btn.dataset.iconOrig){ btn.innerHTML = btn.dataset.iconOrig; btn.title = 'Enviar (Enter)'; delete btn.dataset.iconOrig; }
+}
+
+async function salvarEdicaoMsg(){
+  if(__ENVIANDO_MSG || !modoEdit) return;
+  const t = qs('#msgTexto');
+  const txt = (t.value || '').trim();
+  if(!txt){ toast('Texto vazio','warn'); return; }
+  if(txt === (modoEdit.textoOriginal || '').trim()){
+    toast('Texto igual ao atual','warn'); cancelarEdicao(); return;
+  }
+  __ENVIANDO_MSG = true;
+  const btn = qs('#btnSend');
+  // Guarda o HTML ORIGINAL do send (que foi salvo em dataset.iconOrig quando entrou no modo edit).
+  // Depois do save, sempre restaura pra esse — nunca pro ✓ do modo edit.
+  const iconOriginal = (btn && btn.dataset.iconOrig) || (btn && btn.innerHTML) || '';
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>'; }
+  if(t){ t.disabled = true; t.style.opacity = '.6'; }
+  let sucesso = false;
+  try{
+    const r = await api(BASE + '/chat-editar-msg', { method:'POST', bodyObj:{
+      conta_id: conversaAtiva.conta_id,
+      msg_id: String(modoEdit.msgId),
+      texto_novo: txt,
+      usuario: (window.USUARIO && USUARIO.usuario) || 'sistema',
+    }});
+    if(!r.ok){ toast('Não deu pra editar: '+(r.erro||'erro'),'err'); return; }
+    sucesso = true;
+    // Limpa composer + sai do modo edit + recarrega msgs
+    t.value = '';
+    autoGrow(t);
+    modoEdit = null;
+    qs('#replyBar').classList.remove('modo-edit');
+    qs('#replyBar').classList.remove('on');
+    await carregarMensagens();
+    toast('Mensagem editada','ok');
+  } catch(e){ toast('Erro edição: '+e.message,'err'); }
+  finally{
+    __ENVIANDO_MSG = false;
+    if(btn){
+      btn.disabled = false;
+      if(sucesso){
+        btn.innerHTML = iconOriginal;
+        btn.title = 'Enviar (Enter)';
+        delete btn.dataset.iconOrig;
+      } else {
+        // falhou → volta pro ✓ (modo edit continua ativo pro user tentar de novo)
+        btn.innerHTML = '<i class="bi bi-check-lg"></i>';
+      }
+    }
+    if(t){ t.disabled = false; t.style.opacity = '1'; t.focus(); }
+  }
 }
 
 let mediaRecorder = null;
