@@ -17,6 +17,8 @@ import acoesRoutes from './routes/acoes.js';
 import enviarRoutes from './routes/enviar.js';
 import editarRoutes, { ensureEditSchema } from './routes/editar.js';
 import transcreverRoutes from './routes/transcrever.js';
+import acessosRoutes from './routes/acessos.js';
+import { ensureAcessoSchema, registrarAcesso, startAcessoLogCron } from './services/acesso-log.js';
 import funilRoutes from './routes/funil.js';
 import iaRoutes from './routes/ia.js';
 import inboundRoutes from './routes/inbound.js';
@@ -50,6 +52,8 @@ const fastify = Fastify({
   },
   // 25 MB: cobre mídia WhatsApp até 16MB em base64 (~21MB) + headers
   bodyLimit: 25 * 1024 * 1024,
+  // EasyPanel tem proxy na frente — le o IP real do x-forwarded-for
+  trustProxy: true,
 });
 
 // Parser pra text/plain: o login.html (e várias páginas antigas) mandam
@@ -88,6 +92,15 @@ await fastify.register(limpezaRoutes);
 await fastify.register(iaAutoRoutes);
 await fastify.register(polosRoutes);
 await fastify.register(consultaAlunoRoutes);
+await fastify.register(acessosRoutes);
+
+// Hook de log de acesso: roda em toda request, grava agregado por (ip+rota+minuto)
+fastify.addHook('onResponse', async (req, reply) => {
+  try {
+    const usuario = req.headers?.['x-usuario'] || '';
+    registrarAcesso(req, reply, usuario);
+  } catch (_) { /* nunca quebra a resposta */ }
+});
 
 // JSON do root — exposto em /api/info pra deixar o / servir o index.html
 fastify.get('/api/info', async () => ({
@@ -156,6 +169,8 @@ try {
   // Garante colunas de edição de msg (editado_em, texto_original) ao subir
   if (hasDb()) {
     ensureEditSchema().catch(err => fastify.log.error('ensureEditSchema:', err.message));
+    ensureAcessoSchema().catch(err => fastify.log.error('ensureAcessoSchema:', err.message));
+    startAcessoLogCron();
   }
 
   // Cron embutido: recupera msgs presas em 'em_envio' + recalcula contadores
