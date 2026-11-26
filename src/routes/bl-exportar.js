@@ -13,30 +13,42 @@ export default async function blExportarRoutes(fastify) {
     const dias = Math.min(parseInt(q.dias || '90') || 90, 365);
     const conta_id = q.conta_id ? String(q.conta_id) : '';
     const so_com_cliente = q.so_com_cliente !== 'false'; // default true
-    const params = [];
-    const where = [`timestamp >= NOW() - ($${params.push(dias)} || ' days')::INTERVAL`];
+    const params = [dias];
+    const where = [`timestamp >= NOW() - ($1::INT * INTERVAL '1 day')`];
     if (conta_id && conta_id !== '__all__') {
-      where.push(`conta_id = $${params.push(conta_id)}`);
+      params.push(conta_id);
+      where.push(`conta_id = $${params.length}`);
     }
     const having = so_com_cliente ? `HAVING COUNT(*) FILTER (WHERE direcao='in') > 0` : '';
 
-    const r = await query(`
-      SELECT
-        telefone,
-        COUNT(*)::int AS msgs,
-        COUNT(*) FILTER (WHERE direcao='in')::int AS msgs_cliente,
-        MIN(timestamp) AS primeira,
-        MAX(timestamp) AS ultima,
-        MAX(timestamp) FILTER (WHERE direcao='in') AS ultima_cliente,
-        COUNT(DISTINCT conta_id)::int AS chats
-      FROM chat_mensagens
-      WHERE ${where.join(' AND ')}
-      GROUP BY telefone
-      ${having}
-      ORDER BY ultima DESC
-    `, params);
+    let r;
+    try {
+      r = await query(`
+        SELECT
+          telefone,
+          COUNT(*)::int AS msgs,
+          COUNT(*) FILTER (WHERE direcao='in')::int AS msgs_cliente,
+          MIN(timestamp) AS primeira,
+          MAX(timestamp) AS ultima,
+          MAX(timestamp) FILTER (WHERE direcao='in') AS ultima_cliente,
+          COUNT(DISTINCT conta_id)::int AS chats
+        FROM chat_mensagens
+        WHERE ${where.join(' AND ')}
+        GROUP BY telefone
+        ${having}
+        ORDER BY ultima DESC NULLS LAST
+      `, params);
+    } catch (err) {
+      console.error('[bl-exportar] SQL err:', err.message);
+      return reply.code(500).send({ ok: false, erro: 'query falhou: ' + err.message });
+    }
 
-    // Normaliza telefone: tira o 55 se vier com 12/13 dígitos
+    // Normaliza datas e telefones
+    const toIso = (d) => {
+      if (!d) return '';
+      if (typeof d === 'string') return d.substring(0, 19);
+      try { return new Date(d).toISOString().substring(0, 19); } catch (_) { return ''; }
+    };
     const linhas = r.rows.map(x => {
       let tel = String(x.telefone || '').replace(/\D/g, '');
       if ((tel.length === 12 || tel.length === 13) && tel.startsWith('55')) tel = tel.substring(2);
@@ -44,9 +56,9 @@ export default async function blExportarRoutes(fastify) {
         telefone: tel,
         msgs: x.msgs,
         msgs_cliente: x.msgs_cliente,
-        primeira: x.primeira ? x.primeira.toISOString().substring(0, 19) : '',
-        ultima: x.ultima ? x.ultima.toISOString().substring(0, 19) : '',
-        ultima_cliente: x.ultima_cliente ? x.ultima_cliente.toISOString().substring(0, 19) : '',
+        primeira: toIso(x.primeira),
+        ultima: toIso(x.ultima),
+        ultima_cliente: toIso(x.ultima_cliente),
         chats: x.chats || 1,
       };
     }).filter(l => l.telefone.length === 10 || l.telefone.length === 11);
