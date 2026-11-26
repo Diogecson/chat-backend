@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<script>
+(function(){
+  var papel = String(localStorage.getItem('chat_papel')||'').toUpperCase();
+  if(!['SUPER','ADMIN'].includes(papel)){
+    try { document.documentElement.style.visibility='hidden'; } catch(_){}
+    alert('Apenas SUPER ou ADMIN podem acessar as análises.');
+    location.href = 'chat.html';
+  }
+})();
+</script>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230ea5e9'/><text x='16' y='22' text-anchor='middle' fill='white' font-family='Arial,sans-serif' font-size='17'>📊</text></svg>">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UniFECAF · Análises</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{--blue:#002855;--blue-700:#013a78;--orange:#ff6b00;--meta:#1877f2;
+  --ink:#0f1b2d;--muted:#7b8aa0;--line:#e6ebf2;--bg:#f3f6fb;--card:#fff;
+  --ok:#16a34a;--err:#dc2626;--warn:#f59e0b;--accent:#2F66D6;--navy:#081430;--radius:12px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;color:var(--ink);min-height:100vh}
+.header{background:var(--navy);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,var(--orange),#ff9347);font-weight:800;font-size:16px}
+.brand h1{margin:0;font-size:1.05rem;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800}
+.brand p{margin:0;font-size:.72rem;opacity:.75}
+.btn-nav{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 12px;border-radius:9px;font-weight:600;font-size:.78rem;text-decoration:none;display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.btn-nav:hover{background:rgba(255,255,255,.22);color:#fff}
+.tabs-nav{background:#fff;border-bottom:1px solid var(--line);padding:0 24px;display:flex;gap:4px;overflow-x:auto}
+.tab{padding:12px 18px;border:none;background:transparent;font-weight:700;font-size:.88rem;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:.15s;font-family:inherit;white-space:nowrap}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+.container-main{max-width:1500px;margin:0 auto;padding:16px 22px}
+.filtros{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.filtros label{font-size:.72rem;color:var(--muted);font-weight:600;display:flex;flex-direction:column;gap:3px}
+.filtros input,.filtros select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:.85rem;background:#fff}
+.filtros input:focus,.filtros select:focus{outline:2px solid #dbeafe;border-color:var(--accent)}
+.periodo-group{display:flex;gap:4px}
+.p-btn{padding:6px 11px;background:#fff;border:1px solid var(--line);border-radius:7px;cursor:pointer;font-size:.78rem;font-weight:600;color:var(--muted)}
+.p-btn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.aplicar{background:var(--navy);color:#fff;border:none;padding:8px 18px;border-radius:9px;font-weight:700;cursor:pointer;font-size:.82rem}
+.aplicar:hover{background:var(--blue-700)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden}
+.kpi-lbl{font-size:.72rem;color:var(--muted);font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.kpi-val{font-size:1.75rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1;font-family:'Plus Jakarta Sans',sans-serif}
+.kpi-sub{font-size:.75rem;color:var(--muted);margin-top:3px}
+.kpi-bar{height:3px;margin-top:10px;border-radius:2px}
+.kpi-dot{width:10px;height:3px;border-radius:2px;display:inline-block;margin-right:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(7,28,60,.04)}
+.card h2{margin:0 0 12px;font-size:.98rem;font-weight:700;font-family:'Plus Jakarta Sans',sans-serif;color:var(--navy);display:flex;align-items:center;gap:8px}
+.card-row{display:grid;grid-template-columns:260px 1fr;gap:16px}
+@media(max-width:900px){.card-row{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:8px 10px;color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.7rem;letter-spacing:.3px;background:#f8fafd}
+td{padding:8px 10px;border-bottom:1px solid var(--line)}
+.aba-content{display:none}
+.aba-content.on{display:block}
+.chart-wrap{position:relative;height:340px}
+.hm-tbl{border-collapse:collapse;font-size:.75rem}
+.hm-tbl th{text-align:center;padding:4px 2px;color:var(--muted);font-size:.65rem;font-weight:600;background:transparent;text-transform:none;letter-spacing:0}
+.hm-tbl td{text-align:center;padding:0;border:none}
+.hm-cell{display:block;width:34px;height:26px;margin:2px;border-radius:4px;line-height:26px;font-weight:700;font-size:.72rem;color:#fff}
+.hm-dia{text-align:left;padding-right:10px;font-weight:700;font-size:.75rem;color:var(--ink)}
+.vazio{text-align:center;padding:40px 20px;color:var(--muted);font-size:.88rem}
+.loader{display:inline-block;width:14px;height:14px;border:2px solid #cbd5e1;border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.legend-hm{display:flex;gap:4px;justify-content:center;align-items:center;margin-top:12px;font-size:.72rem;color:var(--muted)}
+.legend-hm-swatch{display:inline-block;width:20px;height:14px;border-radius:3px}
+.t-metric{padding:12px 14px;border-radius:10px;background:#f8fafd;margin-bottom:8px}
+.t-metric h4{margin:0 0 4px;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.t-metric .t-val{font-size:1.4rem;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums}
+.t-metric.border-red{border-left:4px solid #dc2626}
+.t-metric.border-blue{border-left:4px solid #2563eb}
+.t-metric.border-purple{border-left:4px solid #7c3aed}
+.t-metric.border-yellow{border-left:4px solid #ca8a04}
+.t-metric.border-green{border-left:4px solid #16a34a}
+.tempos-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="brand">
+    <div class="brand-mark">UF</div>
+    <div>
+      <h1>Análises do Chat</h1>
+      <p>Volume, tempos de resposta e horários de pico</p>
+    </div>
+  </div>
+  <a class="btn-nav" href="chat.html"><i class="bi bi-arrow-left"></i> Voltar pro chat</a>
+</div>
+
+<div class="tabs-nav">
+  <button class="tab on" data-aba="volume" onclick="abrirAba('volume')"><i class="bi bi-chat-dots-fill"></i> Volume</button>
+  <button class="tab" data-aba="tempos" onclick="abrirAba('tempos')"><i class="bi bi-stopwatch"></i> Tempos de resposta</button>
+  <button class="tab" data-aba="heatmap" onclick="abrirAba('heatmap')"><i class="bi bi-calendar3"></i> Horários (heatmap)</button>
+</div>
+
+<div class="container-main">
+
+  <!-- FILTROS (compartilhados) -->
+  <div class="filtros">
+    <label>Conta
+      <select id="fConta" style="min-width:180px"><option value="">Todas as contas</option></select>
+    </label>
+    <div class="periodo-group" id="periodoGroup">
+      <button class="p-btn" data-p="hoje" onclick="setPeriodo('hoje')">Hoje</button>
+      <button class="p-btn" data-p="ontem" onclick="setPeriodo('ontem')">Ontem</button>
+      <button class="p-btn on" data-p="7d" onclick="setPeriodo('7d')">7D</button>
+      <button class="p-btn" data-p="1m" onclick="setPeriodo('1m')">1M</button>
+      <button class="p-btn" data-p="3m" onclick="setPeriodo('3m')">3M</button>
+    </div>
+    <label>De
+      <input type="date" id="fDe">
+    </label>
+    <label>Até
+      <input type="date" id="fAte">
+    </label>
+    <button class="aplicar" onclick="aplicar()"><i class="bi bi-funnel-fill"></i> Aplicar filtros</button>
+    <span id="loader" style="color:var(--muted);font-size:.78rem;display:none"><span class="loader"></span> carregando...</span>
+  </div>
+
+  <!-- ABA VOLUME -->
+  <div class="aba-content on" id="abaVolume">
+    <div class="kpis" id="volKpis"></div>
+    <div class="card">
+      <h2><i class="bi bi-graph-up"></i> Evolução no tempo</h2>
+      <div class="chart-wrap"><canvas id="chartVol"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ABA TEMPOS -->
+  <div class="aba-content" id="abaTempos">
+    <div class="tempos-grid" id="temposKpis"></div>
+    <div class="card">
+      <h2><i class="bi bi-bar-chart-line"></i> Distribuição por faixa de tempo</h2>
+      <div style="display:grid;grid-template-columns:260px 1fr;gap:14px" id="distWrap">
+        <div>
+          <label style="font-size:.75rem;color:var(--muted);font-weight:600">Métrica</label>
+          <select id="fMetrica" onchange="renderDistrib()" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-top:4px">
+            <option value="pendente_atribuir">Pendentes a atribuir</option>
+            <option value="primeira_interacao" selected>Primeira interação (Chat)</option>
+            <option value="primeira_resposta_vendedor">Primeira resposta (vendedor)</option>
+            <option value="conclusao_vendedor">Conclusão do vendedor</option>
+            <option value="resolucao_batepapo">Resolução do bate-papo</option>
+          </select>
+          <div style="margin-top:14px">
+            <table id="distTbl"></table>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartDist"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ABA HEATMAP -->
+  <div class="aba-content" id="abaHeatmap">
+    <div class="kpis" id="hmKpis"></div>
+    <div class="card">
+      <h2><i class="bi bi-calendar3-week"></i> Dia × Hora (conversas iniciadas)</h2>
+      <div style="overflow-x:auto" id="hmWrap"></div>
+      <div class="legend-hm">
+        Menos ocupado
+        <span class="legend-hm-swatch" style="background:#f1f5f9"></span>
+        <span class="legend-hm-swatch" style="background:#c7d2fe"></span>
+        <span class="legend-hm-swatch" style="background:#818cf8"></span>
+        <span class="legend-hm-swatch" style="background:#4338ca"></span>
+        <span class="legend-hm-swatch" style="background:#1e1b4b"></span>
+        Mais ocupado
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const BASE = '/webhook';
+let chartVol, chartDist;
+let temposData = null;
+let periodoAtivo = '7d';
+
+async function carregarContas(){
+  try{
+    const r = await fetch(BASE + '/chat-analises-contas');
+    const d = await r.json();
+    const sel = document.getElementById('fConta');
+    for(const c of (d.contas||[])){
+      const op = document.createElement('option');
+      op.value = c.codigo; op.textContent = c.nome + ' (' + c.tipo + ')';
+      sel.appendChild(op);
+    }
+  }catch(_){}
+}
+
+function setPeriodo(p){
+  periodoAtivo = p;
+  document.querySelectorAll('.p-btn').forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  document.getElementById('fDe').value = '';
+  document.getElementById('fAte').value = '';
+}
+
+function abrirAba(qual){
+  document.querySelectorAll('.aba-content').forEach(el => el.classList.toggle('on', el.id === 'aba' + qual[0].toUpperCase() + qual.substring(1)));
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.aba === qual));
+  aplicar();
+}
+
+function qsParams(){
+  const p = new URLSearchParams();
+  const conta = document.getElementById('fConta').value;
+  if(conta) p.set('conta_id', conta);
+  const de = document.getElementById('fDe').value;
+  const ate = document.getElementById('fAte').value;
+  if(de && ate){ p.set('de', de); p.set('ate', ate); }
+  else p.set('periodo', periodoAtivo);
+  return p.toString();
+}
+
+async function aplicar(){
+  const abaAtiva = document.querySelector('.tab.on').dataset.aba;
+  document.getElementById('loader').style.display = '';
+  try {
+    if(abaAtiva === 'volume') await carregarVolume();
+    else if(abaAtiva === 'tempos') await carregarTempos();
+    else if(abaAtiva === 'heatmap') await carregarHeatmap();
+  } catch(e){ console.error(e); }
+  document.getElementById('loader').style.display = 'none';
+}
+
+// ===== VOLUME =====
+async function carregarVolume(){
+  const r = await fetch(BASE + '/chat-analises-volume?' + qsParams());
+  const d = await r.json();
+  if(!d.ok){ document.getElementById('volKpis').innerHTML = '<div class="vazio">Erro: '+d.erro+'</div>'; return; }
+  renderVolKpis(d.totais);
+  renderVolChart(d.serie);
+}
+
+function renderVolKpis(t){
+  const el = document.getElementById('volKpis');
+  el.innerHTML = `
+    <div class="kpi">
+      <div class="kpi-lbl"><span class="kpi-dot" style="background:#2563eb"></span>Bate-papos recebidos</div>
+      <div class="kpi-val">${t.batepapos_recebidos}</div>
+      <div class="kpi-sub">Média: ${t.media_recebidos}/dia</div>
+      <div class="kpi-bar" style="background:#2563eb"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span class="kpi-dot" style="background:#dc2626"></span>Contatos distintos</div>
+      <div class="kpi-val">${t.contatos_distintos}</div>
+      <div class="kpi-sub">Média: ${t.media_contatos}/dia</div>
+      <div class="kpi-bar" style="background:#dc2626"></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl"><span class="kpi-dot" style="background:#64748b"></span>Conversas transferidas</div>
+      <div class="kpi-val">${t.conversas_transferidas}</div>
+      <div class="kpi-sub">Média: ${t.media_transferidas}/dia</div>
+      <div class="kpi-bar" style="background:#64748b"></div>
+    </div>`;
+}
+
+function renderVolChart(serie){
+  const ctx = document.getElementById('chartVol').getContext('2d');
+  if(chartVol) chartVol.destroy();
+  const labels = serie.map(r => {
+    const d = new Date(r.dia + 'T12:00:00');
+    return d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'});
+  });
+  chartVol = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { type: 'bar', label: 'Bate-papos recebidos', data: serie.map(r => r.conversas_in), backgroundColor:'#93c5fd', borderColor:'#2563eb' },
+        { type: 'line', label: 'Contatos distintos', data: serie.map(r => r.contatos), borderColor:'#dc2626', backgroundColor:'transparent', tension:.3, pointRadius:3 },
+        { type: 'line', label: 'Conversas transferidas', data: serie.map(r => r.transferidas), borderColor:'#64748b', borderDash:[5,5], backgroundColor:'transparent', tension:.3, pointRadius:3 },
+      ]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'top'}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
+  });
+}
+
+// ===== TEMPOS =====
+async function carregarTempos(){
+  const r = await fetch(BASE + '/chat-analises-tempos?' + qsParams());
+  const d = await r.json();
+  if(!d.ok){ document.getElementById('temposKpis').innerHTML = '<div class="vazio">Erro: '+d.erro+'</div>'; return; }
+  temposData = d.tempos;
+  renderTemposKpis(d.tempos);
+  renderDistrib();
+}
+
+function renderTemposKpis(t){
+  const el = document.getElementById('temposKpis');
+  const cards = [
+    { key: 'pendente_atribuir', label: 'Bate-papos pendentes a serem atribuídos', cor: 'red' },
+    { key: 'primeira_interacao', label: 'Primeira interação (Chat)', cor: 'blue' },
+    { key: 'primeira_resposta_vendedor', label: 'Primeira resposta (vendedor)', cor: 'purple' },
+    { key: 'conclusao_vendedor', label: 'Conclusão do vendedor', cor: 'yellow' },
+    { key: 'resolucao_batepapo', label: 'Resolução de bate-papo', cor: 'green' },
+  ];
+  el.innerHTML = cards.map(c => {
+    const m = t[c.key] || {};
+    return `<div class="t-metric border-${c.cor}">
+      <h4>${c.label}</h4>
+      <div class="t-val">${m.media_hhmm || '00 hrs 00 min'}</div>
+      <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Base: ${m.total || 0} conversas</div>
+    </div>`;
+  }).join('');
+}
+
+function renderDistrib(){
+  if(!temposData) return;
+  const metrica = document.getElementById('fMetrica').value;
+  const d = temposData[metrica];
+  if(!d){ document.getElementById('distTbl').innerHTML = '<tr><td class="vazio">Sem dados</td></tr>'; return; }
+  const tbl = document.getElementById('distTbl');
+  tbl.innerHTML = `<thead><tr><th>Faixa</th><th>%</th><th>#</th></tr></thead><tbody>` +
+    d.distribuicao.map(b => `<tr><td>${b.bucket}</td><td style="font-weight:700">${b.pct.toFixed(2)}%</td><td>${b.count}</td></tr>`).join('') +
+    '</tbody>';
+  const ctx = document.getElementById('chartDist').getContext('2d');
+  if(chartDist) chartDist.destroy();
+  chartDist = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: d.distribuicao.map(x => x.bucket),
+      datasets: [{ label: 'Conversas', data: d.distribuicao.map(x => x.count), backgroundColor: ['#16a34a','#65a30d','#ca8a04','#ea580c','#dc2626','#991b1b'] }]
+    },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true, ticks:{precision:0}}} }
+  });
+}
+
+// ===== HEATMAP =====
+const DIAS = ['DOMINGO','SEGUNDA-FEIRA','TERÇA-FEIRA','QUARTA-FEIRA','QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO'];
+
+async function carregarHeatmap(){
+  const r = await fetch(BASE + '/chat-analises-heatmap?' + qsParams());
+  const d = await r.json();
+  if(!d.ok){ document.getElementById('hmWrap').innerHTML = '<div class="vazio">Erro: '+d.erro+'</div>'; return; }
+  renderHmKpis(d);
+  renderHmGrid(d);
+}
+
+function renderHmKpis(d){
+  const diasMaisStr = d.diasMais.map(i => DIAS[i]).join(' / ') || '-';
+  const diasMenosStr = d.diasMenos.map(i => DIAS[i]).join(' / ') || '-';
+  const horasMaisStr = d.horasMais.map(h => String(h).padStart(2,'0') + ':00').join(' / ') || '-';
+  // Media no dia mais ocupado
+  const maxDia = d.diasMais[0];
+  const mediaMaxDia = maxDia != null ? d.mediaPorDia[maxDia] : '-';
+  const minDia = d.diasMenos[0];
+  const mediaMinDia = minDia != null ? d.mediaPorDia[minDia] : '-';
+  const maxHora = d.horasMais[0];
+  const mediaMaxHora = maxHora != null ? d.mediaPorHora[maxHora] : '-';
+
+  document.getElementById('hmKpis').innerHTML = `
+    <div class="kpi">
+      <div class="kpi-lbl">Dia(s) com mais conversas (média)</div>
+      <div class="kpi-val" style="font-size:1.15rem;line-height:1.3">${diasMaisStr}</div>
+      <div class="kpi-sub">${mediaMaxDia} conversas/dia</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Dia(s) com menos conversas (média)</div>
+      <div class="kpi-val" style="font-size:1.15rem;line-height:1.3">${diasMenosStr}</div>
+      <div class="kpi-sub">${mediaMinDia} conversas/dia</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-lbl">Hora(s) com mais conversas</div>
+      <div class="kpi-val" style="font-size:1.4rem">${horasMaisStr}</div>
+      <div class="kpi-sub">${mediaMaxHora} conversas/hora</div>
+    </div>`;
+}
+
+function corHm(v, max){
+  if(v === 0 || max === 0) return '#f1f5f9';
+  const pct = v / max;
+  if(pct > 0.8) return '#1e1b4b';
+  if(pct > 0.6) return '#4338ca';
+  if(pct > 0.4) return '#6366f1';
+  if(pct > 0.2) return '#a5b4fc';
+  return '#c7d2fe';
+}
+
+function renderHmGrid(d){
+  const max = d.maxValor || 1;
+  // Ordem de segunda a domingo
+  const ordem = [1,2,3,4,5,6,0];
+  let html = '<table class="hm-tbl"><thead><tr><th></th>';
+  for(let h = 0; h < 24; h++) html += `<th>${String(h).padStart(2,'0')}:00</th>`;
+  html += '</tr></thead><tbody>';
+  for(const idx of ordem){
+    html += `<tr><td class="hm-dia">${DIAS[idx]}</td>`;
+    for(let h = 0; h < 24; h++){
+      const v = d.matriz[idx][h];
+      const cor = corHm(v, max);
+      const corTxt = v / max > 0.4 ? '#fff' : '#334155';
+      html += `<td><span class="hm-cell" style="background:${cor};color:${corTxt}" title="${DIAS[idx]} ${String(h).padStart(2,'0')}:00 — ${v} conversa(s)">${v || ''}</span></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  document.getElementById('hmWrap').innerHTML = html;
+}
+
+carregarContas().then(() => aplicar());
+</script>
+</body>
+</html>
