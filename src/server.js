@@ -32,6 +32,7 @@ import polosRoutes from './routes/polos.js';
 import polosConsultaRoutes from './routes/polos-consulta.js';
 import polosMatriculasSyncRoutes from './routes/polos-matriculas-sync.js';
 import analisesRoutes from './routes/analises.js';
+import blExportarRoutes from './routes/bl-exportar.js';
 import consultaAlunoRoutes from './routes/consulta-aluno.js';
 import { processarJobDisparos } from './workers/disparos.worker.js';
 import { startTriagemEngine } from './crons/triagem-engine.js';
@@ -97,6 +98,7 @@ await fastify.register(polosRoutes);
 await fastify.register(polosConsultaRoutes);
 await fastify.register(polosMatriculasSyncRoutes);
 await fastify.register(analisesRoutes);
+await fastify.register(blExportarRoutes);
 await fastify.register(consultaAlunoRoutes);
 await fastify.register(acessosRoutes);
 
