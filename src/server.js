@@ -39,6 +39,7 @@ import { startTriagemEngine } from './crons/triagem-engine.js';
 import { startRedistribuicaoFila } from './crons/redistribuicao-fila.js';
 import { startAutoFinalizarInteresse } from './crons/auto-finalizar-interesse.js';
 import { startFollowupSemResposta } from './crons/followup-sem-resposta.js';
+import { startAutoFinalizarLinkSocial } from './crons/auto-finalizar-link-social.js';
 import { startAutoFilaHorario } from './crons/auto-fila-horario.js';
 import { startVapoTimeout } from './crons/vapo-timeout.js';
 import { startIaAutoPolling } from './crons/ia-auto-polling.js';
@@ -224,6 +225,7 @@ try {
     startRedistribuicaoFila(fastify);
     startAutoFinalizarInteresse(fastify);
     startFollowupSemResposta(fastify);
+    startAutoFinalizarLinkSocial(fastify);
     startAutoFilaHorario(fastify);
     startVapoTimeout(fastify);
     startIaAutoPolling(fastify);

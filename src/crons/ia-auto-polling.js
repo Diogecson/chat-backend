@@ -16,6 +16,7 @@
 import { query } from '../services/db.js';
 import { hasDb } from '../config.js';
 import { processarInboundIa } from '../routes/ia-auto.js';
+import { ehLinkSocialIsolado } from './auto-finalizar-link-social.js';
 
 const INTERVAL_MS = parseInt(process.env.IA_AUTO_POLLING_MS || '5000', 10);
 
@@ -152,6 +153,13 @@ export function startIaAutoPolling(fastify) {
         }
         if (!ganhou) {
           puladas++;
+          continue;
+        }
+
+        // Bloqueia: msg que eh so link de share social (facebook.com/share, fb.me, etc)
+        // O cron auto-finalizar-link-social cuida da finalizacao em 30s.
+        if (m.tipo === 'text' && ehLinkSocialIsolado(m.texto)) {
+          fastify.log.info(`[ia-auto-polling] ${m.conta_id}/${m.telefone} msg eh link social isolado — nao chama IA`);
           continue;
         }
 
