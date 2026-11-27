@@ -79,7 +79,7 @@ export async function isAtivo(conta_id, telefone) {
 export async function desligarSeHumano(conta_id, telefone, usuario) {
   if (!hasDb()) return;
   const u = String(usuario || '').toLowerCase();
-  if (u === USUARIO_IA || u === 'sistema' || u.startsWith('disparo') || u === 'ia_followup') return;
+  if (u === USUARIO_IA || u === 'sistema' || u.startsWith('disparo') || u.startsWith('ia_followup') || u.startsWith('ia_')) return;
   try {
     const r = await query(
       `UPDATE chat_ia_auto SET ativo=false WHERE conta_id=$1 AND telefone=$2 AND ativo=true RETURNING telefone`,
