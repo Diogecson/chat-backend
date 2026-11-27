@@ -140,6 +140,7 @@ body{margin:0;background:var(--bg);font-family:'Inter',system-ui,sans-serif;colo
       <div class="field">
         <label class="label">Template HSM aprovado</label>
         <select class="select" id="fTpl" onchange="onTplChange()"><option value="">— selecione uma conta primeiro —</option></select>
+        <div id="fTplQualidade" style="margin-top:6px;font-size:.78rem;display:none"></div>
         <div class="helper">Templates com status APPROVED aparecem aqui. Só eles podem enviar fora da janela 24h.</div>
       </div>
 
@@ -466,6 +467,36 @@ function onTplChange(){
   tplSelecionado = idx !== '' ? templates[Number(idx)] : null;
   renderVars();
   renderPreview();
+  checarQualidadeTpl();
+}
+
+async function checarQualidadeTpl(){
+  const box = qs('#fTplQualidade');
+  if(!tplSelecionado){ box.style.display='none'; box.innerHTML=''; return; }
+  const conta_id = qs('#fConta')?.value || '';
+  if(!conta_id){ box.style.display='none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = '<span style="color:#7b8aa0">🔎 Checando qualidade na Meta...</span>';
+  try {
+    const r = await fetch(URL_BASE + '/webhook/chat-template-qualidade?conta_id='+encodeURIComponent(conta_id)+'&nome='+encodeURIComponent(tplSelecionado.name));
+    const d = await r.json();
+    if(!d.ok){ box.innerHTML = '<span style="color:#7b8aa0">⚠️ Não consegui checar: '+(d.erro||'erro')+'</span>'; return; }
+    const cor = {GREEN:'#16a34a', YELLOW:'#ca8a04', RED:'#dc2626', UNKNOWN:'#64748b'}[d.qualidade] || '#64748b';
+    const corStatus = d.status === 'APPROVED' ? '#16a34a' : (d.status === 'PAUSED' ? '#ca8a04' : '#dc2626');
+    let html = `<div style="padding:8px 12px;border-radius:8px;background:rgba(0,0,0,.03);border:1px solid #e5e7eb">
+      <b style="color:${corStatus}">${d.status}</b> · qualidade: <b style="color:${cor}">${d.qualidade}</b>`;
+    if(!d.pode_disparar){
+      html += `<div style="margin-top:4px;color:#991b1b;font-weight:600"><i class="bi bi-x-circle-fill"></i> DISPARO BLOQUEADO: ${d.motivo}</div>`;
+    } else if(d.qualidade === 'YELLOW'){
+      html += `<div style="margin-top:4px;color:#92400e"><i class="bi bi-exclamation-triangle-fill"></i> Qualidade em atenção — dispare pequenos lotes e monitore</div>`;
+    } else {
+      html += `<div style="margin-top:4px;color:#15803d"><i class="bi bi-check-circle-fill"></i> OK pra disparar</div>`;
+    }
+    html += '</div>';
+    box.innerHTML = html;
+  } catch(e) {
+    box.innerHTML = '<span style="color:#7b8aa0">⚠️ '+e.message+'</span>';
+  }
 }
 
 function extractVars(text){

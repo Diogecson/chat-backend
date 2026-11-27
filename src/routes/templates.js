@@ -173,4 +173,56 @@ export default async function templatesRoutes(fastify) {
   };
   fastify.get('/webhook/chat-templates', templatesList);
   fastify.post('/webhook/chat-templates', templatesList);
+
+  // GET /webhook/chat-template-qualidade?conta_id=X&nome=Y
+  // Consulta status + quality_score do template na Meta e devolve algo que o
+  // front possa usar pra bloquear o disparo.
+  const templateQualidade = async (req, reply) => {
+    if (!hasDb()) return reply.code(503).send({ ok: false, erro: 'sem DB' });
+    const conta_id = String(req.query?.conta_id || req.body?.conta_id || '');
+    const nome = String(req.query?.nome || req.query?.name || req.body?.nome || req.body?.name || '').trim();
+    if (!conta_id || !nome) return reply.code(400).send({ ok: false, erro: 'conta_id e nome obrigatorios' });
+    const info = await getTemplateQualidade(conta_id, nome);
+    return info;
+  };
+  fastify.get('/webhook/chat-template-qualidade', templateQualidade);
+  fastify.post('/webhook/chat-template-qualidade', templateQualidade);
+}
+
+// Consulta Meta e retorna {ok, nome, status, qualidade, pode_disparar, motivo, raw}
+// qualidade: GREEN | YELLOW | RED | UNKNOWN
+// pode_disparar=false quando status for PAUSED/DISABLED/REJECTED ou qualidade=RED
+export async function getTemplateQualidade(conta_id, nome) {
+  const conta = await buscarConta(conta_id);
+  if (!conta) return { ok: false, erro: 'conta_nao_encontrada' };
+  const cfg = conta.cfg;
+  if (!cfg.waba_id || !cfg.access_token) {
+    return { ok: false, erro: 'conta sem waba_id/access_token' };
+  }
+  const url = `https://graph.facebook.com/${config.metaApiVersion || 'v20.0'}/${cfg.waba_id}/message_templates?name=${encodeURIComponent(nome)}&fields=name,status,quality_score,category,language`;
+  try {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + cfg.access_token } });
+    const data = await r.json().catch(() => ({}));
+    if (data.error) return { ok: false, erro: data.error.message || 'erro Meta', raw: data };
+    const linhas = Array.isArray(data.data) ? data.data : [];
+    if (!linhas.length) return { ok: false, erro: 'template nao encontrado na Meta' };
+    // Pega o APPROVED/PAUSED/etc se houver multiplas linguas
+    const alvo = linhas.find(x => x.name === nome) || linhas[0];
+    const status = String(alvo.status || '').toUpperCase();
+    const qualidade = String(alvo.quality_score?.score || 'UNKNOWN').toUpperCase();
+    const bloqueantesStatus = ['PAUSED', 'DISABLED', 'REJECTED', 'PENDING_DELETION', 'FLAGGED'];
+    const bloqueantesQualidade = ['RED'];
+    let pode_disparar = true;
+    let motivo = '';
+    if (bloqueantesStatus.includes(status)) {
+      pode_disparar = false;
+      motivo = `template status=${status}`;
+    } else if (bloqueantesQualidade.includes(qualidade)) {
+      pode_disparar = false;
+      motivo = `qualidade=${qualidade}`;
+    }
+    return { ok: true, nome, status, qualidade, pode_disparar, motivo, raw: alvo };
+  } catch (err) {
+    return { ok: false, erro: 'falha Meta: ' + err.message };
+  }
 }

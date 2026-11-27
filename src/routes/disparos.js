@@ -58,6 +58,30 @@ export async function handleDisparoCriar(req, reply) {
     const dest = dedupDest(Array.isArray(b.destinatarios) ? b.destinatarios : []);
     if (!dest.length) return reply.code(400).send({ ok: false, erro: 'nenhum telefone válido' });
 
+    // Checa qualidade do template na Meta ANTES de criar o disparo.
+    // Bloqueia se PAUSED/DISABLED/REJECTED ou qualidade=RED.
+    // Pode ser desligado com BLOQUEAR_DISPAROS_QUALIDADE_RUIM=false.
+    if (process.env.BLOQUEAR_DISPAROS_QUALIDADE_RUIM !== 'false' && !b.forcar_qualidade_ruim) {
+      try {
+        const { getTemplateQualidade } = await import('./templates.js');
+        const q = await getTemplateQualidade(conta_id, template_name);
+        if (q.ok && !q.pode_disparar) {
+          return reply.code(400).send({
+            ok: false,
+            erro: `Disparo bloqueado: ${q.motivo}. Status=${q.status}, qualidade=${q.qualidade}. Use outro template ou passe forcar_qualidade_ruim=true pra ignorar.`,
+            qualidade: q,
+          });
+        }
+        if (q.ok && q.qualidade === 'YELLOW') {
+          // Aviso mas nao bloqueia
+          console.log(`[disparos] atencao: template "${template_name}" qualidade YELLOW — disparo pode piorar quality score`);
+        }
+      } catch (err) {
+        console.warn('[disparos] nao foi possivel checar qualidade do template:', err.message);
+        // Em caso de falha da API, nao bloqueia — permite disparar
+      }
+    }
+
     const pool = getPool();
     const client = await pool.connect();
     try {
